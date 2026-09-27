@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "colmap-web",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "web", "serve"],
+      "port": 3002
+    }
+  ]
+}
