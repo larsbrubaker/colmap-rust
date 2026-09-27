@@ -14,3 +14,16 @@
 
 #[path = "math/fns_probe.rs"]
 mod fns_probe;
+
+#[path = "math/connected_components.rs"]
+mod connected_components;
+#[path = "math/math.rs"]
+mod math;
+#[path = "math/random.rs"]
+mod random;
+#[path = "math/rust_only_random_oracle.rs"]
+mod rust_only_random_oracle;
+#[path = "math/spanning_tree.rs"]
+mod spanning_tree;
+#[path = "math/union_find.rs"]
+mod union_find;
