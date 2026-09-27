@@ -5,6 +5,8 @@
 //!   is `math::median`, and so on).
 //! - [`random`]: `random.h`/`random.cc`, COLMAP's thread-local mt19937 PRNG with libc++'s
 //!   distributions.
+//! - [`random_eigen`]: `random_eigen.h`, fixed-size random vectors, matrices and unit
+//!   quaternions drawn from [`random`].
 //! - [`union_find`], [`connected_components`], [`spanning_tree`]: the graph utilities.
 //! - [`graph_cut`] (Stoer-Wagner min cut, normalized k-way cut), [`graph_cut_min_st`]
 //!   (`MinSTGraphCut`, Boykov-Kolmogorov max-flow) and [`graph_cut_partitioner`] (the
