@@ -1,7 +1,8 @@
 //! Port of COLMAP's `src/colmap/optim/` robust-estimation framework:
 //!
 //! - [`estimator`]: the [`Estimator`] trait, COLMAP's implicit Estimator concept (`X_t`,
-//!   `Y_t`, `M_t`, `kMinNumSamples`, `Estimate`, `Residuals`, LO-RANSAC's `Refine` hook).
+//!   `Y_t`, `M_t`, `kMinNumSamples`, `Estimate`, `Residuals`), and LO-RANSAC's
+//!   [`LocalEstimator`] (`Refine` or, via [`EstimateAsLocal`], `Estimate` on the inliers).
 //! - [`sampler`] (the [`Sampler`] trait, `sampler.h`), [`random_sampler`],
 //!   [`progressive_sampler`] (PROSAC) and [`combination_sampler`].
 //! - [`support_measurement`]: inlier, unique-inlier and M-estimator (MSAC) support.
@@ -23,7 +24,7 @@ pub mod sprt;
 pub mod support_measurement;
 
 pub use combination_sampler::CombinationSampler;
-pub use estimator::Estimator;
+pub use estimator::{EstimateAsLocal, Estimator, LocalEstimator};
 pub use loransac::LoRansac;
 pub use progressive_sampler::ProgressiveSampler;
 pub use random_sampler::RandomSampler;

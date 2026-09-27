@@ -4,15 +4,17 @@
 // trials, exact inlier set, model within 1e-6) on the line estimators of test_estimators.rs,
 // until SimilarityTransformEstimator<3> lands in Phase 6 and the 1:1 cases replace them. They
 // also pin colmap-sharp's two C#-only RANSAC checks (docs/CPP_DIVERGENCES.md entries 140 and
-// 141), COLMAP's trial counting, and LO-RANSAC's local refit. Tier C (outcome).
+// 141), COLMAP's trial counting, and LO-RANSAC's local refit, both
+// through `EstimateAsLocal` and with a Refine-only `LocalEstimator`. Tier C (outcome).
 
 use crate::test_estimators::{
-    fit_line_lsq, generate_line_data, Line, LineEstimator, LineLsqEstimator, LineTestData,
+    fit_line_lsq, generate_line_data, Line, LineEstimator, LineLsqEstimator, LineRefiner,
+    LineTestData,
 };
 use colmap_rust::math::random::{default_prng_seed, set_prng_seed};
 use colmap_rust::optim::{
-    CombinationSampler, InlierSupport, InlierSupportMeasurer, LoRansac, ProgressiveSampler, Ransac,
-    RansacOptions, RansacReport,
+    CombinationSampler, EstimateAsLocal, InlierSupport, InlierSupportMeasurer, LoRansac,
+    ProgressiveSampler, Ransac, RansacOptions, RansacReport,
 };
 
 fn validate_report(report: &RansacReport<Line, InlierSupport>, data: &LineTestData) {
@@ -104,10 +106,10 @@ fn rust_only_ransac_reproducibility_with_random_seed() {
 fn rust_only_loransac_line_fit() {
     set_prng_seed(0);
     let data = generate_line_data(1000, 400, 0.0);
-    let mut loransac = LoRansac::<LineEstimator, LineLsqEstimator>::new(
+    let mut loransac = LoRansac::<LineEstimator, EstimateAsLocal<LineLsqEstimator>>::new(
         &options(1, default_prng_seed()),
         LineEstimator,
-        LineLsqEstimator,
+        EstimateAsLocal(LineLsqEstimator),
     )
     .unwrap();
     let report = loransac.estimate(&data.x, &data.y).unwrap();
@@ -118,10 +120,10 @@ fn rust_only_loransac_line_fit() {
 fn rust_only_loransac_parallel_line_fit() {
     set_prng_seed(0);
     let data = generate_line_data(1000, 400, 0.0);
-    let mut loransac = LoRansac::<LineEstimator, LineLsqEstimator>::new(
+    let mut loransac = LoRansac::<LineEstimator, EstimateAsLocal<LineLsqEstimator>>::new(
         &options(4, default_prng_seed()),
         LineEstimator,
-        LineLsqEstimator,
+        EstimateAsLocal(LineLsqEstimator),
     )
     .unwrap();
     let report = loransac.estimate(&data.x, &data.y).unwrap();
@@ -134,10 +136,10 @@ fn rust_only_loransac_returns_local_refit_on_noisy_data() {
     // residual sum, so LO-RANSAC must report the least-squares line over the true inliers.
     set_prng_seed(0);
     let data = generate_line_data(1000, 400, 0.1);
-    let mut loransac = LoRansac::<LineEstimator, LineLsqEstimator>::new(
+    let mut loransac = LoRansac::<LineEstimator, EstimateAsLocal<LineLsqEstimator>>::new(
         &options(1, 7),
         LineEstimator,
-        LineLsqEstimator,
+        EstimateAsLocal(LineLsqEstimator),
     )
     .unwrap();
     let report = loransac.estimate(&data.x, &data.y).unwrap();
@@ -217,10 +219,14 @@ fn rust_only_parallel_requires_random_sampler() {
 
     let mut loransac = LoRansac::<
         LineEstimator,
-        LineLsqEstimator,
+        EstimateAsLocal<LineLsqEstimator>,
         InlierSupportMeasurer,
         CombinationSampler,
-    >::new(&options(2, -1), LineEstimator, LineLsqEstimator)
+    >::new(
+        &options(2, -1),
+        LineEstimator,
+        EstimateAsLocal(LineLsqEstimator),
+    )
     .unwrap();
     let err = loransac.estimate(&data.x, &data.y).unwrap_err();
     assert!(err
@@ -238,4 +244,32 @@ fn rust_only_ransac_options_check() {
         ..Default::default()
     };
     assert!(Ransac::<LineEstimator>::new(&bad_threads, LineEstimator).is_err());
+}
+
+#[test]
+fn rust_only_loransac_refine_only_local_estimator() {
+    // LineRefiner implements only LocalEstimator (like COLMAP's
+    // FundamentalMatrixSampsonEstimator, which has Refine + Residuals and no Estimate): LO-RANSAC
+    // must hand it the current best model and keep the refined copy.
+    set_prng_seed(0);
+    let data = generate_line_data(1000, 400, 0.1);
+    let refiner = LineRefiner::default();
+    let mut loransac =
+        LoRansac::<LineEstimator, LineRefiner>::new(&options(1, 7), LineEstimator, refiner.clone())
+            .unwrap();
+    let report = loransac.estimate(&data.x, &data.y).unwrap();
+    assert!(report.success);
+    assert_eq!(report.support.num_inliers, 600);
+    for i in 0..data.num_samples {
+        assert_eq!(report.inlier_mask[i], i >= data.num_outliers, "sample {i}");
+    }
+
+    // Every Refine call started from a real model (never the default), and one Gauss-Newton
+    // step on this linear problem lands on the least-squares line over the inliers.
+    let initial_models = refiner.initial_models.borrow();
+    assert!(!initial_models.is_empty());
+    assert!(initial_models.iter().all(|m| *m != Line::default()));
+    let expected = fit_line_lsq(&data.x[400..], &data.y[400..]).unwrap();
+    assert!((report.model.a - expected.a).abs() < 1e-9);
+    assert!((report.model.b - expected.b).abs() < 1e-9);
 }

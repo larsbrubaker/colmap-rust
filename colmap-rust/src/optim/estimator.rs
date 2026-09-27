@@ -1,6 +1,7 @@
 //! The Rust face of COLMAP's implicit "Estimator" template concept that
 //! `colmap/optim/ransac.h` and `loransac.h` are written against: `X_t`, `Y_t`, `M_t`,
-//! `kMinNumSamples`, `Estimate`, `Residuals`, and `loransac.h`'s optional `Refine` hook.
+//! `kMinNumSamples`, `Estimate`, `Residuals` ([`Estimator`]), and `loransac.h`'s local
+//! estimator with its optional `Refine` hook ([`LocalEstimator`], [`EstimateAsLocal`]).
 //! COLMAP never spells the concept out; every class in `estimators/` and
 //! `estimators/solvers/` satisfies it by shape. Consumers: [`super::ransac`] and
 //! [`super::loransac`]. Counterpart of colmap-sharp's `Optim/Estimator.cs`.
@@ -20,11 +21,15 @@
 //! - `M_t: Default` because RANSAC's `Report` default-constructs its model.
 //! - `loransac.h` detects at compile time whether the local estimator has
 //!   `Refine(X, Y, M_t*)` and then refines the current best model instead of calling
-//!   `Estimate` on the inliers. Rust cannot branch on "has a method", so the choice is the
-//!   provided method [`Estimator::estimate_local`]: it forwards to `estimate` (ignoring the
-//!   model), and an estimator whose C++ class has `Refine` overrides it to refine a copy of
-//!   the model and push it only on success. The choice stays with the estimator's author,
-//!   where COLMAP's overload detection puts it.
+//!   `Estimate` on the inliers. Rust cannot branch on "has a method", so LO-RANSAC's local
+//!   estimator is its own trait, [`LocalEstimator`], with one required
+//!   [`LocalEstimator::estimate_local`] that receives the current best model. An estimator
+//!   whose C++ class has `Refine` implements it by refining a copy and pushing it on success
+//!   (COLMAP's `FundamentalMatrixSampsonEstimator` has only `Refine` and `Residuals`, so it
+//!   implements [`LocalEstimator`] alone). An estimator without `Refine` opts in explicitly
+//!   through [`EstimateAsLocal`], which calls its `Estimate` on the inliers. With no default
+//!   method, forgetting the `Refine` path is a compile error, not a silent divergence. Same
+//!   split as colmap-sharp's `IEstimator` / `ILocalEstimator`.
 
 use crate::Result;
 
@@ -55,20 +60,75 @@ pub trait Estimator: Clone {
         model: &Self::M,
         residuals: &mut Vec<f64>,
     ) -> Result<()>;
+}
 
-    /// LO-RANSAC's local optimization step on the inliers `x`, `y`: push the locally
-    /// optimized models to `models` (cleared by the caller). `initial_model` is the current
-    /// best model. The default calls [`Estimator::estimate`] and ignores it; an estimator
-    /// whose C++ class has `Refine(X, Y, M_t*)` overrides this to refine a copy of
-    /// `initial_model` and push the copy only when `Refine` succeeds.
+/// The local optimizer of LO-RANSAC (`LORANSAC`'s `LocalEstimator` parameter): re-estimates
+/// the model from the current inlier set, either by refining the current best model
+/// (COLMAP's `Refine` hook) or from scratch (COLMAP's `Estimate`, via [`EstimateAsLocal`]).
+/// `LoRansac` requires its `X`, `Y` and `M` to be those of the minimal estimator, as
+/// `LORANSAC` assigns between them.
+pub trait LocalEstimator: Clone {
+    /// Independent variable (`X_t`).
+    type X: Clone;
+    /// Dependent variable (`Y_t`).
+    type Y: Clone;
+    /// Model (`M_t`).
+    type M: Clone + Default;
+
+    /// The minimum number of inliers needed for a local estimate (`kMinNumSamples`);
+    /// LO-RANSAC skips local optimization below it.
+    const MIN_NUM_SAMPLES: usize;
+
+    /// Estimate locally optimized models from the inliers `x`, `y` and push them to `models`
+    /// (cleared by the caller). `initial_model` is the current best model: an estimator whose
+    /// C++ class has `Refine(X, Y, M_t*)` refines a copy of it and pushes the copy only when
+    /// `Refine` succeeds; [`EstimateAsLocal`] ignores it and runs `Estimate`.
     fn estimate_local(
         &mut self,
         x: &[Self::X],
         y: &[Self::Y],
         initial_model: &Self::M,
         models: &mut Vec<Self::M>,
+    ) -> Result<()>;
+
+    /// Compute the residual of every pair under `model`, as [`Estimator::residuals`].
+    fn residuals(
+        &mut self,
+        x: &[Self::X],
+        y: &[Self::Y],
+        model: &Self::M,
+        residuals: &mut Vec<f64>,
+    ) -> Result<()>;
+}
+
+/// Uses an [`Estimator`] whose C++ class has no `Refine` as LO-RANSAC's local estimator:
+/// `loransac.h`'s `Estimate(X_inlier, Y_inlier, &local_models)` branch.
+#[derive(Clone, Debug, Default)]
+pub struct EstimateAsLocal<E>(pub E);
+
+impl<E: Estimator> LocalEstimator for EstimateAsLocal<E> {
+    type X = E::X;
+    type Y = E::Y;
+    type M = E::M;
+    const MIN_NUM_SAMPLES: usize = E::MIN_NUM_SAMPLES;
+
+    fn estimate_local(
+        &mut self,
+        x: &[E::X],
+        y: &[E::Y],
+        _initial_model: &E::M,
+        models: &mut Vec<E::M>,
     ) -> Result<()> {
-        let _ = initial_model;
-        self.estimate(x, y, models)
+        self.0.estimate(x, y, models)
+    }
+
+    fn residuals(
+        &mut self,
+        x: &[E::X],
+        y: &[E::Y],
+        model: &E::M,
+        residuals: &mut Vec<f64>,
+    ) -> Result<()> {
+        self.0.residuals(x, y, model, residuals)
     }
 }

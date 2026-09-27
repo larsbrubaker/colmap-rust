@@ -1,9 +1,10 @@
 //! Port of COLMAP's `colmap/optim/loransac.h`: [`LoRansac`], Locally Optimized RANSAC
 //! ("Locally Optimized RANSAC", Ondrej Chum, Jiri Matas, Josef Kittler, DAGM 2003). It
 //! shares [`RansacOptions`], [`RansacReport`] and [`compute_num_trials`] with
-//! [`super::ransac`]; the local estimator is any [`Estimator`] with the same `X`, `Y` and
-//! `M` as the minimal one (COLMAP assigns between them), and its
-//! [`Estimator::estimate_local`] stands for `loransac.h`'s `Refine` detection. Port of
+//! [`super::ransac`]; the local estimator is any [`LocalEstimator`] with the same `X`, `Y`
+//! and `M` as the minimal one (COLMAP assigns between them), and its
+//! [`LocalEstimator::estimate_local`] stands for `loransac.h`'s `Refine` detection (a plain
+//! [`Estimator`] opts in through [`super::EstimateAsLocal`]). Port of
 //! colmap-sharp's `Optim/LoRansac.cs`. Tests: `tests/optim/loransac.rs`
 //! (`loransac_test.cc`) and `tests/optim/rust_only_ransac.rs`.
 //!
@@ -13,8 +14,8 @@
 
 use super::ransac::int_to_size_t;
 use super::{
-    compute_num_trials, Estimator, InlierSupportMeasurer, MeasuredSupport, RandomSampler,
-    RansacOptions, RansacReport, Sampler, SupportMeasurer,
+    compute_num_trials, Estimator, InlierSupportMeasurer, LocalEstimator, MeasuredSupport,
+    RandomSampler, RansacOptions, RansacReport, Sampler, SupportMeasurer,
 };
 use crate::math::random::set_prng_seed;
 use crate::util::threading::get_effective_num_threads;
@@ -41,7 +42,7 @@ pub struct LoRansac<E, L, S = InlierSupportMeasurer, Sa = RandomSampler> {
 impl<E, L, S, Sa> LoRansac<E, L, S, Sa>
 where
     E: Estimator,
-    L: Estimator<X = E::X, Y = E::Y, M = E::M>,
+    L: LocalEstimator<X = E::X, Y = E::Y, M = E::M>,
     S: SupportMeasurer + Default,
     Sa: Sampler,
 {
@@ -61,7 +62,7 @@ where
 impl<E, L, S, Sa> LoRansac<E, L, S, Sa>
 where
     E: Estimator,
-    L: Estimator<X = E::X, Y = E::Y, M = E::M>,
+    L: LocalEstimator<X = E::X, Y = E::Y, M = E::M>,
     S: SupportMeasurer,
     Sa: Sampler,
 {
@@ -196,7 +197,7 @@ where
 
                             local_models.clear();
                             // `Refine` from the current best model, or `Estimate` on the
-                            // inliers (see `Estimator::estimate_local`).
+                            // inliers (see `LocalEstimator::estimate_local`).
                             thread_local_estimator.estimate_local(
                                 &x_inlier,
                                 &y_inlier,

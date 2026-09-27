@@ -7,13 +7,17 @@
 // - `LineEstimator` (two-point line through (x, y) pairs) and `LineLsqEstimator` (least
 //   squares line, the LO-RANSAC local estimator) drive the full estimation loops in
 //   rust_only_ransac.rs, with data built like COLMAP's GenerateTestData: the first
-//   `num_outliers` targets are replaced by uniform draws far off the line.
+//   `num_outliers` targets are replaced by uniform draws far off the line. LoRansac takes
+//   `LineLsqEstimator` through `EstimateAsLocal`.
+// - `LineRefiner` is a Refine-only `LocalEstimator` (no `Estimator` impl).
 
 #![allow(dead_code)]
 
 use colmap_rust::math::random::{random_gaussian, random_uniform_real};
-use colmap_rust::optim::Estimator;
+use colmap_rust::optim::{Estimator, LocalEstimator};
 use colmap_rust::Result;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// Stand-in for SimilarityTransformEstimator<3> where only kMinNumSamples = 3 is read.
 #[derive(Clone, Debug, Default)]
@@ -169,5 +173,71 @@ pub fn generate_line_data(num_samples: usize, num_outliers: usize, noise: f64) -
         y,
         num_samples,
         num_outliers,
+    }
+}
+
+/// Refine-only local estimator (no `Estimator` impl), shaped like COLMAP's
+/// FundamentalMatrixSampsonEstimator: `Refine` takes one Gauss-Newton step from the initial
+/// line on the inliers, which for this linear model solves the least-squares problem. It
+/// records every initial model it is handed (shared across clones, so the test sees the
+/// worker copy's calls).
+#[derive(Clone, Debug, Default)]
+pub struct LineRefiner {
+    pub initial_models: Rc<RefCell<Vec<Line>>>,
+}
+
+impl LineRefiner {
+    // Shaped like `Refine(X, Y, M_t*)`: false when the normal equations are singular.
+    fn refine(&self, x: &[f64], y: &[f64], model: &mut Line) -> bool {
+        let n = x.len() as f64;
+        let (mut sx, mut sxx, mut sr, mut sxr) = (0.0, 0.0, 0.0, 0.0);
+        for (&xi, &yi) in x.iter().zip(y) {
+            let r = yi - (model.a * xi + model.b);
+            sx += xi;
+            sxx += xi * xi;
+            sr += r;
+            sxr += xi * r;
+        }
+        let det = n * sxx - sx * sx;
+        if det == 0.0 {
+            return false;
+        }
+        let da = (n * sxr - sx * sr) / det;
+        model.a += da;
+        model.b += (sr - da * sx) / n;
+        true
+    }
+}
+
+impl LocalEstimator for LineRefiner {
+    type X = f64;
+    type Y = f64;
+    type M = Line;
+    const MIN_NUM_SAMPLES: usize = 2;
+
+    fn estimate_local(
+        &mut self,
+        x: &[f64],
+        y: &[f64],
+        initial_model: &Line,
+        models: &mut Vec<Line>,
+    ) -> Result<()> {
+        self.initial_models.borrow_mut().push(*initial_model);
+        let mut refined = *initial_model;
+        if self.refine(x, y, &mut refined) {
+            models.push(refined);
+        }
+        Ok(())
+    }
+
+    fn residuals(
+        &mut self,
+        x: &[f64],
+        y: &[f64],
+        model: &Line,
+        residuals: &mut Vec<f64>,
+    ) -> Result<()> {
+        line_residuals(x, y, model, residuals);
+        Ok(())
     }
 }
