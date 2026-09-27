@@ -28,8 +28,11 @@
 //!   (docs/CPP_DIVERGENCES.md, entry 5).
 //! - Transcendentals go through [`crate::math::fns`].
 //!
-//! Dynamic-size matrices, decompositions (SVD, eigen, QR, LU, Cholesky) and sparse matrices are
-//! not here. Tests: `colmap-rust/tests/linalg.rs`.
+//! Dynamic-size matrices ([`MatrixXd`], [`VectorXd`]) and the row-major feature-data container
+//! ([`RowMajorMatrix`]) live here too, with the dense decompositions COLMAP calls (QR, LU,
+//! Cholesky, SVD, eigen), each ported from colmap-sharp's own implementation (written from
+//! Golub & Van Loan and the other published algorithms its file headers cite). Sparse
+//! matrices are not here. Tests: `colmap-rust/tests/linalg.rs`.
 
 #[macro_use]
 mod matrix_macros;
@@ -39,8 +42,12 @@ mod matrix3;
 mod matrix4;
 mod matrix6;
 mod matrix_small;
+mod matrix_x;
+mod matrix_x_ops;
 mod quaternion;
+mod row_major_matrix;
 mod vector;
+mod vector_x;
 
 pub use aligned_box::AlignedBox3d;
 pub use angle_axis::AngleAxisd;
@@ -48,8 +55,11 @@ pub use matrix3::Matrix3d;
 pub use matrix4::{Matrix3x4d, Matrix4d, Matrix4x3d};
 pub use matrix6::Matrix6d;
 pub use matrix_small::{Matrix2d, Matrix2x3d, Matrix3x2d};
+pub use matrix_x::MatrixXd;
 pub use quaternion::Quaterniond;
+pub use row_major_matrix::RowMajorMatrix;
 pub use vector::{Vector2d, Vector3d, Vector3f, Vector3ub, Vector4d};
+pub use vector_x::VectorXd;
 
 use crate::math::fns;
 
@@ -58,6 +68,19 @@ pub const DUMMY_PRECISION: f64 = 1e-12;
 
 /// `std::numeric_limits<double>::epsilon()`.
 pub const MACHINE_EPSILON: f64 = f64::EPSILON;
+
+/// Outcome of a decomposition, Eigen's `ComputationInfo`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ComputationInfo {
+    /// The decomposition succeeded.
+    Success,
+    /// The input did not have the required properties (e.g. not positive definite).
+    NumericalIssue,
+    /// An iterative decomposition (`EigenSolver`) did not converge.
+    NoConvergence,
+    /// The input contained a non-finite value (NaN or infinity).
+    InvalidInput,
+}
 
 /// `std::min` on doubles, `(b < a) ? b : a` (Eigen's `numext::mini`). Unlike `f64::min` it
 /// returns `a` when a NaN makes the comparison false.
@@ -96,6 +119,20 @@ pub(crate) fn is_approx_slices(a: &[f64], b: &[f64], precision: f64) -> bool {
     fns::sqrt(difference_squared) <= precision * mini(fns::sqrt(a_squared), fns::sqrt(b_squared))
 }
 
+/// Dot product of two equal-length slices, `a0*b0 + a1*b1 + ...` summed left to right from
+/// the first term (0 when empty), no FMA. colmap-sharp's `VectorXd.Dot(span, span)`.
+pub(crate) fn dot(a: &[f64], b: &[f64]) -> f64 {
+    debug_assert_eq!(a.len(), b.len());
+    if a.is_empty() {
+        return 0.0;
+    }
+    let mut sum = a[0] * b[0];
+    for (&x, &y) in a[1..].iter().zip(&b[1..]) {
+        sum += x * y;
+    }
+    sum
+}
+
 /// Frobenius norm of a coefficient slice, `sqrt(a0*a0 + a1*a1 + ...)`, left to right from the
 /// first term.
 pub(crate) fn frobenius_norm(a: &[f64]) -> f64 {
@@ -120,3 +157,31 @@ pub(crate) fn product(a: &[f64], b: &[f64], r: usize, k: usize, c: usize, out: &
         }
     }
 }
+
+// Dense decompositions (decomposition agent; the lead may move these up).
+mod col_piv_householder_qr;
+mod full_piv_lu;
+pub mod householder;
+mod householder_qr;
+mod ldlt;
+mod llt;
+mod partial_piv_lu;
+pub use col_piv_householder_qr::ColPivHouseholderQr;
+pub use full_piv_lu::FullPivLu;
+pub use householder_qr::HouseholderQr;
+pub use ldlt::Ldlt;
+pub use llt::Llt;
+pub use partial_piv_lu::PartialPivLu;
+
+mod complex;
+mod eigen_solver;
+mod eigen_solver_vectors;
+mod jacobi_svd;
+mod jacobi_svd_kernel;
+mod self_adjoint_eigen_solver;
+mod svd_fixed;
+pub use complex::{Complex, ComplexMatrixXd};
+pub use eigen_solver::EigenSolver;
+pub use jacobi_svd::{JacobiSvd, SvdOptions};
+pub use self_adjoint_eigen_solver::SelfAdjointEigenSolver;
+pub use svd_fixed::{Svd3d, Svd4d};
