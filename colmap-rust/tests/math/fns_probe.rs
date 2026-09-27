@@ -20,9 +20,9 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 /// Every probed function, by the name used in the table.
-const FUNCTIONS: [&str; 15] = [
+const FUNCTIONS: [&str; 18] = [
     "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "exp", "ln", "log2", "log10", "pow",
-    "sqrt", "cbrt", "hypot",
+    "sqrt", "cbrt", "hypot", "sinh", "cosh", "atanh",
 ];
 
 fn eval(name: &str, x: f64, y: f64) -> f64 {
@@ -42,6 +42,9 @@ fn eval(name: &str, x: f64, y: f64) -> f64 {
         "sqrt" => fns::sqrt(x),
         "cbrt" => fns::cbrt(x),
         "hypot" => fns::hypot(x, y),
+        "sinh" => fns::sinh(x),
+        "cosh" => fns::cosh(x),
+        "atanh" => fns::atanh(x),
         _ => panic!("unknown probe function {name}"),
     }
 }
@@ -192,6 +195,14 @@ fn inputs(name: &str) -> Vec<(f64, f64)> {
             "cbrt" => (rng.uniform(-1e6, 1e6), 0.0),
             "pow" => (rng.uniform(0.0, 100.0), rng.uniform(-10.0, 10.0)),
             "atan2" | "hypot" => (rng.uniform(-100.0, 100.0), rng.uniform(-100.0, 100.0)),
+            // The UTM series (geometry::gps) calls sinh/cosh on small multiples of eta; the
+            // wide range covers overflow.
+            "sinh" | "cosh" if i % 4 == 3 => (rng.uniform(-712.0, 712.0), 0.0),
+            "sinh" | "cosh" => (rng.uniform(-10.0, 10.0), 0.0),
+            // atanh: the open domain (-1, 1), plus out-of-domain values (NaN results); the
+            // special values add exactly +-1 (infinities) and more out-of-domain inputs.
+            "atanh" if i % 8 == 7 => (rng.uniform(-3.0, 3.0), 0.0),
+            "atanh" => (rng.uniform(-1.0, 1.0), 0.0),
             _ => panic!("no input range for {name}"),
         };
         out.push(pair);

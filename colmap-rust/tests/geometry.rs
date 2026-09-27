@@ -69,13 +69,13 @@ fn l2(values: &[f64]) -> f64 {
     values.iter().map(|v| v * v).sum::<f64>().sqrt()
 }
 
-/// Port of COLMAP's `EigenMatrixNear(rhs, tol)` matcher: when `rhs` is exactly zero,
-/// `lhs.norm() <= tol`; otherwise Eigen's `lhs.isApprox(rhs, tol)`,
-/// `||lhs - rhs|| <= tol * min(||lhs||, ||rhs||)`.
+/// Port of COLMAP's `EigenMatrixNear(rhs, tol)` matcher: when `rhs.isZero()` (Eigen's
+/// default precision: every `|coefficient| <= 1e-12`), `lhs.norm() <= tol`; otherwise
+/// Eigen's `lhs.isApprox(rhs, tol)`, `||lhs - rhs|| <= tol * min(||lhs||, ||rhs||)`.
 pub fn eigen_matrix_near<T: Coeffs>(lhs: &T, rhs: &T, tol: f64) -> bool {
     let a = lhs.coeffs();
     let b = rhs.coeffs();
-    if b.iter().all(|&v| v == 0.0) {
+    if b.iter().all(|&v| v.abs() <= 1e-12) {
         return l2(&a) <= tol;
     }
     let diff: Vec<f64> = a.iter().zip(&b).map(|(x, y)| x - y).collect();

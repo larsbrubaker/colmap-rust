@@ -22,7 +22,13 @@ pub fn compute_equal_parts_bboxes(
         extent.z / f64::from(split[2]),
     );
 
-    let mut bboxes = Vec::with_capacity((split[0] * split[1] * split[2]) as usize);
+    // The counts are positive (checked above). Multiply as usize with overflow checks: a
+    // product that overflows gets no reservation (COLMAP's int product would overflow).
+    let capacity = (split[0] as usize)
+        .checked_mul(split[1] as usize)
+        .and_then(|n| n.checked_mul(split[2] as usize))
+        .unwrap_or(0);
+    let mut bboxes = Vec::with_capacity(capacity);
     for k in 0..split[2] {
         for j in 0..split[1] {
             for i in 0..split[0] {
