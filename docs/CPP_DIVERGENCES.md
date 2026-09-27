@@ -749,3 +749,24 @@ an unverified `Camera`.
 `tests/sensor/rust_only_models.rs` checks that every boundary function returns
 `Err(DomainError, "Camera model does not exist")` for `Invalid` and that projection and
 unprojection panic with that message.
+
+## 102. The analytic projection Jacobians are unfused and use pure-Rust libm
+
+**What differs.** The `ImgFromCamWithJac` kernels (`sensor/models/jacobian*.rs`, port of
+`models_jacobian.h`) and `camera_model_img_from_cam_with_jac` keep COLMAP's operation order
+but evaluate every multiply-add unfused, and the fisheye, FOV and EQUIRECTANGULAR kernels call
+`atan`/`tan`/`atan2` through the `libm` crate. A clang build with contraction on (the pycolmap
+macOS wheel) can therefore differ in the last bits of the pixel and of the Jacobian entries.
+EQUIRECTANGULAR's `kInv2Pi = 1.0 / (2.0 * EIGEN_PI)` and `kInvPi` are `long double`
+expressions in C++; computed from `f64` pi here, they round to the same doubles on every
+platform (checked at 64-bit and 113-bit long double mantissas), so they are not a source of
+difference.
+
+**Why.** Same causes as entries 1 and 100: colmap-rust never uses FMA in math paths and routes
+transcendentals through `math::fns` so native and wasm agree bit for bit.
+
+**Evidence.** `src/sensor/models/jacobian_tests.rs` ports `models_jacobian_test.cc` 1:1: every
+kernel matches `ImgFromCam` differentiated with the Jet to COLMAP's 1e-10, and the dispatch
+matches the typed kernel. pycolmap exposes these kernels only inside its essential-matrix
+estimators (through `Camera::CamRayFromImgWithJac`), so there is no
+oracle fixture for these kernels.

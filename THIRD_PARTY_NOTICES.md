@@ -276,6 +276,8 @@ conflicts with the conditions of the GPLv2, you may retroactively and
 prospectively choose to deem waived or otherwise exclude such Section(s) of
 the License, but only in their entirety and only with respect to the Combined
 Software.
+```
+
 ## Ceres Solver (BSD-3-Clause)
 
 Source: http://ceres-solver.org (https://github.com/ceres-solver/ceres-solver)

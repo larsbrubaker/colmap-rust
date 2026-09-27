@@ -14,6 +14,9 @@
 //! - `fisheye.rs`: the perspective fisheye models;
 //! - `other.rs`: FOV, SIMPLE_DIVISION, DIVISION, EUCM, EQUIRECTANGULAR;
 //! - `dispatch.rs`: the runtime-dispatched free functions (`CameraModelImgFromCam`, ...);
+//! - `jacobian.rs`: the analytic projection Jacobians of `models_jacobian.h`
+//!   ([`CameraModelWithJac`], COLMAP's `ImgFromCamWithJac`) and their shared helpers, with the
+//!   per-model kernels in `jacobian_pinhole.rs`, `jacobian_fisheye.rs` and `jacobian_other.rs`;
 //! - `undistortion.rs`: `IterativeUndistortion`, evaluated on `jet.rs`'s Jet;
 //! - `scalar.rs`: the [`Scalar`] trait the templated model code is generic over.
 //!
@@ -35,10 +38,17 @@
 //! Tier A: every operation keeps COLMAP's evaluation order. Differences from the pycolmap
 //! wheel come only from its FMA contraction and its libm (docs/CPP_DIVERGENCES.md, entries 1
 //! and 100); `tests/sensor/rust_only_camera_model_oracle.rs` pins what is bit-identical.
-//! Tests: `colmap-rust/tests/sensor.rs`.
+//! Tests: `colmap-rust/tests/sensor.rs`; the Jacobian tests (`models_jacobian_test.cc`), which
+//! differentiate with the crate-private Jet, are the unit tests in `jacobian_tests.rs`.
 
 mod dispatch;
 mod fisheye;
+mod jacobian;
+mod jacobian_fisheye;
+mod jacobian_other;
+mod jacobian_pinhole;
+#[cfg(test)]
+mod jacobian_tests;
 mod jet;
 mod other;
 mod pinhole;
@@ -53,6 +63,7 @@ pub use fisheye::{
     RadialFisheyeCameraModel, SimpleFisheyeCameraModel, SimpleRadialFisheyeCameraModel,
     ThinPrismFisheyeCameraModel,
 };
+pub use jacobian::CameraModelWithJac;
 pub use other::{
     DivisionCameraModel, EUCMCameraModel, EquirectangularCameraModel, FOVCameraModel,
     SimpleDivisionCameraModel,
