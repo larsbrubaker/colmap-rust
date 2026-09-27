@@ -4,6 +4,11 @@
 // GPU path for wgpu. colmap-web *requires* WebGPU, so on Linux (CI's ubuntu-latest has no GPU)
 // Chrome is told to expose its SwiftShader (CPU Vulkan) adapter to WebGPU; macOS/Windows use the
 // real GPU and need no flags.
+//
+// PW_HEADED=1 runs Chrome headed; CI does that under `xvfb-run` (deploy.yml), because headless
+// Chrome on Linux captures a WebGPU/SwiftShader page as blank even while it renders — the
+// screenshots are only artifacts for humans (the test asserts on a GPU readback, see
+// tests/smoke.spec.ts), but they should show the app.
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.PORT ?? 3002);
@@ -25,7 +30,7 @@ const LINUX_WEBGPU_ARGS = [
 const CHROME_USE = {
   ...devices["Desktop Chrome"],
   channel: "chrome",
-  headless: true,
+  headless: process.env.PW_HEADED !== "1",
   viewport: { width: 1280, height: 800 },
   launchOptions: {
     args: process.platform === "linux" ? LINUX_WEBGPU_ARGS : ["--enable-unsafe-webgpu"],

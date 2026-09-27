@@ -1,6 +1,7 @@
 # Deploy the web app to GitHub Pages: build the wasm site (web/build.sh), gate it on the
 # Playwright browser smoke test (web/tests/smoke.spec.ts, testing net 4), then publish. A broken
 # web build (panic on start-up, no first frame, blank canvas, console errors) never ships.
+# Pull requests run the build and the smoke test; only a push to main deploys.
 #
 # Like ci.yml, colmap-rust is checked out into `colmap-rust/` and larsbrubaker/agg-gui into
 # `agg-gui/` side by side, because the app crates depend on agg-gui by path (CLAUDE.md
@@ -10,6 +11,7 @@ name: Deploy web app
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
     inputs:
       agg_gui_ref:
@@ -22,8 +24,9 @@ permissions:
   pages: write
   id-token: write
 
+# One Pages deploy at a time; each PR gets its own group so PR runs never cancel a deploy.
 concurrency:
-  group: pages
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.event.pull_request.number) || 'pages' }}
   cancel-in-progress: true
 
 env:
@@ -67,7 +70,9 @@ jobs:
           retention-days: 1
 
   # Browser smoke test in real Google Chrome (preinstalled on ubuntu-latest), with WebGPU on
-  # SwiftShader (flags in web/playwright.config.ts). Deploy is gated on it.
+  # SwiftShader (flags in web/playwright.config.ts). Deploy is gated on it. Chrome runs headed on
+  # a virtual display (xvfb-run, installed with Playwright's deps) so the screenshots it saves
+  # show the page; headless Linux Chrome captures WebGPU pages blank.
   test:
     needs: build
     runs-on: ubuntu-latest
@@ -88,9 +93,12 @@ jobs:
           name: web-dist
           path: web/dist
       - name: Run browser smoke test
-        run: bunx playwright test
-      - name: Upload test results on failure
-        if: failure()
+        env:
+          PW_HEADED: "1"
+        run: xvfb-run --auto-servernum bunx playwright test
+      # Always: the canvas/page screenshots are worth eyeballing on green runs too.
+      - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-results
@@ -100,6 +108,8 @@ jobs:
 
   deploy:
     needs: [build, test]
+    # Deploy only from main (a push, or a manual run on main); pull requests stop after the test.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
