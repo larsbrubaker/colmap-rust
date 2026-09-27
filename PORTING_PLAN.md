@@ -28,13 +28,15 @@ wasm32, and its app view covered by a headless UI test.
 - First CI and Pages runs on GitHub: confirm the Linux SwiftShader WebGPU flags in
   `web/playwright.config.ts` get an adapter, and that `colmap-native` builds on Linux and Windows.
 
-### Phase 1 — Math and linear algebra foundation
-Port colmap-sharp's `LinearAlgebra/` (fixed-size vectors/matrices, quaternion, angle-axis,
-dynamic `VectorXd`/`MatrixXd`, QR, SVD, symmetric eigen, LU, LLᵀ/LDLᵀ) and COLMAP's `math/`
-(`math.h`, `random` = mt19937 + libc++ distributions, `polynomial`, `union_find`,
-`connected_components`, `spanning_tree`, `graph_cut`, `matrix.h`). Tests: `math/*_test.cc`
-plus the decomposition oracle fixtures. App: none required (a "Diagnostics" page showing the
-determinism probe results native vs. web is enough).
+### Phase 1 — Math, linear algebra, util
+- Dynamic `VectorXd`/`MatrixXd` and the dense decompositions (QR, SVD incl. fixed-size, symmetric
+  eigen, general eigen, LU, LLᵀ/LDLᵀ) — port of colmap-sharp's `LinearAlgebra/`.
+- `math/graph_cut` (Stoer–Wagner, Boykov–Kolmogorov, normalized min cut via colmap-sharp's
+  `MultilevelPartitioner`).
+- `math/polynomial`, `math/matrix.h`, `math/random_eigen` (need the decompositions).
+- The rest of `util/` that later phases need: `IdMap`, the libc++ `unordered_map` emulation,
+  `Cache`, PLY I/O, `enum_utils`, `timestamp` (port each when its first user lands).
+- `colmap-web` installs `util::timer::set_clock_source` from `performance.now()`.
 
 ### Phase 2 — Geometry
 `geometry/`: `rigid3`, `sim3`, `pose`, `essential_matrix`, `homography_matrix`,
@@ -109,6 +111,18 @@ runs on Metal/DX12/Vulkan natively and WebGPU in the browser.
 Mirror colmap-sharp's "Skipped tests" list as each module is ported (bitmap file I/O,
 SQLite files, Ceres internals not ported, CUDA/GPU, SiftGPU, ONNX, vocabulary tree), adapting
 reasons to Rust. Every skipped COLMAP test is listed here by name when its file is ported.
+
+### util/
+- `types_test.cc` Span.SizeAndEmpty, FilterView.{Empty,All,None,Nominal,RangeExpression}:
+  replaced by Rust slices and `Iterator::filter`.
+- `string_test.cc` StringPrintf.Nominal (`format!` replaces it);
+  ConversionBetweenPlatformAndUTF8.NonASCIIStringRoundtrip (Rust strings are UTF-8); the
+  comma-decimal global-locale half of StringToDouble.LocaleIndependence (Rust parsing has no
+  locale).
+- `signals_test.cc` ScopedSignalHandler.* (5): CLI process signal handling, no wasm equivalent.
+- `threading_test.cc` Thread/ThreadPool/JobQueue/ThreadSafeQueue/Barrier cases: replaced by rayon.
+- `file_test.cc` filesystem, download and URI cases: the core crate has no filesystem API.
+- `eigen_matchers_test.cc`, `opengl_utils_test.cc`: excluded features.
 
 ## agg-gui upstream queue
 Fix each one in agg-gui, then remove its workaround here:
