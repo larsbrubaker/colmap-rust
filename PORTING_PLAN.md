@@ -27,7 +27,7 @@ wasm32, and its app view covered by a headless UI test.
 ### Phase 0 — Scaffold, testing framework, app shell, deploy
 - Cargo workspace (`colmap-rust`, `colmap-gpu`, `colmap-app`, `colmap-app-test`,
   `colmap-native`, `colmap-web`), dev-profile opt-levels as in agg-gui/AtomArtist, agg-gui
-  from crates.io with a commented `[patch.crates-io]` to `../rust-apps/agg-gui`.
+  from crates.io with a commented `[patch.crates-io]` to `../agg-gui`.
 - `file_compliance` test (800 non-empty lines, header comment, no conflict markers).
 - `colmap-app-test` headless harness with a first test.
 - An app that opens natively and in the browser: title bar, a placeholder-free "About /

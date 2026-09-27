@@ -7,7 +7,7 @@ the same app runs natively on Windows, macOS and Linux and in the browser (WebGP
 Pages. Reference version: `REFERENCE` (COLMAP 4.2.0). Remaining work and phase order are in
 `PORTING_PLAN.md`.
 
-colmap-sharp (`../MatterCAD/Submodules/colmap-sharp`, github.com/larsbrubaker/colmap-sharp) is a
+colmap-sharp (`../../MatterCAD/Submodules/colmap-sharp`, github.com/larsbrubaker/colmap-sharp) is a
 finished-through-Phase-13 C# port of the same COLMAP version by the same team. It is our map:
 see "Two references" below.
 
@@ -173,7 +173,7 @@ The app is agg-gui from the first commit — there is no JavaScript UI. The core
 depends on agg-gui or wgpu, so it stays usable from other hosts (and testable without a GPU).
 
 agg-gui comes from crates.io. To develop against local agg-gui sources, uncomment the
-`[patch.crates-io]` block in the root `Cargo.toml` (it points at `../rust-apps/agg-gui`).
+`[patch.crates-io]` block in the root `Cargo.toml` (it points at `../agg-gui`).
 
 ## Coding standards
 

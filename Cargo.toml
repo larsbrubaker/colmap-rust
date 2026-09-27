@@ -55,9 +55,9 @@ opt-level = 2
 # Local agg-gui sources
 # ---------------------------------------------------------------------------
 # agg-gui comes from crates.io. To develop against a local checkout next to this
-# repo (../rust-apps/agg-gui), uncomment this block.
+# repo (../agg-gui), uncomment this block.
 #
 # [patch.crates-io]
-# agg-gui       = { path = "../rust-apps/agg-gui/agg-gui" }
-# agg-gui-wgpu  = { path = "../rust-apps/agg-gui/agg-gui-wgpu" }
-# agg-gui-shell = { path = "../rust-apps/agg-gui/agg-gui-shell" }
+# agg-gui       = { path = "../agg-gui/agg-gui" }
+# agg-gui-wgpu  = { path = "../agg-gui/agg-gui-wgpu" }
+# agg-gui-shell = { path = "../agg-gui/agg-gui-shell" }
