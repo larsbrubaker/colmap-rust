@@ -33,52 +33,60 @@ use super::householder;
 use super::jacobi_svd_kernel;
 use super::{ColPivHouseholderQr, ComputationInfo, MatrixXd, VectorXd};
 
+/// How much of one singular-vector factor (U or V) [`JacobiSvd`] computes (Eigen's
+/// `ComputeThinU` / `ComputeFullU` and the V counterparts). One value per factor, so asking for
+/// both the thin and the full form is unrepresentable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SvdFactor {
+    /// Not computed.
+    #[default]
+    None,
+    /// The first `min(rows, cols)` columns.
+    Thin,
+    /// The whole square factor (rows x rows for U, cols x cols for V).
+    Full,
+}
+
+impl SvdFactor {
+    fn wanted(self) -> bool {
+        self != SvdFactor::None
+    }
+}
+
 /// Which singular vectors [`JacobiSvd`] computes (Eigen's `DecompositionOptions`,
 /// colmap-sharp's `SvdOptions` flags). `Default` is singular values only.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SvdOptions {
-    /// The first `min(rows, cols)` columns of U (`ComputeThinU`).
-    pub thin_u: bool,
-    /// All rows x rows of U (`ComputeFullU`).
-    pub full_u: bool,
-    /// The first `min(rows, cols)` columns of V (`ComputeThinV`).
-    pub thin_v: bool,
-    /// All cols x cols of V (`ComputeFullV`).
-    pub full_v: bool,
+    /// The left singular vectors.
+    pub u: SvdFactor,
+    /// The right singular vectors.
+    pub v: SvdFactor,
 }
 
 impl SvdOptions {
     /// Singular values only.
     pub const NONE: SvdOptions = SvdOptions {
-        thin_u: false,
-        full_u: false,
-        thin_v: false,
-        full_v: false,
+        u: SvdFactor::None,
+        v: SvdFactor::None,
     };
 
     /// `ComputeThinU | ComputeThinV`.
     pub const THIN_UV: SvdOptions = SvdOptions {
-        thin_u: true,
-        full_u: false,
-        thin_v: true,
-        full_v: false,
+        u: SvdFactor::Thin,
+        v: SvdFactor::Thin,
     };
 
     /// `ComputeFullU | ComputeFullV`.
     pub const FULL_UV: SvdOptions = SvdOptions {
-        thin_u: false,
-        full_u: true,
-        thin_v: false,
-        full_v: true,
+        u: SvdFactor::Full,
+        v: SvdFactor::Full,
     };
 
     /// The options with the roles of U and V exchanged (for `A^T`).
     fn swap_uv(self) -> Self {
         SvdOptions {
-            thin_u: self.thin_v,
-            full_u: self.full_v,
-            thin_v: self.thin_u,
-            full_v: self.full_u,
+            u: self.v,
+            v: self.u,
         }
     }
 }
@@ -98,16 +106,7 @@ pub struct JacobiSvd {
 
 impl JacobiSvd {
     /// Decomposes `a` (not modified).
-    ///
-    /// # Panics
-    /// When both the thin and the full form of one factor are requested (programmer error,
-    /// colmap-sharp's ArgumentException).
     pub fn new(a: &MatrixXd, options: SvdOptions) -> Self {
-        assert!(
-            !(options.thin_u && options.full_u || options.thin_v && options.full_v),
-            "Request either the thin or the full factor, not both."
-        );
-
         let rows = a.rows();
         let cols = a.cols();
         if rows < cols {
@@ -125,8 +124,8 @@ impl JacobiSvd {
 
         let n = cols;
         let m = rows;
-        let want_u = options.thin_u || options.full_u;
-        let want_v = options.thin_v || options.full_v;
+        let want_u = options.u.wanted();
+        let want_v = options.v.wanted();
         let mut singular_values = vec![0.0; n];
 
         let qr = if m > n {
@@ -175,7 +174,7 @@ impl JacobiSvd {
                 // U = Q blockdiag(Ur, I). Column c is Q applied to [Ur(:, c); 0] for c < n
                 // and to the unit vector e_c after that, so the reflectors are applied to
                 // just the requested columns and the thin U never forms the m x m Q.
-                let u_cols = if options.full_u { m } else { n };
+                let u_cols = if options.u == SvdFactor::Full { m } else { n };
                 let packed = qr.matrix_qr();
                 let tau = qr.h_coeffs();
                 let mut u = MatrixXd::zeros(m, u_cols);

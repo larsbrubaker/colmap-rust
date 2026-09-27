@@ -1,6 +1,7 @@
 // Rust-only (COLMAP has no test for Eigen itself): hand-checked conventions of JacobiSvd and
 // Svd3d/Svd4d that the numpy comparison in rust_only_spectral_oracle.rs does not pin: sorting
-// and sign of singular values, thin/full factor shapes, non-finite input, tiny entries, and
+// and sign of singular values, thin/full factor shapes (the wide-input allocation bound is in
+// the separate `tests/linalg_alloc.rs` binary), non-finite input, tiny entries, and
 // convergence of exactly rank-deficient inputs in a few sweeps. Port of the SVD half of
 // colmap-sharp's `ColmapSharp.Tests/LinearAlgebra/SpectralTests.cs` (the eigen-solver and
 // FullPivLU half is rust_only_spectral_eigen.rs). Tier B where a tolerance appears; exact
@@ -62,34 +63,6 @@ fn rust_only_jacobi_svd_non_finite_input_is_invalid() {
         Svd3d::compute(&a.to_matrix3d()).info,
         ComputationInfo::InvalidInput
     );
-}
-
-// Regression: a thin U of a wide matrix went through the full N x N Householder Q
-// (3 x 10000 allocated ~800 MB). Thin factors must stay O(N). colmap-sharp also measures the
-// allocated bytes (< 20 MB) with the .NET GC counter; Rust has no equivalent without a custom
-// global allocator in this test binary, so the O(N) path is pinned by the shapes and by the
-// run completing (an N x N Q here would be 3.2 GB).
-#[test]
-fn rust_only_jacobi_svd_thin_factors_of_wide_input_stay_small() {
-    let n = 20000;
-    let mut a = MatrixXd::zeros(3, n);
-    for j in 0..n {
-        let jf = j as f64;
-        a[(0, j)] = fns::sin(jf);
-        a[(1, j)] = fns::cos(0.5 * jf);
-        a[(2, j)] = fns::sin(0.25 * jf + 1.0);
-    }
-
-    let svd = JacobiSvd::new(&a, SvdOptions::THIN_UV);
-    let v = svd.matrix_v();
-    let u = svd.matrix_u();
-    assert_eq!(v.rows(), n);
-    assert_eq!(v.cols(), 3);
-    let sigma = MatrixXd::from_diagonal(&svd.singular_values());
-    let error = max_abs(&(&(&(&u * &sigma) * &v.transpose()) - &a));
-    assert!(error <= 1e-11, "error {error}");
-    let orthogonality = max_abs(&(&(&v.transpose() * &v) - &MatrixXd::identity(3)));
-    assert!(orthogonality <= 1e-12, "orthogonality {orthogonality}");
 }
 
 // Regression: the 2x2 step's hypot underflowed to 0 and produced NaN with Info Success.

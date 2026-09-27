@@ -63,9 +63,11 @@ impl SelfAdjointEigenSolver {
         let mut v = MatrixXd::identity(n);
         if !finite {
             eigenvalues.fill(f64::NAN);
+            // Requested eigenvectors come back NaN-filled, like JacobiSvd's U/V, so
+            // `eigenvectors()` never panics on bad data (docs/CPP_DIVERGENCES.md entry 31).
             return Self {
                 eigenvalues,
-                eigenvectors: None,
+                eigenvectors: compute_eigenvectors.then(|| MatrixXd::constant(n, n, f64::NAN)),
                 info: ComputationInfo::InvalidInput,
             };
         }
@@ -141,11 +143,11 @@ impl SelfAdjointEigenSolver {
     /// The normalized eigenvectors as columns, in eigenvalue order. A copy.
     ///
     /// # Panics
-    /// When eigenvectors were not requested (or the input was non-finite).
+    /// When eigenvectors were not requested. On non-finite input they are NaN-filled.
     pub fn eigenvectors(&self) -> MatrixXd {
         self.eigenvectors
             .clone()
-            .expect("Eigenvectors were not requested.")
+            .expect("Eigenvectors were not requested (compute_eigenvectors was false).")
     }
 }
 

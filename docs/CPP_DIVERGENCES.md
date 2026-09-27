@@ -194,7 +194,10 @@ sorting and signs on a diagonal, shapes, non-finite input, underflow at 1e-170, 
 Algorithms 8.5.1/8.5.3) on the input divided by its largest |entry|. Eigen's documented
 contract is kept: only the lower triangle is read, eigenvalues increase (ties keep diagonal
 order), eigenvectors are normalized columns. Eigenvector signs, the basis inside a repeated
-eigenvalue's eigenspace and the last bits can differ. Tier B.
+eigenvalue's eigenspace and the last bits can differ. On non-finite input (`info()` is
+`InvalidInput`) the eigenvalues are NaN and, when eigenvectors were requested, the
+eigenvector matrix is NaN-filled, as `JacobiSvd` fills U and V, where Eigen leaves them
+unspecified; `eigenvectors()` panics only when they were not requested. Tier B.
 
 **Why.** Eigen is MPL-2.0 and not ported; Jacobi is simple, accurate to high relative precision
 on the small matrices COLMAP decomposes, and has no Eigen-specific convention to match. COLMAP
@@ -205,7 +208,8 @@ entry).
 **Evidence.** `rust_only_spectral_oracle.rs`: 4 numpy (dsyevd) cases including repeated and
 zero eigenvalues: eigenvalues within 4e-12, simple eigenvectors within 1e-9 up to sign, V
 orthonormal and V D V^T == A within 1e-12. `rust_only_spectral_eigen.rs` pins the lower-triangle
-read, ascending order and scales 1e-170 / 1e160.
+read, ascending order, scales 1e-170 / 1e160, and the NaN-filled eigenvectors on 1x1 NaN
+input.
 
 ## 32. EigenSolver: eigenvalues in our Schur-block order, complex eigenvectors in our phase
 
@@ -220,7 +224,9 @@ first, eigenvectors unit-norm columns, real for a real eigenvalue. What can diff
 the eigenvalues (our deflation order vs Eigen's), each eigenvector's sign and, for complex
 vectors, its phase (the block eigenvector starts as (b, lambda - a) and is scaled to unit norm
 without rotation), and last bits. The eigenvalues-only solve is bit-identical to the full
-solve. Complex arithmetic (`linalg::Complex`) follows .NET's `System.Numerics.Complex`
+solve. On non-finite input (`InvalidInput`) or no convergence (`NoConvergence`) the eigenvalues
+are NaN and requested eigenvectors are NaN-filled (Eigen leaves them unspecified);
+`eigenvectors()` panics only when they were not requested. Complex arithmetic (`linalg::Complex`) follows .NET's `System.Numerics.Complex`
 operators (Smith division), so results match colmap-sharp. Tier B.
 
 **Why.** Eigen is MPL-2.0 and not ported; its Schur deflation order and eigenvector
@@ -234,8 +240,8 @@ colmap-sharp entry 30 notes the Schur order only as it affects the six-point sol
 companion matrices, a defective Jordan-block matrix): eigenvalues matched as a multiset within
 1e-9 (1e-7 defective), ||A v - lambda v|| within the same, unit norm within 1e-12, real vectors
 exactly real. `rust_only_spectral_eigen.rs` pins pair order, eigenvalues-only == full solve
-bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion matrix, and
-1e200-scaled input.
+bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion matrix,
+1e200-scaled input, and the NaN-filled eigenvectors on 1x1 NaN input.
 
 ## 40. Real-valued random draws are not fused (no FMA), unlike the macOS pycolmap wheel
 
