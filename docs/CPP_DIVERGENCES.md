@@ -440,6 +440,79 @@ give 16x).
 
 Same as colmap-sharp entry 77.
 
+## 50. Durand-Kerner divides complex numbers with Smith's algorithm, not libc++'s
+
+**What differs.** `FindPolynomialRootsDurandKerner` divides `std::complex<double>` values;
+libc++'s `operator/` rescales both operands by `logb`/`scalbn` of the divisor's larger part and
+then applies the textbook formula (which Apple clang may also FMA-contract).
+`colmap-rust/src/math/polynomial.rs` uses `linalg::Complex`'s division, Smith's algorithm in
+.NET's branch order, so each Newton-like update can differ in the last bits, and after up to 100
+iterations the roots can differ at the 1e-10 convergence threshold. The `+ double` step of the
+Horner evaluation adds to the real part only, as libc++ does. Tier B. Same as colmap-sharp's
+choice (documented in its `Mathematics/Polynomial.cs` header rather than as a numbered entry).
+
+**Why.** Reproducing libc++'s division bit for bit would also need Apple clang's contraction
+decisions; the iteration's contract is convergence to the roots, which both divisions meet.
+Sharing `linalg::Complex` keeps colmap-rust and colmap-sharp on identical bits.
+
+**Evidence.** `tests/math/polynomial.rs`: `find_polynomial_roots_durand_kerner_nominal` matches
+COLMAP's reference roots within 1e-6 in COLMAP's order, and
+`find_cubic_polynomial_roots_multi_root` agrees with the closed form within 1e-4.
+`rust_only_companion_matrix_agrees_with_durand_kerner_on_real_roots` checks a quartic with
+known roots to 1e-8.
+
+## 51. Companion-matrix roots come in our EigenSolver's order
+
+**What differs.** `FindPolynomialRootsCompanionMatrix` returns the companion matrix's
+eigenvalues in the order the eigen solver produces them. COLMAP's come from Eigen's
+`EigenSolver`; ours from `linalg::EigenSolver` (entry 32), whose Schur deflation order can
+differ from Eigen's for some inputs, and whose values can differ in the last bits. A complex
+pair still lists `+imag` first, and the zero root added for trailing zero coefficients is still
+last. Tier B. Same as colmap-sharp (its `Mathematics/Polynomial.cs` header).
+
+**Why.** Eigen is not ported (entry 32). COLMAP's callers (the minimal solvers) treat the roots
+as a set.
+
+**Evidence.** `tests/math/polynomial.rs`: `find_polynomial_roots_companion_matrix_nominal` and
+`_zero_solution` match COLMAP's reference roots within 1e-6 in COLMAP's listed order, so on
+these cases the order is Eigen's.
+
+## 52. Polynomial root outputs are returned, not written through nullable pointers
+
+**What differs.** COLMAP's root finders take `Eigen::VectorXd* real, Eigen::VectorXd* imag`
+(either may be null) and return `bool`; `colmap-rust/src/math/polynomial.rs` returns
+`Result<Option<PolynomialRoots>>` with both parts always computed (`None` for `false`, `Err`
+for a failed `THROW_CHECK`). On `false`, COLMAP leaves the caller's vectors untouched; there is
+nothing to leave here. `FindCubicPolynomialRoots` writes only its first `num_roots` entries of
+the caller's `Vector3d`; `find_cubic_polynomial_roots` returns `(num_roots, Vector3d)` with the
+unused entries zero. Same as colmap-sharp's port (C# `out` parameters, always filled, unused
+cubic entries zero).
+
+**Why.** Rust has no nullable output references worth mirroring, and computing both parts
+costs nothing measurable. No COLMAP caller reads the untouched entries.
+
+**Evidence.** `rust_only_cubic_leaves_unused_entries_zero` and
+`rust_only_polynomial_constant_has_no_roots` in `tests/math/rust_only_polynomial_matrix.rs`;
+the ported `CHECK_EQUAL_RESULT` cases compare the full outputs.
+
+## 53. DecomposeMatrixRQ goes through our Householder QR
+
+**What differs.** `DecomposeMatrixRQ` factors the flipped transpose with
+`Eigen::HouseholderQR`; `colmap-rust/src/math/matrix.rs` uses `linalg::HouseholderQr`
+(colmap-sharp's port, not Eigen's blocked implementation), so R and Q can differ from COLMAP's
+in the last bits. The algorithm around the QR (flips, zeroing loop, `det(Q) > 0`
+normalization with the caller's matrix type's determinant) is COLMAP's. The template becomes
+three entry points: `decompose_matrix_rq` (`MatrixXd`, `Err` unless square),
+`decompose_matrix_rq_3d` and `decompose_matrix_rq_4d`. Tier B. Same as colmap-sharp
+(`Mathematics/MatrixUtils.cs` header).
+
+**Why.** Eigen is MPL-2.0 and not ported.
+
+**Evidence.** `tests/math/matrix.rs`: `decompose_matrix_rq_nominal` (COLMAP's 1e-6 tolerances,
+upper-triangular and unitary at Eigen's default precision).
+`rust_only_decompose_matrix_rq_dynamic_and_3d` covers 2x2/3x3/5x5 at 1e-9 and pins the 3x3
+entry point to the dynamic one bit for bit.
+
 ## 60. StringToDouble parses with Rust's parser and rejects non-decimal spellings
 
 **What differs.** `util::string::string_to_double` (COLMAP's `StringToDouble`, also behind
