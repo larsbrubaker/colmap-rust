@@ -16,8 +16,8 @@ name = "colmap-rust"
 path = "src/main.rs"
 
 [dependencies]
-agg-gui = { version = "0.5", default-features = false, features = ["winit-adapter"] }
-agg-gui-shell = "0.5.1"
+agg-gui = { path = "../../agg-gui/agg-gui", default-features = false, features = ["winit-adapter"] }
+agg-gui-shell = { path = "../../agg-gui/agg-gui-shell" }
 colmap-app = { path = "../colmap-app" }
 # Native backends only; agg-gui-shell itself enables just `wgsl`.
 wgpu = { version = "29", default-features = false, features = ["wgsl", "vulkan", "dx12", "metal"] }

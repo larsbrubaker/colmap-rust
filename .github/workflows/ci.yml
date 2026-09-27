@@ -1,5 +1,10 @@
 # CI: format, lint and test on Linux/macOS/Windows, plus the wasm32 core build and the
 # math::fns probe on wasm32-wasip1 (wasmtime), which enforces native == wasm transcendentals.
+#
+# The app crates depend on agg-gui by path (`../../agg-gui/...`, see CLAUDE.md "agg-gui is
+# ours"), so every job checks out colmap-rust into `colmap-rust/` and larsbrubaker/agg-gui into
+# `agg-gui/` side by side, matching a dev machine's `rust-apps/` layout. agg-gui's own crates
+# take agg-rust, clipper2-rust and tess2-rust from crates.io, so no other checkouts are needed.
 name: CI
 
 on:
@@ -7,9 +12,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      agg_gui_ref:
+        description: "agg-gui ref (branch, tag or SHA) to build against"
+        required: false
+        default: ""
 
 env:
   CARGO_TERM_COLOR: always
+  # agg-gui ref to build against; a workflow_dispatch run may override it.
+  AGG_GUI_REF: main
 
 jobs:
   test:
@@ -19,30 +32,62 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: colmap-rust
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout colmap-rust
+        uses: actions/checkout@v4
+        with:
+          path: colmap-rust
+      - name: Checkout agg-gui
+        uses: actions/checkout@v4
+        with:
+          repository: larsbrubaker/agg-gui
+          ref: ${{ inputs.agg_gui_ref || env.AGG_GUI_REF }}
+          path: agg-gui
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --all --check
+        with:
+          workspaces: colmap-rust
+      # Not `--all`: that also checks local path dependencies, i.e. the agg-gui checkout.
+      # In a virtual workspace plain `cargo fmt` covers exactly our workspace members.
+      - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
   wasm:
     name: wasm32 core build + math probe
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: colmap-rust
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout colmap-rust
+        uses: actions/checkout@v4
+        with:
+          path: colmap-rust
+      # The core crate has no agg-gui dependency, but cargo resolves the whole workspace
+      # (including the app crates' path dependencies) before building any member.
+      - name: Checkout agg-gui
+        uses: actions/checkout@v4
+        with:
+          repository: larsbrubaker/agg-gui
+          ref: ${{ inputs.agg_gui_ref || env.AGG_GUI_REF }}
+          path: agg-gui
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown, wasm32-wasip1
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: colmap-rust
       - uses: bytecodealliance/actions/wasmtime/setup@v1
       - run: cargo build -p colmap-rust --target wasm32-unknown-unknown
       # The same bit tables the native jobs check (tests/data/fns_probe_expected*.txt, embedded
       # with include_str!), so any native/wasm drift in math::fns fails CI.
       - name: math::fns probe on wasm32-wasip1
         env:
-          CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime --dir=${{ github.workspace }}
+          CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime --dir=${{ github.workspace }}/colmap-rust
         run: cargo test -p colmap-rust --target wasm32-wasip1 --test math

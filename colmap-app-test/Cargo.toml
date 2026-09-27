@@ -16,5 +16,5 @@ name = "colmap_app_test"
 path = "src/lib.rs"
 
 [dependencies]
-agg-gui = "0.5"
+agg-gui = { path = "../../agg-gui/agg-gui" }
 colmap-app = { path = "../colmap-app" }

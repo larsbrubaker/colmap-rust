@@ -27,8 +27,6 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "agg-gui"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c0c4e34bd923d2f9804da4f8816268aab44ca0e920032ae0e199f2930c3e65f"
 dependencies = [
  "agg-rust",
  "base64",
@@ -52,8 +50,6 @@ dependencies = [
 [[package]]
 name = "agg-gui-shell"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f37de6ca3669af8a0e55f5ebcf262206bb6273ee7a220d273e133d15bf766c7a"
 dependencies = [
  "agg-gui",
  "agg-gui-wgpu",
@@ -66,8 +62,6 @@ dependencies = [
 [[package]]
 name = "agg-gui-wgpu"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af60249ca3f4ed50f70c16498686bcce60fa8369f5506d45000e8a4f358b42e7"
 dependencies = [
  "agg-gui",
  "agg-rust",

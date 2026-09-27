@@ -52,12 +52,8 @@ opt-level = 2
 [profile.release]
 
 # ---------------------------------------------------------------------------
-# Local agg-gui sources
+# agg-gui
 # ---------------------------------------------------------------------------
-# agg-gui comes from crates.io. To develop against a local checkout next to this
-# repo (../agg-gui), uncomment this block.
-#
-# [patch.crates-io]
-# agg-gui       = { path = "../agg-gui/agg-gui" }
-# agg-gui-wgpu  = { path = "../agg-gui/agg-gui-wgpu" }
-# agg-gui-shell = { path = "../agg-gui/agg-gui-shell" }
+# agg-gui, agg-gui-wgpu and agg-gui-shell are path dependencies on the sibling
+# checkout (../agg-gui, github.com/larsbrubaker/agg-gui), not crates.io, so an
+# upstream fix is usable as soon as it lands there. See CLAUDE.md "agg-gui is ours".

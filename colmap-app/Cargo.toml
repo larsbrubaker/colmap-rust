@@ -16,8 +16,8 @@ name = "colmap_app"
 path = "src/lib.rs"
 
 [dependencies]
-agg-gui = "0.5"
-agg-gui-wgpu = "0.5.2"
+agg-gui = { path = "../../agg-gui/agg-gui" }
+agg-gui-wgpu = { path = "../../agg-gui/agg-gui-wgpu" }
 wgpu = { version = "29", default-features = false, features = ["wgsl"] }
 # 3-D camera math for the viewport only (MIT/Apache-2.0); the core library keeps its own linalg.
 glam = { version = "0.30", default-features = false, features = ["std"] }
