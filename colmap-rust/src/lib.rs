@@ -10,7 +10,8 @@
 //!   CSV, endian and path helpers, the timer, and cancellation/progress.
 //! - [`math`]: COLMAP's `math/` without linear algebra — [`math::fns`] (the single choke point
 //!   for transcendental functions), `math.h`'s scalar helpers, the mt19937 PRNG with libc++'s
-//!   distributions ([`math::random`]), union find, connected components and spanning trees.
+//!   distributions ([`math::random`]), union find, connected components, spanning trees and
+//!   graph cuts.
 //! - [`linalg`]: the Eigen replacement's fixed-size types (vectors, matrices up to 6x6,
 //!   [`linalg::Quaterniond`], [`linalg::AngleAxisd`], [`linalg::AlignedBox3d`]), a port of
 //!   colmap-sharp's `LinearAlgebra/`.

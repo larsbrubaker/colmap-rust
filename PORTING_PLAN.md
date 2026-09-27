@@ -31,8 +31,6 @@ wasm32, and its app view covered by a headless UI test.
 ### Phase 1 — Math, linear algebra, util
 - Dynamic `VectorXd`/`MatrixXd` and the dense decompositions (QR, SVD incl. fixed-size, symmetric
   eigen, general eigen, LU, LLᵀ/LDLᵀ) — port of colmap-sharp's `LinearAlgebra/`.
-- `math/graph_cut` (Stoer–Wagner, Boykov–Kolmogorov, normalized min cut via colmap-sharp's
-  `MultilevelPartitioner`).
 - `math/polynomial`, `math/matrix.h`, `math/random_eigen` (need the decompositions).
 - The rest of `util/` that later phases need: `IdMap`, the libc++ `unordered_map` emulation,
   `Cache`, PLY I/O, `enum_utils`, `timestamp` (port each when its first user lands).
