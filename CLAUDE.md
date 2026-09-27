@@ -94,9 +94,11 @@ Four nets. A phase is not done until all that apply are green.
    (`colmap_app::build_app`) with no window and no GPU, drives it with synthetic agg-gui events,
    and asserts on app state and the widget tree via agg-gui reflection. Every UI behavior and
    every UI bug fix gets one. (Same design as AtomArtist's `atomartist-ui-test`.)
-4. **Browser smoke test** — Playwright (`web/tests/`) boots the built wasm in headless Chrome,
-   checks the canvas paints something non-blank and the app reaches its ready state. The GitHub
-   Pages deploy is gated on it, so a broken web build never ships.
+4. **Browser smoke test** — Playwright (`web/tests/`) boots the built wasm in Chrome, checks the
+   app reaches its ready state and that the rendered frame is non-blank (a GPU readback through
+   `window.__colmap_frame_stats()`, installed by `?test=1`; screenshots are saved, not asserted
+   on). The GitHub Pages deploy is gated on it, so a broken web build never ships; pull requests
+   run it too.
 
 Plus the gates that run with net 1:
 - `file_compliance` (`colmap-rust/tests/file_compliance.rs`): every `.rs`, `.wgsl`, `.py`,
