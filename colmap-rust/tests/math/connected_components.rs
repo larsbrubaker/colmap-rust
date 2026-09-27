@@ -132,3 +132,18 @@ fn rust_only_connected_components_follow_node_order() {
     );
     assert_eq!(find_largest_connected_component(&nodes, &edges), vec![4, 3]);
 }
+
+// Rust-only: COLMAP takes the nodes as a set; a node repeated in the slice counts once, at
+// its first occurrence (docs/CPP_DIVERGENCES.md, entry 42).
+#[test]
+fn rust_only_connected_components_dedup_nodes() {
+    assert_eq!(
+        find_connected_components(&[1, 1, 2], &[]),
+        vec![vec![1], vec![2]]
+    );
+    assert_eq!(
+        find_connected_components(&[2, 1, 2, 1], &[(1, 2)]),
+        vec![vec![2, 1]]
+    );
+    assert_eq!(find_largest_connected_component(&[1, 1, 2], &[]), vec![1]);
+}

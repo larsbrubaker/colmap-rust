@@ -15,6 +15,7 @@
 //! See docs/CPP_DIVERGENCES.md, entry 43.
 
 use super::union_find::UnionFind;
+use super::utils::nan_last_cmp;
 use crate::check;
 use std::collections::VecDeque;
 
@@ -91,7 +92,8 @@ fn compute_spanning_tree(
 
     // For the maximum spanning tree COLMAP maps w to (max_weight - w) in float, with
     // max_weight starting at 0, and finds the minimum. The same float arithmetic keeps the
-    // same ties. std::max(a, b) is (a < b) ? b : a.
+    // same ties. std::max(a, b) is (a < b) ? b : a, so a NaN weight never becomes max_weight
+    // (and a NaN weight gives a NaN cost).
     let mut max_weight = 0.0f32;
     if maximize {
         for &w in weights {
@@ -112,13 +114,10 @@ fn compute_spanning_tree(
     }
 
     // Kruskal: take edges by increasing cost, keeping each that joins two components. The
-    // stable sort keeps input order among equal costs (entry 43).
+    // stable sort keeps input order among equal costs, and NaN costs sort after every number
+    // (entry 43).
     let mut order: Vec<usize> = (0..edges.len()).collect();
-    order.sort_by(|&a, &b| {
-        costs[a]
-            .partial_cmp(&costs[b])
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    order.sort_by(|&a, &b| nan_last_cmp(&costs[a], &costs[b]));
 
     let mut components = UnionFind::new();
     components.reserve(n);

@@ -9,14 +9,15 @@
 //!   from Apple libm in the last ulp (docs/CPP_DIVERGENCES.md entry 1); math_test.cc compares
 //!   them with a tolerance.
 //! - `percentile`/`median`/`median_absolute_deviation` are exact for ordinary input, but with
-//!   NaN in the data, or -0.0 and +0.0 tied at the selected rank, the selection may pick a
-//!   different element than libc++'s `nth_element` (entry 41).
+//!   NaN in the data (ordered after every number by [`nan_last_cmp`]), or -0.0 and +0.0 tied
+//!   at the selected rank, the selection may pick a different element than libc++'s
+//!   `nth_element` (entry 41).
 //!
 //! Translation notes:
 //! - C++ templates over arithmetic `T` become generics over [`AsF64`] (the
 //!   `static_cast<double>` every helper applies) and `PartialOrd`.
 //! - `Percentile`/`Median` reorder the slice in place like COLMAP's `std::nth_element` does,
-//!   via `select_nth_unstable_by`. The order left behind differs from libc++'s (it is
+//!   via `select_nth_unstable_by` with [`nan_last_cmp`]. The order left behind differs from libc++'s (it is
 //!   unspecified there too); the returned value does not, because it depends only on the
 //!   order statistics.
 
@@ -97,9 +98,24 @@ pub fn rad_to_deg(rad: f64) -> f64 {
     rad * 57.29577951308232286464772187173366546630859375
 }
 
-// Total order used for selection; NaN compares equal to everything (entry 41).
-fn partial_order<T: PartialOrd>(a: &T, b: &T) -> Ordering {
-    a.partial_cmp(b).unwrap_or(Ordering::Equal)
+/// A total order for selecting and sorting values that may be NaN: numbers compare by value
+/// (so -0.0 and +0.0 are equivalent, as under C++'s `operator<`), and NaN sorts after every
+/// number, all NaNs equivalent. C++'s `std::sort`/`std::nth_element` with NaN under
+/// `operator<` violate their strict-weak-order precondition, so there is no COLMAP result to
+/// match; this is the deterministic, panic-free rule (docs/CPP_DIVERGENCES.md, entries 41 and
+/// 43). `partial_cmp(..).unwrap_or(Equal)` is not a total order (NaN would equal both 1 and
+/// 2), and std's sort/select may panic on such a comparator.
+#[allow(clippy::eq_op)]
+pub fn nan_last_cmp<T: PartialOrd>(a: &T, b: &T) -> Ordering {
+    match a.partial_cmp(b) {
+        Some(order) => order,
+        // Unordered means at least one is NaN; `x != x` holds exactly for NaN.
+        None => match (a != a, b != b) {
+            (true, false) => Ordering::Greater,
+            (false, true) => Ordering::Less,
+            _ => Ordering::Equal,
+        },
+    }
 }
 
 /// `Percentile`: the p-th percentile (p in [0, 100]) with linear interpolation between
@@ -113,7 +129,7 @@ pub fn percentile<T: AsF64>(elems: &mut [T], p: f64) -> crate::Result<f64> {
     let left_idx = left_idx_double as usize;
     let right_idx_double = idx_double.ceil();
     let right_idx = right_idx_double as usize;
-    elems.select_nth_unstable_by(right_idx, partial_order);
+    elems.select_nth_unstable_by(right_idx, nan_last_cmp);
     let right = elems[right_idx].as_f64();
     if left_idx == right_idx {
         return Ok(right);

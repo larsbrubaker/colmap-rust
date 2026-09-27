@@ -82,3 +82,37 @@ fn rust_only_spanning_tree_rejects_out_of_range_input() {
     assert!(compute_maximum_spanning_tree(2, &[(0, 1)], &[], 0).is_err());
     assert!(compute_maximum_spanning_tree(2, &[(0, 1)], &[1.0], 2).is_err());
 }
+
+// Rust-only: NaN weights never panic; a NaN cost sorts after every number, so NaN edges are
+// taken only to connect what the numeric edges cannot (docs/CPP_DIVERGENCES.md, entry 43).
+#[test]
+fn rust_only_spanning_tree_with_nan_weights() {
+    let n = 200;
+    let mut edges = Vec::new();
+    let mut weights = Vec::new();
+    for i in 0..n - 1 {
+        edges.push((i, i + 1));
+        weights.push(if i % 5 == 0 { f32::NAN } else { (i % 7) as f32 });
+        edges.push((i, (i * 13 + 7) % n));
+        weights.push(if i % 5 == 1 {
+            f32::NAN
+        } else {
+            (i % 11) as f32
+        });
+    }
+    for tree in [
+        compute_maximum_spanning_tree(n, &edges, &weights, 0).unwrap(),
+        compute_minimum_spanning_tree(n, &edges, &weights, 0).unwrap(),
+    ] {
+        assert!(tree.parents.iter().all(|&p| p >= 0));
+    }
+    // Triangle: the NaN edge loses to the two numeric ones either way.
+    let edges = [(0, 1), (1, 2), (0, 2)];
+    let weights = [f32::NAN, 1.0, 2.0];
+    for tree in [
+        compute_maximum_spanning_tree(3, &edges, &weights, 0).unwrap(),
+        compute_minimum_spanning_tree(3, &edges, &weights, 0).unwrap(),
+    ] {
+        assert_eq!(tree.parents, vec![0, 2, 0]);
+    }
+}

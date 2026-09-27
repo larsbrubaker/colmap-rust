@@ -247,3 +247,44 @@ fn truncate_cast_nominal() {
     assert_eq!(truncate_cast::<i32, u16>(-1), 0);
     assert_eq!(truncate_cast::<i32, u16>(65536), 65535);
 }
+
+// Rust-only: a deterministic vector of `n` values with every fifth one NaN (20%).
+fn with_nans(n: usize) -> Vec<f64> {
+    (0..n)
+        .map(|i| {
+            if i % 5 == 0 {
+                f64::NAN
+            } else {
+                ((i * 37) % 101) as f64 - 50.0
+            }
+        })
+        .collect()
+}
+
+// Rust-only: NaN input never panics, and NaN sorts after every number (docs/CPP_DIVERGENCES.md,
+// entry 41): a percentile whose ranks land on numbers ignores the NaNs, the top one is NaN.
+#[test]
+fn rust_only_percentile_with_nan_orders_nan_last() {
+    let data = with_nans(200);
+    let mut numbers: Vec<f64> = data.iter().copied().filter(|v| !v.is_nan()).collect();
+    numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // 160 numbers sort first, so ranks 0..=159 are numbers: rank = p / 100 * 199.
+    for (p, rank) in [(0.0, 0usize), (50.0, 99), (100.0 / 199.0 * 159.0, 159)] {
+        let mut v = data.clone();
+        let got = percentile(&mut v, p).unwrap();
+        assert!(
+            (got - numbers[rank]).abs() < 1e-9,
+            "p={p}: {got} vs {}",
+            numbers[rank]
+        );
+    }
+    let mut v = data.clone();
+    assert!(percentile(&mut v, 100.0).unwrap().is_nan());
+    let mut v = data.clone();
+    assert_eq!(
+        median(&mut v).unwrap(),
+        numbers[99] * 0.5 + numbers[100] * 0.5
+    );
+    let mut v = data;
+    median_absolute_deviation(&mut v).unwrap();
+}

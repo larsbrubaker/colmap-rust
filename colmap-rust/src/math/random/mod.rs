@@ -79,9 +79,20 @@ pub fn prng_is_set() -> bool {
 /// Runs `f` with the calling thread's PRNG, seeding it first if it is unset (COLMAP's
 /// `if (PRNG == nullptr) SetPRNGSeed();` at the top of every draw). This is also how code
 /// that draws from `*PRNG` directly (e.g. `std::shuffle(..., *PRNG)`) is ported.
+///
+/// # Panics
+///
+/// `f` must draw only from the engine it is given: calling any other function of this
+/// module inside `f` (`random_*`, `shuffle`, `set_prng_seed`, `reset_prng`, `prng_is_set`,
+/// a nested `with_prng`) panics, because the thread's engine is mutably borrowed for the
+/// whole call. This is deliberate: lending the engine out and letting a nested call seed a
+/// fresh one would silently change the random stream instead of failing loudly.
 pub fn with_prng<R>(f: impl FnOnce(&mut Mt19937) -> R) -> R {
     PRNG.with(|p| {
-        let mut slot = p.borrow_mut();
+        let mut slot = p.try_borrow_mut().expect(
+            "math::random: the thread's PRNG is already borrowed (a random function was \
+             called inside a with_prng closure)",
+        );
         let engine = slot.get_or_insert_with(|| Mt19937::new(default_prng_seed() as u32));
         f(engine)
     })

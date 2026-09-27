@@ -6,16 +6,17 @@
 //! Tier A for the component *sets*. The order of the components, the order of the nodes
 //! inside each, and which of two equally large components `find_largest_connected_component`
 //! returns follow COLMAP's hash-container iteration there; here they follow the order of the
-//! caller's `nodes` slice (COLMAP takes a `FlatHashSet`). See docs/CPP_DIVERGENCES.md,
-//! entry 42.
+//! caller's `nodes` slice (COLMAP takes a `FlatHashSet`; repeated nodes in the slice count
+//! once, at their first occurrence). See docs/CPP_DIVERGENCES.md, entry 42.
 
 use super::union_find::UnionFind;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 /// `FindConnectedComponents(nodes, edges)`: all connected components. Each component lists
 /// its nodes in `nodes` order, and components are ordered by their first node in that order.
-/// Nodes that appear only in `edges` are not reported.
+/// A node repeated in `nodes` is reported once. Nodes that appear only in `edges` are not
+/// reported.
 pub fn find_connected_components<T: Clone + Eq + Hash>(
     nodes: &[T],
     edges: &[(T, T)],
@@ -50,7 +51,13 @@ fn group_by_root<T: Clone + Eq + Hash>(nodes: &[T], edges: &[(T, T)]) -> Vec<Vec
     }
     let mut bucket_of_root: HashMap<T, usize> = HashMap::new();
     let mut components: Vec<Vec<T>> = Vec::new();
+    // COLMAP's nodes are a set: a node repeated in the slice counts once, at its first
+    // occurrence (entry 42). Lookup only, never iterated.
+    let mut seen: HashSet<&T> = HashSet::with_capacity(nodes.len());
     for node in nodes {
+        if !seen.insert(node) {
+            continue;
+        }
         let root = uf.find(node);
         let bucket = *bucket_of_root.entry(root).or_insert_with(|| {
             components.push(Vec::new());
