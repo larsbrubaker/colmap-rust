@@ -96,54 +96,44 @@ fn test_cam_ray_from_img_to_img<M: CameraModel>(params: &[f64], x0: f64, y0: f64
 }
 
 fn test_model<M: CameraModel>(params: &[f64]) {
-    assert!(camera_model_verify_params(M::MODEL_ID, params));
+    assert!(camera_model_verify_params(M::MODEL_ID, params).unwrap());
 
-    let default_params = camera_model_initialize_params(M::MODEL_ID, 100.0, 100, 100);
-    assert!(camera_model_verify_params(M::MODEL_ID, &default_params));
+    let default_params = camera_model_initialize_params(M::MODEL_ID, 100.0, 100, 100).unwrap();
+    assert!(camera_model_verify_params(M::MODEL_ID, &default_params).unwrap());
 
-    assert_eq!(camera_model_params_info(M::MODEL_ID), M::PARAMS_INFO);
     assert_eq!(
-        camera_model_focal_length_idxs(M::MODEL_ID),
+        camera_model_params_info(M::MODEL_ID).unwrap(),
+        M::PARAMS_INFO
+    );
+    assert_eq!(
+        camera_model_focal_length_idxs(M::MODEL_ID).unwrap(),
         M::FOCAL_LENGTH_IDXS
     );
     assert_eq!(
-        camera_model_principal_point_idxs(M::MODEL_ID),
+        camera_model_principal_point_idxs(M::MODEL_ID).unwrap(),
         M::PRINCIPAL_POINT_IDXS
     );
     assert_eq!(
-        camera_model_extra_params_idxs(M::MODEL_ID),
+        camera_model_extra_params_idxs(M::MODEL_ID).unwrap(),
         M::EXTRA_PARAMS_IDXS
     );
-    assert!(camera_model_meta_data_params_idxs(M::MODEL_ID).is_empty());
-    assert_eq!(camera_model_num_params(M::MODEL_ID), M::NUM_PARAMS);
+    assert!(camera_model_meta_data_params_idxs(M::MODEL_ID)
+        .unwrap()
+        .is_empty());
+    assert_eq!(camera_model_num_params(M::MODEL_ID).unwrap(), M::NUM_PARAMS);
 
-    assert!(!camera_model_has_bogus_params(
-        M::MODEL_ID,
-        &default_params,
-        100,
-        100,
-        0.1,
-        2.0,
-        1.0
-    ));
-    assert!(camera_model_has_bogus_params(
-        M::MODEL_ID,
-        &default_params,
-        100,
-        100,
-        0.1,
-        0.5,
-        1.0
-    ));
-    assert!(camera_model_has_bogus_params(
-        M::MODEL_ID,
-        &default_params,
-        100,
-        100,
-        1.5,
-        2.0,
-        1.0
-    ));
+    assert!(
+        !camera_model_has_bogus_params(M::MODEL_ID, &default_params, 100, 100, 0.1, 2.0, 1.0)
+            .unwrap()
+    );
+    assert!(
+        camera_model_has_bogus_params(M::MODEL_ID, &default_params, 100, 100, 0.1, 0.5, 1.0)
+            .unwrap()
+    );
+    assert!(
+        camera_model_has_bogus_params(M::MODEL_ID, &default_params, 100, 100, 1.5, 2.0, 1.0)
+            .unwrap()
+    );
     if !M::EXTRA_PARAMS_IDXS.is_empty() {
         assert!(camera_model_has_bogus_params(
             M::MODEL_ID,
@@ -153,7 +143,8 @@ fn test_model<M: CameraModel>(params: &[f64]) {
             0.1,
             2.0,
             -0.1
-        ));
+        )
+        .unwrap());
     }
 
     assert_eq!(
@@ -235,17 +226,22 @@ fn spherical_nominal() {
     let id = M::MODEL_ID;
     // params = (w, h) of the equirectangular image.
     let params = vec![800.0, 400.0];
-    assert!(camera_model_verify_params(id, &params));
+    assert!(camera_model_verify_params(id, &params).unwrap());
 
-    assert_eq!(camera_model_params_info(id), "w,h");
-    assert!(camera_model_focal_length_idxs(id).is_empty());
-    assert!(camera_model_principal_point_idxs(id).is_empty());
-    assert!(camera_model_extra_params_idxs(id).is_empty());
-    assert_eq!(camera_model_meta_data_params_idxs(id), &[0usize, 1]);
-    assert_eq!(camera_model_num_params(id), 2);
+    assert_eq!(camera_model_params_info(id).unwrap(), "w,h");
+    assert!(camera_model_focal_length_idxs(id).unwrap().is_empty());
+    assert!(camera_model_principal_point_idxs(id).unwrap().is_empty());
+    assert!(camera_model_extra_params_idxs(id).unwrap().is_empty());
+    assert_eq!(
+        camera_model_meta_data_params_idxs(id).unwrap(),
+        &[0usize, 1]
+    );
+    assert_eq!(camera_model_num_params(id).unwrap(), 2);
 
     // Perspective models have no metadata parameters.
-    assert!(camera_model_meta_data_params_idxs(CameraModelId::Pinhole).is_empty());
+    assert!(camera_model_meta_data_params_idxs(CameraModelId::Pinhole)
+        .unwrap()
+        .is_empty());
 
     // EQUIRECTANGULAR is non-perspective, spherical, and never has bogus parameters.
     assert!(!camera_model_is_perspective(id));
@@ -253,13 +249,11 @@ fn spherical_nominal() {
     assert!(camera_model_is_spherical(id));
     assert!(!camera_model_is_spherical(CameraModelId::Pinhole));
     assert!(!camera_model_is_spherical(CameraModelId::OpenCVFisheye));
-    assert!(!camera_model_has_bogus_params(
-        id, &params, 800, 400, 0.1, 2.0, 1.0
-    ));
+    assert!(!camera_model_has_bogus_params(id, &params, 800, 400, 0.1, 2.0, 1.0).unwrap());
 
     // InitializeParams ignores the focal length and returns (w, h).
     assert_eq!(
-        camera_model_initialize_params(id, /*focal_length=*/ 123.0, 800, 400),
+        camera_model_initialize_params(id, /*focal_length=*/ 123.0, 800, 400).unwrap(),
         params
     );
 
@@ -325,6 +319,7 @@ fn fov_nominal() {
     test_model::<FOVCameraModel>(&[651.123, 655.123, 386.123, 511.123, 1e-2]);
     assert_eq!(
         *camera_model_initialize_params(CameraModelId::FOV, 100.0, 100, 100)
+            .unwrap()
             .last()
             .unwrap(),
         1e-2
@@ -409,7 +404,8 @@ fn eucm_camera_rejects_invalid_extra_params() {
             0.1,
             2.0,
             1.0
-        ));
+        )
+        .unwrap());
     }
 }
 
