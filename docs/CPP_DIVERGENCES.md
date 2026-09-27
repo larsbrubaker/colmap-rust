@@ -716,6 +716,7 @@ normal and points agree with pycolmap within 1e-12 / 1e-11 / 1e-10 relative.
 `tests/geometry/homography_matrix.rs` (homography_matrix_test.cc 1:1) passes, including the
 noise-free `pose_from_homography_matrix_nominal`. colmap-sharp documents the same behavior in
 its `Geometry/HomographyMatrix.cs` header and fixture generator (no numbered entry there).
+
 ## 100. FMA contraction in the camera models
 
 **What differs.** Camera model projection (`camera_model_img_from_cam`) and ray unprojection

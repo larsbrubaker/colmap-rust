@@ -3,7 +3,8 @@
 // homography_matrix, triangulation), plus the Rust-only pycolmap oracle comparisons
 // `rust_only_transforms_oracle.rs` (fixture `tests/data/oracle/geometry_transforms.json`
 // from `oracle/geometry_transforms.py`) and `rust_only_two_view_oracle.rs`
-// (`geometry_two_view.json` from `oracle/geometry_two_view.py`). This file also holds
+// (`geometry_two_view.json` from `oracle/geometry_two_view.py`), and the hand-built
+// `rust_only_two_view.rs` cases for two-view functions COLMAP's tests do not reach. This file also holds
 // `eigen_matrix_near` and `rigid3d_near`, the ports of COLMAP's `EigenMatrixNear`
 // (util/eigen_matchers.h) and `Rigid3dNear` (geometry/rigid3_matchers.h) matchers the ported
 // tests share. Layout convention: see `tests/math.rs`.
@@ -34,6 +35,8 @@ mod pose_prior;
 mod rigid3;
 #[path = "geometry/rust_only_transforms_oracle.rs"]
 mod rust_only_transforms_oracle;
+#[path = "geometry/rust_only_two_view.rs"]
+mod rust_only_two_view;
 #[path = "geometry/rust_only_two_view_oracle.rs"]
 mod rust_only_two_view_oracle;
 #[path = "geometry/sim3.rs"]
@@ -101,14 +104,15 @@ pub fn eigen_matrix_near_default<T: Coeffs>(lhs: &T, rhs: &T) -> bool {
 
 /// Port of COLMAP's `Rigid3dNear(rhs, rtol, ttol)` matcher (geometry/rigid3_matchers.h):
 /// the rotations within `rtol` angular distance, and the translations within `ttol`
-/// (`norm() <= ttol` when `rhs`'s is zero, Eigen's `isApprox` otherwise).
+/// (`norm() <= ttol` when `rhs`'s is zero by Eigen's `isZero()`, every `|coefficient| <=
+/// 1e-12`; Eigen's `isApprox` otherwise).
 #[allow(clippy::neg_cmp_op_on_partial_ord)] // !(a <= b) is deliberate: NaN must fail.
 pub fn rigid3d_near(lhs: &Rigid3d, rhs: &Rigid3d, rtol: f64, ttol: f64) -> bool {
     // Note the !(a <= b) form, as in COLMAP, to reject NaNs.
     if !(lhs.rotation.angular_distance(rhs.rotation) <= rtol) {
         return false;
     }
-    if rhs.translation == Vector3d::zeros() {
+    if rhs.translation.to_array().iter().all(|c| c.abs() <= 1e-12) {
         lhs.translation.norm() <= ttol
     } else {
         lhs.translation.is_approx_with(rhs.translation, ttol)

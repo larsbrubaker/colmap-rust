@@ -9,8 +9,10 @@
 //! `tests/geometry/rust_only_two_view_oracle.rs`.
 //!
 //! Tiers: `essential_matrix_from_pose`, the Sampson errors and the fundamental conversions
-//! are scalar products (pinned Tier B by the oracle: product grouping and the 3x3 inverse
-//! differ from Eigen's in the last bits); `decompose_essential_matrix`,
+//! are scalar products, Tier B because product grouping and the 3x3 inverse can differ from
+//! Eigen's in the last bits. The oracle pins `essential_matrix_from_pose` and the Sampson
+//! errors; the fundamental conversions are checked only by the ported tests.
+//! `decompose_essential_matrix`,
 //! `pose_from_essential_matrix` and `epipole_from_essential_matrix` go through the SVD and
 //! are Tier B (docs/CPP_DIVERGENCES.md entry 30).
 //!

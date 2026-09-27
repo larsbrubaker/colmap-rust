@@ -317,11 +317,13 @@ pub fn decompose_projection_matrix(p: &Matrix3x4d) -> Option<(Matrix3d, Matrix3d
         }
     }
 
-    // K.triangularView<Eigen::Upper>().solve(P.col(3)): back substitution.
+    // K.triangularView<Eigen::Upper>().solve(P.col(3)): back substitution, grouped like
+    // Eigen's unrolled upper solve (the already-solved terms are summed first, then
+    // subtracted from b in one step).
     let b = p.col(3);
     let t2 = b.z / k[(2, 2)];
     let t1 = (b.y - k[(1, 2)] * t2) / k[(1, 1)];
-    let t0 = (b.x - k[(0, 1)] * t1 - k[(0, 2)] * t2) / k[(0, 0)];
+    let t0 = (b.x - (k[(0, 1)] * t1 + k[(0, 2)] * t2)) / k[(0, 0)];
     let mut t = Vector3d::new(t0, t1, t2);
     if det_k < 0.0 {
         t = -t;
