@@ -135,6 +135,7 @@ Found while building colmap-app (Phase 0b). Fix in agg-gui, then remove the work
   custom renderer can't reliably tell that the device was replaced (device loss / backend switch)
   and would reuse old pipelines. Expose a device generation/identity on `WgpuCustomRenderCtx`.
   Caveat noted on `colmap-app/src/viewport_render.rs::ensure_gpu`.
+- agg-gui isn't `cargo fmt` clean on `main` (e.g. `agg-gui/src/text.rs`, `agg-gui-shell/src/shell_loop.rs`); run fmt there and add a fmt check to its CI.
 - (In progress) `agg-gui-web-shell`: a published web shell crate.
 
 ## Decisions
