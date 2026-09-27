@@ -111,7 +111,7 @@ SQLite files, Ceres internals not ported, CUDA/GPU, SiftGPU, ONNX, vocabulary tr
 reasons to Rust. Every skipped COLMAP test is listed here by name when its file is ported.
 
 ## agg-gui upstream queue
-Found while building colmap-app (Phase 0b). Fix in agg-gui, then remove the workaround here in the same session:
+Fix each one in agg-gui, then remove its workaround here:
 - `WgpuCustomRenderCtx::parent_clip`'s doc says `[x,y,w,h]` top-down, but it is stored Y-up
   (`[x, y_bottom, w, h]`, `ctx_core::compute_scissor`). Fix the doc or the representation, and add a
   readback test. Workaround: `colmap-app/src/viewport_render.rs::clip_to_top_down`.
@@ -125,9 +125,8 @@ Found while building colmap-app (Phase 0b). Fix in agg-gui, then remove the work
   custom renderer can't reliably tell that the device was replaced (device loss / backend switch)
   and would reuse old pipelines. Expose a device generation/identity on `WgpuCustomRenderCtx`.
   Caveat noted on `colmap-app/src/viewport_render.rs::ensure_gpu`.
-- agg-gui is `cargo fmt` clean as of `d99318e`, but its CI has no fmt check; add one.
-- `agg-gui-web-shell` 0.5.0 is done (agg-gui `ba08a72`, `ee8f813`, reviewed; colmap-web uses it; not
-  yet published). Follow-ups: move agg-gui's own `demo-wasm` (JS-driven loop in `demo/src/app.ts`)
+- agg-gui's CI has no `cargo fmt --check` step; add one.
+- `agg-gui-web-shell`: publish it to crates.io when Lars says so. Move agg-gui's own `demo-wasm` (JS-driven loop in `demo/src/app.ts`)
   onto it; migrate AtomArtist, AstroRock, KeyInSight, instant-astronomer (deprecation warnings from
   the old `demo_wgpu::web_shell` wrapper) and Solitaire (its own hand-rolled shell).
 - agg-gui-shell has no `after_present` hook (the web shell does); colmap-native marks readiness in

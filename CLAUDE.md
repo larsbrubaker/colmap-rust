@@ -221,6 +221,25 @@ Don't work around it in colmap-app.
   frame (native: worker thread; web: chunked cooperative steps or a worker).
 - **Icons:** Font Awesome via Unicode code points, as in agg-gui.
 
+## Plans and progress docs
+
+Docs are kept current, and they describe the present. Plan and progress documents
+(`PORTING_PLAN.md`, anything in `docs/` that tracks work) describe **open work only; history lives
+in git**.
+
+- Update a doc in the same change that makes it stale: the code, its header comments, `CLAUDE.md`,
+  `README.md` and `PORTING_PLAN.md` always agree with each other.
+- Prune as you go. Remove finished steps, stale findings and superseded decisions. Never append
+  status updates, changelogs, commit hashes, or "how we got here" narrative; the commit message is
+  where that goes.
+- Delete a plan doc in the change that completes its work, and remove a phase when it is done and
+  green.
+- A decision that must outlive the doc goes in a code comment where it applies, or in this file.
+- `docs/CPP_DIVERGENCES.md` and `docs/LICENSE_AUDIT.md` are reference docs, not progress docs. They
+  describe how the code is *now*: an entry is removed when its divergence is gone, never marked
+  "fixed".
+- A doc's own status line can be stale. Check the code before trusting it.
+
 ## Commands
 
 ```bash
