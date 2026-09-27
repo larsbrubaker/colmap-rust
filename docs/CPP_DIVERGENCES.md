@@ -45,3 +45,55 @@ crate's bits; CI runs them on Linux, macOS and Windows.
 (camera-model undistortion, SIFT's Gaussian weights, angle conversions) may need a tolerance of
 a few ulp instead of bit equality; such a test must cite this entry where it states that
 tolerance. Code without transcendentals stays bit-exact.
+
+## 60. StringToDouble parses with Rust's parser and rejects non-decimal spellings
+
+**What differs.** `util::string::string_to_double` (COLMAP's `StringToDouble`, also behind
+`CSVToVector<float/double>`) parses the white-space-trimmed token with Rust's `f64::from_str`
+instead of a classic-locale `std::istringstream >> double`. Both accept decimal and exponent
+notation ("1", "-0.5", ".5", "1e-3") and reject words and trailing characters. Where they could
+disagree, the Rust port rejects: a token with any character outside `0-9 . e E + -` (so
+`inf`, `nan`, `infinity` and hexadecimal floats such as `0x1p3` fail), and a value that
+overflows to infinity (libc++ sets `failbit` on `ERANGE`). Underflow to a subnormal or zero is
+accepted, where libc++ may set `failbit`.
+
+**Why.** Reproducing libc++'s `num_get` exactly would mean porting a C++ standard library for
+inputs COLMAP never writes: every string that reaches this parser in COLMAP's own formats is
+decimal output of its writers (`%g`-style or `precision(17)`), which both parsers read to the
+same, correctly rounded double. Same as colmap-sharp entry 20.
+
+**Evidence.** `tests/util/string.rs` (`string_to_double_nominal`,
+`string_to_double_locale_independence`, `rust_only_string_to_double_rejects`) and the
+`CSVToVector` cases of `tests/util/misc.rs` pass 1:1.
+
+## 61. Little-endian binary reads fail on a short stream
+
+**What differs.** COLMAP's `ReadBinaryLittleEndian<T>` reads `sizeof(T)` bytes with
+`std::istream::read` and returns whatever is in its buffer when the stream ends early (the
+stream's failbit is set, and callers do not check it per value). colmap-rust's
+`util::endian::read_binary_little_endian` returns the `std::io::Error` (`UnexpectedEof`), so
+a truncated `cameras.bin` / `images.bin` / `points3D.bin` or depth map is reported instead of
+read as garbage.
+
+**Why.** Rust's `Read::read_exact` reports the short read, and silently continuing with an
+unspecified value is not a behavior worth reproducing; on complete input the two are
+identical byte for byte. colmap-sharp made the same choice for its MVS reader (its entry 62).
+
+**Evidence.** `tests/util/endian.rs`: the ported round trips pass 1:1, and
+`rust_only_little_endian_wire_bytes_and_short_read` pins the wire bytes and the error.
+
+## 62. The timer's clock comes from the host on wasm32-unknown-unknown
+
+**What differs.** COLMAP's `Timer` reads `std::chrono::high_resolution_clock`.
+colmap-rust's `util::timer` reads `std::time::Instant` natively, but on
+`wasm32-unknown-unknown` std has no clock (`Instant::now()` panics there), so it reads a
+monotonic source the host installs with `util::timer::set_clock_source` (for the web shell,
+`performance.now()`, not yet wired up). Without one, time stands still on that target and every elapsed time is 0.
+Elapsed microseconds are truncated from nanoseconds as COLMAP's `duration_cast` does.
+
+**Why.** The core crate must run in the browser without JavaScript bindings (no
+`wasm-bindgen` in the core, CLAUDE.md contract 1), and elapsed times only feed progress
+reports, never results.
+
+**Evidence.** `tests/util/timer.rs` passes 1:1 natively; the core crate builds for
+`wasm32-unknown-unknown`.

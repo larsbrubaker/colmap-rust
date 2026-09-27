@@ -39,6 +39,14 @@ pub enum ErrorKind {
     InvalidArgument,
     /// `std::logic_error`, from `LOG_FATAL_THROW(std::logic_error)`.
     LogicError,
+    /// `std::runtime_error`, e.g. from `ThrowIfGtMaxImages` (`util/types.h`).
+    RuntimeError,
+    /// `std::out_of_range`, e.g. from `std::stoi` in `CSVToVector<int>` (`util/misc.h`).
+    OutOfRange,
+    /// The operation stopped because its [`crate::util::cancellation::CancelToken`] was
+    /// cancelled. COLMAP has no exception for this (its controllers poll and return); the
+    /// Rust port surfaces it as an error so a cancelled pipeline unwinds with `?`.
+    Cancelled,
 }
 
 /// An error raised where COLMAP throws: a failed `THROW_CHECK*` or a `LOG(FATAL_THROW)`.
