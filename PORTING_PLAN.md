@@ -34,8 +34,7 @@ wasm32, and its app view covered by a headless UI test.
 - `colmap-web` installs `util::timer::set_clock_source` from `performance.now()`.
 
 ### Phase 2 — Geometry
-Remaining: `rigid3_matchers`/`sim3_matchers` (test helpers); tests for `triangulate_optimal_point`,
-`compute_squared_homography_error`, `compute_squared_sampson_errors_homogeneous` (COLMAP has none).
+Remaining: `rigid3_matchers`/`sim3_matchers` (test helpers).
 App: camera-frustum rendering in the 3D viewport.
 
 ### Phase 3 — Sensor
