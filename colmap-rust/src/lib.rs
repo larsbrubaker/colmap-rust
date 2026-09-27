@@ -9,7 +9,11 @@
 //!   [`util::check::ColmapError`]) and C++ stream formatting of doubles.
 //! - [`math`]: COLMAP's `math/` — so far [`math::fns`], the single choke point for
 //!   transcendental functions.
+//! - [`linalg`]: the Eigen replacement's fixed-size types (vectors, matrices up to 6x6,
+//!   [`linalg::Quaterniond`], [`linalg::AngleAxisd`], [`linalg::AlignedBox3d`]), a port of
+//!   colmap-sharp's `LinearAlgebra/`.
 
+pub mod linalg;
 pub mod math;
 pub mod util;
 
