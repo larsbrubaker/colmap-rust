@@ -153,6 +153,15 @@ fn remove_command_line_argument_nominal() {
     assert!(argv.is_empty());
 }
 
+// Rust-only: COLMAP's loop moves the last argument into the removed slot (swap_remove),
+// which the ported 3-element test cannot tell apart from an order-preserving shift.
+#[test]
+fn rust_only_remove_command_line_argument_moves_last_into_slot() {
+    let mut argv: Vec<String> = ["a", "b", "c", "d"].map(String::from).to_vec();
+    remove_command_line_argument("b", &mut argv);
+    assert_eq!(argv, ["a", "d", "c"]);
+}
+
 // Rust-only: std::stoi semantics inside CSVToVector<int> (trailing characters ignored,
 // out-of-range values are std::out_of_range, which COLMAP does not catch), VectorToCSV of
 // doubles at the ostream default precision, and VectorContainsDuplicateValues finding only

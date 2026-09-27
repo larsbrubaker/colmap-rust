@@ -4,9 +4,9 @@
 //!
 //! `std::chrono::high_resolution_clock` becomes [`now_nanos`]: `std::time::Instant` natively.
 //! `wasm32-unknown-unknown` has no clock without JavaScript (`Instant::now()` panics there),
-//! so on that target the time comes from a host-installed source ([`set_clock_source`]; for
-//! the web shell that is `performance.now()`), and without one the clock stands still (every
-//! elapsed time is 0). `docs/CPP_DIVERGENCES.md` entry 62.
+//! so on that target the host must install a monotonic source with [`set_clock_source`]
+//! (e.g. from `performance.now()`); with none installed there, the clock stands still and
+//! every elapsed time reads 0. `docs/CPP_DIVERGENCES.md` entry 62.
 //!
 //! Not ported: `PrintSeconds` / `PrintMinutes` / `PrintHours`, which only `LOG(INFO)` the
 //! elapsed time; the core crate has no logger. Callers format

@@ -87,9 +87,9 @@ identical byte for byte. colmap-sharp made the same choice for its MVS reader (i
 **What differs.** COLMAP's `Timer` reads `std::chrono::high_resolution_clock`.
 colmap-rust's `util::timer` reads `std::time::Instant` natively, but on
 `wasm32-unknown-unknown` std has no clock (`Instant::now()` panics there), so it reads a
-monotonic source the host installs with `util::timer::set_clock_source` (for the web shell,
-`performance.now()`, not yet wired up). Without one, time stands still on that target and every elapsed time is 0.
-Elapsed microseconds are truncated from nanoseconds as COLMAP's `duration_cast` does.
+monotonic source (nanoseconds) that the host must install with
+`util::timer::set_clock_source`, e.g. from `performance.now()`. With none installed on that
+target, the clock stands still and every elapsed time reads 0. Elapsed microseconds are truncated from nanoseconds as COLMAP's `duration_cast` does.
 
 **Why.** The core crate must run in the browser without JavaScript bindings (no
 `wasm-bindgen` in the core, CLAUDE.md contract 1), and elapsed times only feed progress
@@ -97,3 +97,20 @@ reports, never results.
 
 **Evidence.** `tests/util/timer.rs` passes 1:1 natively; the core crate builds for
 `wasm32-unknown-unknown`.
+
+## 63. File-extension helpers split paths only at '/'
+
+**What differs.** COLMAP's `HasFileExtension` takes a `std::filesystem::path`, whose file name
+on Windows also ends at '\'. colmap-rust's `util::file::has_file_extension` works on path
+strings and treats only '/' as a separator, on every platform. So for the Windows-style name `dir\.jpg`, `has_file_extension(.., ".jpg")`
+is true here (the whole string is the file name, and its last '.' is not its first
+character), where COLMAP on Windows sees the dot file `.jpg`, which has no extension, and
+returns false. `split_file_extension` matches
+COLMAP everywhere (COLMAP splits that one at '.' only).
+
+**Why.** The core crate has no file system and must give the same answer natively and in the
+browser, so it cannot depend on the host platform's separator rules. Hosts must pass
+'/'-normalized names, and on those the two agree.
+
+**Evidence.** `tests/util/file.rs`: the ported `file_test.cc` cases pass 1:1, and
+`rust_only_has_file_extension_edge_cases` pins the '/' rules.

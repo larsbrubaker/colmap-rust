@@ -15,9 +15,25 @@
 
 use std::io::{self, Read, Write};
 
+mod sealed {
+    /// Seals [`super::EndianValue`]: its byte-slice methods index by `SIZE` and would panic
+    /// for a foreign impl whose `SIZE` exceeds 8, so only the types below implement it.
+    pub trait Sealed {}
+    impl Sealed for i8 {}
+    impl Sealed for u8 {}
+    impl Sealed for i16 {}
+    impl Sealed for u16 {}
+    impl Sealed for i32 {}
+    impl Sealed for u32 {}
+    impl Sealed for i64 {}
+    impl Sealed for u64 {}
+    impl Sealed for f32 {}
+    impl Sealed for f64 {}
+}
+
 /// A plain value COLMAP reads and writes byte for byte: the fixed-size integers and
-/// floating-point types.
-pub trait EndianValue: Copy {
+/// floating-point types. Sealed: implemented only for i8..u64, f32 and f64.
+pub trait EndianValue: Copy + sealed::Sealed {
     /// `sizeof(T)`.
     const SIZE: usize;
     /// Port of `ReverseBytes<T>`.

@@ -131,10 +131,13 @@ pub fn vector_to_csv<T: CheckOpValue>(values: &[T]) -> String {
         .join(", ")
 }
 
-/// Port of `RemoveCommandLineArgument`: removes the first argument equal to `arg`, if any
-/// (COLMAP shifts `argv` down and decrements `argc`).
+/// Port of `RemoveCommandLineArgument`: removes the first argument equal to `arg`, if any.
+/// COLMAP's loop (`for j in i+1..argc: argv[i] = argv[j]`, then `argc -= 1`) writes every
+/// later argument into the *same* slot `i`, so the last argument ends up in slot `i` and
+/// the others stay where they were: that is `Vec::swap_remove`, not an order-preserving
+/// shift. `["a", "b", "c", "d"]` minus "b" is `["a", "d", "c"]`.
 pub fn remove_command_line_argument(arg: &str, args: &mut Vec<String>) {
     if let Some(index) = args.iter().position(|a| a == arg) {
-        args.remove(index);
+        args.swap_remove(index);
     }
 }

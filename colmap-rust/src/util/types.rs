@@ -268,6 +268,11 @@ impl PairHash for (u64, u64) {
 /// packed value of small ids has all-zero top bits. Only [`PairHash::pair_hash`] is
 /// COLMAP-exact; this hasher's output is never observable in results, because hash-container
 /// iteration order must not reach an output (CLAUDE.md).
+///
+/// For two-integer pair keys only (`(u32, u32)`, `(i32, i32)`, `(u64, u64)`, ...). Other key
+/// shapes still hash correctly (equal keys give equal hashes), but a single integer keeps
+/// only its value, byte-string keys fold through `hash_combine`, and longer tuples do not
+/// mix all their fields, so such keys collide heavily; use std's default hasher for them.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PairHasher {
     first: Option<u64>,

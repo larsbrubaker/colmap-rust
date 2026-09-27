@@ -9,8 +9,8 @@
 //! Tier A (exact): `std::filesystem::path::extension()` is reproduced by hand: the
 //! extension starts at the file name's last '.', except that a name whose only '.' is its
 //! first character (a dot file), "." and ".." have none. Only '/' separates path
-//! components, as for `std::filesystem::path` on POSIX (COLMAP on Windows also splits at
-//! '\\'); the core crate's paths are the host's portable, '/'-separated names.
+//! components, as for `std::filesystem::path` on POSIX; COLMAP on Windows also splits at
+//! '\\', so hosts must pass '/'-normalized names. `docs/CPP_DIVERGENCES.md` entry 63.
 
 use super::check::Result;
 use super::string::string_split;

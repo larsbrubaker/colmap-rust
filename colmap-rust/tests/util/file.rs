@@ -60,6 +60,9 @@ fn rust_only_has_file_extension_edge_cases() {
     assert!(!has_file_extension("dir.jpg/file", ".jpg").unwrap());
     assert!(!has_file_extension("..", ".").unwrap());
     assert!(!has_file_extension(".", ".").unwrap());
+    // Only '/' separates (docs/CPP_DIVERGENCES.md entry 63): COLMAP on Windows would see
+    // the dot file ".jpg" here and return false.
+    assert!(has_file_extension("dir\\.jpg", ".jpg").unwrap());
     // Only `ext` is lower-cased, as in COLMAP.
     assert!(!has_file_extension("test.JPG", ".jpg").unwrap());
 }
