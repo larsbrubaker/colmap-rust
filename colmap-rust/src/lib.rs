@@ -15,9 +15,11 @@
 //! - [`linalg`]: the Eigen replacement's fixed-size types (vectors, matrices up to 6x6,
 //!   [`linalg::Quaterniond`], [`linalg::AngleAxisd`], [`linalg::AlignedBox3d`]), a port of
 //!   colmap-sharp's `LinearAlgebra/`.
+//! - [`sensor`]: COLMAP's `sensor/` — so far the camera models ([`sensor::models`]).
 
 pub mod linalg;
 pub mod math;
+pub mod sensor;
 pub mod util;
 
 pub use util::check::{ColmapError, ErrorKind, Result};
