@@ -673,3 +673,57 @@ When a logger lands, this entry goes away.
 
 **Evidence.** `tests/geometry/pose_prior.rs`, `pose_prior_gravity_from_exif_orientation`
 (pose_prior_test.cc 1:1) checks every `None` case.
+
+## 100. FMA contraction in the camera models
+
+**What differs.** Camera model projection (`camera_model_img_from_cam`) and ray unprojection
+(`camera_model_cam_ray_from_img`) of every perspective model, and `camera_model_cam_from_img`
+of the fisheye, division, FOV and EUCM models, differ from the pycolmap 4.2.0 macOS arm64
+wheel by a few ulps on part of the inputs (at most 2e-14 relative to max(1, |value|) in the
+fixture). Which calls succeed or fail never differs. Same as colmap-sharp entry 12.
+
+**Why.** The wheel is built with contraction on and fuses multiply-adds that sit in one C++
+statement, e.g. `*x = f * *x + c1` in every model's `ImgFromCam` and `u * u + v * v + 1.0`
+in `CamRayFromImg`. colmap-rust never uses FMA in math paths (CLAUDE.md, "No FMA"), so its
+results are the same on every platform. The iterative undistortion runs its distortion on
+`ceres::Jet`, whose operators are separate function calls that clang does not contract, and
+matches the wheel bit for bit. The models that call `sin`/`cos`/`tan`/`atan`/`atan2` (the
+fisheye models, FOV, EQUIRECTANGULAR) also go through the `libm` crate rather than Apple libm
+(entry 1), which can move the same outputs by an ulp; colmap-sharp holds EQUIRECTANGULAR
+bit-exact because .NET calls the platform libm, colmap-rust does not.
+
+**Evidence.** `oracle/camera_models.py` prints it: re-deriving SIMPLE_RADIAL's projected x with
+the unfused formula matches the wheel on 64/75 and 60/75 points of the two parameter sets,
+and on 75/75 with only `f * x + c1` fused; PINHOLE's ray z matches on 98/101 plain and
+101/101 with `u*u + v*v` fused. `tests/sensor/rust_only_camera_model_oracle.rs` requires
+bit-identical `CamFromImg` for the plain pinholes and the models that unproject through the
+iterative undistortion (SIMPLE_RADIAL, RADIAL, OPENCV, FULL_OPENCV) and the pixel threshold,
+and pins everything else at 2e-14 relative to max(1, |value|).
+
+**Related, not observed here.** C++ `EquirectangularCameraModel` evaluates
+`2.0 * EIGEN_PI * (...)` with `EIGEN_PI` a `long double` literal, so on x86-64 Linux (80-bit
+long double) its results may differ from both the macOS wheel (where long double is double)
+and colmap-rust, which uses `std::f64::consts::PI`.
+
+## 101. An unknown camera model id panics instead of throwing std::domain_error
+
+**What differs.** COLMAP's dispatch functions (`CameraModelInitializeParams`,
+`CameraModelImgFromCam`, `CameraModelNumParams`, ...) throw
+`std::domain_error("Camera model does not exist")` for an id outside `CAMERA_MODEL_CASES`.
+colmap-rust's `sensor::models` dispatch functions panic with the same message. The functions
+COLMAP answers without throwing (`ExistsCameraModelWithId`, `CameraModelIdToName`,
+`CameraModelIsPerspectiveFisheye`) answer the same way here. Separately, a C++ enum class can
+hold any integer (`static_cast<CameraModelId>(123456789)`); a Rust `CameraModelId` can only
+hold a named enumerator, so a raw value is checked once, at `CameraModelId::from_i32`, which
+returns `None` for an unnamed value.
+
+**Why.** With a closed Rust enum the only unknown id that can reach a dispatch function is
+`CameraModelId::Invalid`, which callers must never pass (COLMAP's `Camera` checks
+`ExistsCameraModelWithId` / `VerifyParams` at its boundaries). That makes it an internal
+invariant, where CLAUDE.md's error rule allows a panic, and it keeps every camera call on the
+hot projection path free of a `Result`. Same design choice as colmap-sharp's
+`CameraModels.Get`, which throws an exception.
+
+**Evidence.** `tests/sensor/models.rs` ports `models_test.cc` 1:1, including the
+`ExistsCameraModelWithId(static_cast<CameraModelId>(123456789))` check through
+`from_i32`.
