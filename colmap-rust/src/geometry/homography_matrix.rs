@@ -221,8 +221,9 @@ fn check_cheirality_and_reproj_error_sum(
 /// angular reprojection error), its plane normal, and those points in camera 1's frame,
 /// `(cam2_from_cam1, normal, points3D)`. The ray lists must have equal length.
 ///
-/// COLMAP leaves its outputs untouched when no candidate is accepted (only possible with a
-/// NaN residual sum); here they are then the identity, a zero normal and no points.
+/// The first candidate is always accepted (with no triangulated points its residual sum is
+/// 0 < `f64::MAX`; with any points it beats the empty initial set), so the identity / zero
+/// normal the outputs start from is never returned.
 pub fn pose_from_homography_matrix(
     h: &Matrix3d,
     k1: &Matrix3d,
