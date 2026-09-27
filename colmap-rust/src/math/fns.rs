@@ -107,6 +107,24 @@ pub fn hypot(x: f64, y: f64) -> f64 {
     libm::hypot(x, y)
 }
 
+/// `std::sinh`.
+#[inline]
+pub fn sinh(x: f64) -> f64 {
+    libm::sinh(x)
+}
+
+/// `std::cosh`.
+#[inline]
+pub fn cosh(x: f64) -> f64 {
+    libm::cosh(x)
+}
+
+/// `std::atanh`.
+#[inline]
+pub fn atanh(x: f64) -> f64 {
+    libm::atanh(x)
+}
+
 /// `sinf`.
 #[inline]
 pub fn sinf(x: f32) -> f32 {

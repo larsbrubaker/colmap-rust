@@ -291,3 +291,84 @@ browser, so it cannot depend on the host platform's separator rules. Hosts must 
 
 **Evidence.** `tests/util/file.rs`: the ported `file_test.cc` cases pass 1:1, and
 `rust_only_has_file_extension_edge_cases` pins the '/' rules.
+
+## 80. No FMA contraction in the pose/covariance products and the GPS conversions (the macOS pycolmap wheel fuses them)
+
+**What differs.** Beyond the quaternion-vector rotation of entry 2, the pycolmap 4.2.0 macOS
+arm64 wheel differs from colmap-rust in the last bits on `Rigid3d::adjoint_inverse` and
+`get_covariance_for_rigid3d_inverse` (Eigen's 3x3 and 6x6 products,
+`colmap-rust/src/geometry/rigid3.rs`) and on the `GpsTransform` ellipsoid/ECEF/ENU/UTM
+conversions (`colmap-rust/src/geometry/gps.rs`), up to 9.3e-10 m on ECEF-scale coordinates.
+
+**Why.** Same cause as entry 2: the wheel is built with contraction on and fuses multiply-adds
+(for example `N * (1 - e2) + alt` in `EllipsoidToECEF`). colmap-rust never uses FMA in math
+paths (CLAUDE.md, "No FMA"), so its results are the same on every target and are expected to
+match a C++ build that does not contract. The GPS conversions also go through `math::fns`
+(entry 1). Same as colmap-sharp entry 6.
+
+**Evidence.** colmap-sharp's `oracle/geometry_transforms.py` (copied here) shows that fusing
+`N * (1 - e2) + alt` takes the `EllipsoidToECEF` z coordinate from 13/80 to 3/80 mismatches
+while x and y (no multiply-add) match on every case.
+`tests/geometry/rust_only_transforms_oracle.rs` pins these fields at 1e-14 relative (1e-13 for
+the 6x6 covariance, and 1e-8 m for GPS coordinates in meters) in
+`rust_only_transforms_oracle_tolerance_fields`; the operations that do not multiply-add
+(composition and inverse rotations, `to_matrix`, `from_matrix`, `adjoint`, the UTM zone, the
+strings) are bit-identical in `rust_only_transforms_oracle_exact_fields` and
+`rust_only_transforms_oracle_strings`.
+
+## 81. ComputeBoundingBoxAndCentroid sorts instead of std::nth_element
+
+**What differs.** `geometry::normalization::compute_bounding_box_and_centroid` fully sorts
+each coordinate list (`sort_by(f64::total_cmp)`) where COLMAP partitions it with two
+`std::nth_element` calls. The bounding box (the elements at the two percentile positions) is
+the same value, and so is the multiset of elements the centroid averages, but the order they
+are summed in differs: COLMAP's is whatever libc++'s `nth_element` leaves between the two
+positions. The centroid can therefore differ from COLMAP's in the last bits.
+
+**Why.** The element order after `nth_element` is an unspecified implementation detail of the
+C++ standard library; reproducing it would mean porting libc++'s introselect for one
+rounding-level effect. Sorting satisfies every `nth_element` postcondition. Same as
+colmap-sharp entry 15.
+
+**Evidence.** `tests/geometry/normalization.rs`: normalization_test.cc passes 1:1, including
+the exact bounding boxes and the 1e-6 centroid checks.
+
+## 82. EllipsoidToUTM rejects longitude 180 instead of writing out of bounds
+
+**What differs.** `GpsTransform::ellipsoid_to_utm` returns a "Check failed" error for a point
+at longitude exactly 180. COLMAP accepts it (its range check is `lon <= 180`), maps it to zone
+61 and increments `zone_counts[60]` of a 60-element `std::array`, which is undefined behavior.
+
+**Why.** There is no defined COLMAP behavior to match, and Rust would panic on the
+out-of-bounds index. An error keeps library code panic-free and tells the caller. Longitude
+-180 (zone 1) is unaffected. colmap-sharp throws `IndexOutOfRangeException` in the same place.
+
+**Evidence.** `tests/geometry/gps.rs`, `rust_only_gps_utm_rejects_out_of_range_input`.
+
+## 83. UTMToEllipsoid latitude can differ by 1 ulp
+
+**What differs.** `GpsTransform::utm_to_ellipsoid` returns a latitude one ulp away from the
+pycolmap 4.2.0 macOS arm64 wheel on some points of `geometry_transforms.json` (colmap-sharp
+sees 2 of 80); longitude and altitude match.
+
+**Why.** The cause is not established. colmap-sharp re-derived the conversion in Python with
+the platform libm and reproduced its (and our) result exactly, and fusing the series'
+multiply-adds did not remove the mismatch, so it is neither a port bug nor the contraction of
+entry 80. We do not emulate it. Same as colmap-sharp entry 11.
+
+**Evidence.** `tests/geometry/rust_only_transforms_oracle.rs` pins `utm_to_ellipsoid` at
+1e-14 relative in `rust_only_transforms_oracle_tolerance_fields`; the observed gap is about
+7e-15 degrees.
+
+## 84. GravityFromExifOrientation does not log
+
+**What differs.** `geometry::pose_prior::gravity_from_exif_orientation` returns `None` for a
+mirrored EXIF orientation (2, 4, 5, 7) or an unknown value, as COLMAP returns
+`std::nullopt`, but it does not emit COLMAP's `LOG(WARNING)` / `LOG(ERROR)` line.
+
+**Why.** The core crate has no logging facility yet (COLMAP's glog is not ported). The
+return value, which is the function's contract, is unchanged; the log line is diagnostic only.
+When a logger lands, this entry goes away.
+
+**Evidence.** `tests/geometry/pose_prior.rs`, `pose_prior_gravity_from_exif_orientation`
+(pose_prior_test.cc 1:1) checks every `None` case.
