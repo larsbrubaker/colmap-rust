@@ -1,0 +1,24 @@
+# colmap-app: the agg-gui application (widget tree, 3D viewport, app state), shared by the
+# native shell (colmap-native) and, next, the web shell (colmap-web).
+[package]
+name = "colmap-app"
+description = "The COLMAP Rust agg-gui application: widgets, views and the 3D viewport"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "colmap_app"
+path = "src/lib.rs"
+
+[dependencies]
+agg-gui = "0.5"
+agg-gui-wgpu = "0.5.2"
+wgpu = { version = "29", default-features = false, features = ["wgsl"] }
+# 3-D camera math for the viewport only (MIT/Apache-2.0); the core library keeps its own linalg.
+glam = { version = "0.30", default-features = false, features = ["std"] }
+bytemuck = { version = "1", features = ["derive"] }

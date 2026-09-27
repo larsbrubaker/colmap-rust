@@ -71,3 +71,14 @@ determinism-preserving parallel loops.
 `colmap-gpu` may additionally use `wgpu` (MIT/Apache-2.0). The app crates may use agg-gui and
 its stack (MIT), `wasm-bindgen`/`web-sys`/`js-sys` (MIT/Apache-2.0), and permissive image
 decoders (`image`, `png`, `jpeg-decoder`/`zune-jpeg`; MIT/Apache-2.0/zlib).
+
+App crates in use today (`colmap-app`, `colmap-app-test`, `colmap-native`):
+
+| Crate / asset | License | Why |
+|---|---|---|
+| `agg-gui` 0.5, `agg-gui-wgpu` 0.5.2, `agg-gui-shell` 0.5.1 | MIT | The GUI, its wgpu renderer (custom-render hook for the 3D viewport) and the native winit shell. |
+| `wgpu` 29 | MIT/Apache-2.0 | Viewport line pipeline; native backends (Metal/Vulkan/DX12) enabled in `colmap-native` only. |
+| `glam` 0.30 | MIT/Apache-2.0 | Orbit-camera math in `colmap-app` only. The core library never uses it; it gets its own `linalg`. |
+| `bytemuck` 1 | MIT/Apache-2.0/Zlib | Casting viewport vertex / uniform data to bytes for wgpu. |
+| Noto Sans Regular (font, `colmap-app/assets/fonts/`) | SIL OFL 1.1 | UI text. Bundled font file, not code; OFL allows embedding in commercial software. |
+| Font Awesome 4.7 (font, `colmap-app/assets/fonts/`) | SIL OFL 1.1 (font) | Icons, drawn as code points through the UI font's fallback chain. |

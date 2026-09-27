@@ -42,3 +42,12 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 ```
 
+## Bundled fonts (SIL Open Font License 1.1)
+
+`colmap-app/assets/fonts/` ships two fonts, each under the SIL Open Font License 1.1
+(<https://opensource.org/licenses/OFL-1.1>); the license texts and attributions are next to them.
+
+- **Noto Sans Regular**, by The Noto Project Authors
+  (<https://github.com/notofonts/latin-greek-cyrillic>). See `Noto-LICENSE-OFL.txt`.
+- **Font Awesome 4.7.0** (font files), by Dave Gandy / Fort Awesome
+  (<https://fontawesome.io/license/>). See `font-awesome-LICENSE.md`.

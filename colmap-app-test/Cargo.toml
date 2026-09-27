@@ -1,0 +1,20 @@
+# colmap-app-test: headless UI harness over colmap-app (testing net 3). Builds the real
+# `build_app` tree with no window and no GPU and drives it with synthetic agg-gui events.
+[package]
+name = "colmap-app-test"
+description = "Headless UI test harness for the COLMAP Rust app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "colmap_app_test"
+path = "src/lib.rs"
+
+[dependencies]
+agg-gui = "0.5"
+colmap-app = { path = "../colmap-app" }

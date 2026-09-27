@@ -1,0 +1,23 @@
+# colmap-native: the desktop shell (binary `colmap-rust`). Thin glue over agg-gui-shell (winit
+# window, wgpu present, input, window-bounds persistence); all UI lives in colmap-app.
+[package]
+name = "colmap-native"
+description = "COLMAP Rust desktop app: agg-gui-shell window around colmap-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "colmap-rust"
+path = "src/main.rs"
+
+[dependencies]
+agg-gui = { version = "0.5", default-features = false, features = ["winit-adapter"] }
+agg-gui-shell = "0.5.1"
+colmap-app = { path = "../colmap-app" }
+# Native backends only; agg-gui-shell itself enables just `wgsl`.
+wgpu = { version = "29", default-features = false, features = ["wgsl", "vulkan", "dx12", "metal"] }
