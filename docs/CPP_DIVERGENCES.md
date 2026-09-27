@@ -132,3 +132,72 @@ native and wasm. Same as colmap-sharp entry 115 (its fixed-size part).
 there is no fixture to pin them; `tests/linalg/rust_only_matrix.rs` checks them against exact
 values and algebraic identities. Where a binding does reach Eigen's order (quaternion norm,
 product, matrix conversions), `tests/linalg/rust_only_rotation_oracle.rs` pins it bit for bit.
+
+## 60. StringToDouble parses with Rust's parser and rejects non-decimal spellings
+
+**What differs.** `util::string::string_to_double` (COLMAP's `StringToDouble`, also behind
+`CSVToVector<float/double>`) parses the white-space-trimmed token with Rust's `f64::from_str`
+instead of a classic-locale `std::istringstream >> double`. Both accept decimal and exponent
+notation ("1", "-0.5", ".5", "1e-3") and reject words and trailing characters. Where they could
+disagree, the Rust port rejects: a token with any character outside `0-9 . e E + -` (so
+`inf`, `nan`, `infinity` and hexadecimal floats such as `0x1p3` fail), and a value that
+overflows to infinity (libc++ sets `failbit` on `ERANGE`). Underflow to a subnormal or zero is
+accepted, where libc++ may set `failbit`.
+
+**Why.** Reproducing libc++'s `num_get` exactly would mean porting a C++ standard library for
+inputs COLMAP never writes: every string that reaches this parser in COLMAP's own formats is
+decimal output of its writers (`%g`-style or `precision(17)`), which both parsers read to the
+same, correctly rounded double. Same as colmap-sharp entry 20.
+
+**Evidence.** `tests/util/string.rs` (`string_to_double_nominal`,
+`string_to_double_locale_independence`, `rust_only_string_to_double_rejects`) and the
+`CSVToVector` cases of `tests/util/misc.rs` pass 1:1.
+
+## 61. Little-endian binary reads fail on a short stream
+
+**What differs.** COLMAP's `ReadBinaryLittleEndian<T>` reads `sizeof(T)` bytes with
+`std::istream::read` and returns whatever is in its buffer when the stream ends early (the
+stream's failbit is set, and callers do not check it per value). colmap-rust's
+`util::endian::read_binary_little_endian` returns the `std::io::Error` (`UnexpectedEof`), so
+a truncated `cameras.bin` / `images.bin` / `points3D.bin` or depth map is reported instead of
+read as garbage.
+
+**Why.** Rust's `Read::read_exact` reports the short read, and silently continuing with an
+unspecified value is not a behavior worth reproducing; on complete input the two are
+identical byte for byte. colmap-sharp made the same choice for its MVS reader (its entry 62).
+
+**Evidence.** `tests/util/endian.rs`: the ported round trips pass 1:1, and
+`rust_only_little_endian_wire_bytes_and_short_read` pins the wire bytes and the error.
+
+## 62. The timer's clock comes from the host on wasm32-unknown-unknown
+
+**What differs.** COLMAP's `Timer` reads `std::chrono::high_resolution_clock`.
+colmap-rust's `util::timer` reads `std::time::Instant` natively, but on
+`wasm32-unknown-unknown` std has no clock (`Instant::now()` panics there), so it reads a
+monotonic source (nanoseconds) that the host must install with
+`util::timer::set_clock_source`, e.g. from `performance.now()`. With none installed on that
+target, the clock stands still and every elapsed time reads 0. Elapsed microseconds are truncated from nanoseconds as COLMAP's `duration_cast` does.
+
+**Why.** The core crate must run in the browser without JavaScript bindings (no
+`wasm-bindgen` in the core, CLAUDE.md contract 1), and elapsed times only feed progress
+reports, never results.
+
+**Evidence.** `tests/util/timer.rs` passes 1:1 natively; the core crate builds for
+`wasm32-unknown-unknown`.
+
+## 63. File-extension helpers split paths only at '/'
+
+**What differs.** COLMAP's `HasFileExtension` takes a `std::filesystem::path`, whose file name
+on Windows also ends at '\'. colmap-rust's `util::file::has_file_extension` works on path
+strings and treats only '/' as a separator, on every platform. So for the Windows-style name `dir\.jpg`, `has_file_extension(.., ".jpg")`
+is true here (the whole string is the file name, and its last '.' is not its first
+character), where COLMAP on Windows sees the dot file `.jpg`, which has no extension, and
+returns false. `split_file_extension` matches
+COLMAP everywhere (COLMAP splits that one at '.' only).
+
+**Why.** The core crate has no file system and must give the same answer natively and in the
+browser, so it cannot depend on the host platform's separator rules. Hosts must pass
+'/'-normalized names, and on those the two agree.
+
+**Evidence.** `tests/util/file.rs`: the ported `file_test.cc` cases pass 1:1, and
+`rust_only_has_file_extension_edge_cases` pins the '/' rules.

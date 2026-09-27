@@ -6,7 +6,8 @@
 //! ported content (see `PORTING_PLAN.md` for the order the rest arrive in):
 //!
 //! - [`util`]: COLMAP's `util/` — the `THROW_CHECK` family ([`check!`] and friends, returning
-//!   [`util::check::ColmapError`]) and C++ stream formatting of doubles.
+//!   [`util::check::ColmapError`]), C++ stream formatting of doubles, the id types, string,
+//!   CSV, endian and path helpers, the timer, and cancellation/progress.
 //! - [`math`]: COLMAP's `math/` — so far [`math::fns`], the single choke point for
 //!   transcendental functions.
 //! - [`linalg`]: the Eigen replacement's fixed-size types (vectors, matrices up to 6x6,
