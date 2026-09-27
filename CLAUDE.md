@@ -224,6 +224,7 @@ Don't work around it in colmap-app.
 ## Commands
 
 ```bash
+cargo fmt                                             # our members only; never --all (it would reformat ../agg-gui)
 cargo build --workspace
 cargo test --workspace
 cargo test -p colmap-rust --test <module>            # one module's ported tests
