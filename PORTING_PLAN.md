@@ -34,11 +34,8 @@ wasm32, and its app view covered by a headless UI test.
 - `colmap-web` installs `util::timer::set_clock_source` from `performance.now()`.
 
 ### Phase 2 — Geometry
-Remaining (needs the decompositions; in progress): `essential_matrix`, `homography_matrix`,
-`triangulation`; pose's `AverageUnitVectors`, `AverageDirections`, `AverageQuaternions`,
-`ComputeClosestRotationMatrix`, `DecomposeProjectionMatrix`, `GravityAlignedRotation`; the 12x12
-covariances `GetCovarianceForComposedRigid3d`/`GetCovarianceForRelativeRigid3d`; their deferred
-tests in `rigid3_test.cc`/`pose_test.cc`. Also `rigid3_matchers`/`sim3_matchers` (test helpers).
+Remaining: `rigid3_matchers`/`sim3_matchers` (test helpers); tests for `triangulate_optimal_point`,
+`compute_squared_homography_error`, `compute_squared_sampson_errors_homogeneous` (COLMAP has none).
 App: camera-frustum rendering in the 3D viewport.
 
 ### Phase 3 — Sensor
