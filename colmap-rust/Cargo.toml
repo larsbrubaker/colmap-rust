@@ -1,0 +1,16 @@
+# colmap-rust core library: the pure-Rust, std-only port of COLMAP (no GUI, no GPU).
+[package]
+name = "colmap-rust"
+description = "Pure-Rust port of COLMAP (Structure-from-Motion and Multi-View Stereo)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+name = "colmap_rust"
+path = "src/lib.rs"
+
+[dependencies]

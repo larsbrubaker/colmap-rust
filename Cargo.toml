@@ -1,0 +1,63 @@
+# colmap-rust workspace: a pure-Rust port of COLMAP 4.2.0 (see CLAUDE.md, PORTING_PLAN.md).
+#
+# Members today: the core library only. Phase 0 adds, in order: colmap-gpu (wgpu compute),
+# colmap-app (the agg-gui application), colmap-app-test (headless UI tests), colmap-native
+# (desktop shell) and colmap-web (wasm shell).
+[workspace]
+resolver = "2"
+members = [
+    "colmap-rust",
+    # "colmap-gpu",
+    # "colmap-app",
+    # "colmap-app-test",
+    # "colmap-native",
+    # "colmap-web",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+license = "MIT"
+authors = ["Lars Brubaker <larsbrubaker@matterhackers.com>"]
+repository = "https://github.com/larsbrubaker/colmap-rust"
+
+# ---------------------------------------------------------------------------
+# Debug-build optimization. BOTH sections below are required — do not "simplify"
+# by deleting either one.
+#
+# `[profile.dev.package."*"]` applies to DEPENDENCIES ONLY; Cargo does not apply
+# it to workspace members. But generic and `#[inline]` code from agg-gui and wgpu
+# is monomorphized into the *calling* crate, so those instantiations are codegen'd
+# inside our workspace members and inherit the member's opt-level. With the member
+# opt-level left at 0, the dependency override is silently defeated in exactly the
+# hottest code path.
+#
+# Measured (in AtomArtist): the wgpu render-pass walk in `WgpuGfxCtx::end_frame`
+# ran 118 ms/frame with only the `package."*"` override, and 3.7 ms/frame once
+# workspace members also got an opt-level — total frame time 120-200 ms down to
+# ~11 ms, i.e. release parity. `debug-assertions` and debuginfo are untouched, so
+# assertions and backtraces still work.
+#
+# opt-level 1 (not 2) for workspace members is a deliberate balance: it recovers
+# essentially all of the runtime win while keeping incremental compiles fast,
+# since member crates are the ones we recompile constantly.
+# ---------------------------------------------------------------------------
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+
+# ---------------------------------------------------------------------------
+# Local agg-gui sources
+# ---------------------------------------------------------------------------
+# agg-gui comes from crates.io. To develop against a local checkout next to this
+# repo (../rust-apps/agg-gui), uncomment this block.
+#
+# [patch.crates-io]
+# agg-gui       = { path = "../rust-apps/agg-gui/agg-gui" }
+# agg-gui-wgpu  = { path = "../rust-apps/agg-gui/agg-gui-wgpu" }
+# agg-gui-shell = { path = "../rust-apps/agg-gui/agg-gui-shell" }
