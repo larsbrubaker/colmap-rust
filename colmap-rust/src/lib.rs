@@ -7,8 +7,9 @@
 //!
 //! - [`util`]: COLMAP's `util/` — the `THROW_CHECK` family ([`check!`] and friends, returning
 //!   [`util::check::ColmapError`]) and C++ stream formatting of doubles.
-//! - [`math`]: COLMAP's `math/` — so far [`math::fns`], the single choke point for
-//!   transcendental functions.
+//! - [`math`]: COLMAP's `math/` without linear algebra — [`math::fns`] (the single choke point
+//!   for transcendental functions), `math.h`'s scalar helpers, the mt19937 PRNG with libc++'s
+//!   distributions ([`math::random`]), union find, connected components and spanning trees.
 
 pub mod math;
 pub mod util;

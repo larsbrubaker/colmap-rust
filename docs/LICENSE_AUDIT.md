@@ -23,7 +23,7 @@ Cholesky, the Delaunay tetrahedralization, the PatchMatch random generator, the 
 may be ported to Rust freely. Code *it* ported from an upstream (Ceres, PoseLib, VLFeat,
 PoissonRecon, libc++) carries that upstream's notice here too. The decisions table below is
 colmap-sharp's; file paths in it name colmap-sharp files, and the Rust port keeps the same
-module layout (`ColmapSharp/Mathematics/LibcxxRandom.cs` → `colmap-rust/src/math/libcxx_random.rs`).
+module layout (`ColmapSharp/Mathematics/LibcxxRandom.cs` → `colmap-rust/src/math/random/libcxx.rs`).
 
 ## COLMAP's own source (BSD-3-Clause): port freely
 
