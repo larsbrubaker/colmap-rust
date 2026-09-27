@@ -120,6 +120,19 @@ Mirror colmap-sharp's "Skipped tests" list as each module is ported (bitmap file
 SQLite files, Ceres internals not ported, CUDA/GPU, SiftGPU, ONNX, vocabulary tree), adapting
 reasons to Rust. Every skipped COLMAP test is listed here by name when its file is ported.
 
+## agg-gui upstream queue
+Found while building colmap-app (Phase 0b). Fix in agg-gui, release, then remove the workaround here:
+- `WgpuCustomRenderCtx::parent_clip`'s doc says `[x,y,w,h]` top-down, but it is stored Y-up
+  (`[x, y_bottom, w, h]`, `ctx_core::compute_scissor`). Fix the doc or the representation, and add a
+  readback test. Workaround: `colmap-app/src/viewport_render.rs::clip_to_top_down`.
+- Stock widgets have no id setter, so reflection tests can't find them. Workaround: `Tagged`.
+- A `Spacer` in a `FlexRow` reports the row's full height. Workaround: `row_filler()`.
+- A wrapper's child doesn't get the parent's final `set_bounds`; wrappers must fill stretch axes
+  themselves.
+- agg-gui-shell needs a ready-made file-backed `WindowBoundsStore`. Workaround:
+  `colmap-native/src/bounds_store.rs`.
+- (In progress) `agg-gui-web-shell`: a published web shell crate.
+
 ## Decisions
 - **Web runs single-threaded.** GitHub Pages can't send the COOP/COEP headers that
   SharedArrayBuffer (and so wasm threads / rayon) needs, and we accept that cost: on the web,

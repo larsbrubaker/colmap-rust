@@ -180,6 +180,24 @@ depends on agg-gui or wgpu, so it stays usable from other hosts (and testable wi
 agg-gui comes from crates.io. To develop against local agg-gui sources, uncomment the
 `[patch.crates-io]` block in the root `Cargo.toml` (it points at `../agg-gui`).
 
+## agg-gui is ours: fix it upstream
+
+colmap-rust is allowed, and expected, to change agg-gui (`../agg-gui`, github.com/larsbrubaker/agg-gui)
+from here. When the app hits an agg-gui bug, a missing feature, or a wrong doc, fix it in agg-gui.
+Don't work around it in colmap-app.
+
+- Do the agg-gui change as its own step, following agg-gui's own CLAUDE.md: a test-first bug fix,
+  the 800-line limit, and its CI green (including its Pages demo and Playwright tests when the
+  change touches rendering or the web shell).
+- Develop against it with the root `[patch.crates-io]` block. colmap-rust's `main` depends on
+  published versions, so land the agg-gui change, publish the crate (Lars confirms each crates.io
+  publish), and then bump colmap-rust's version requirement.
+- A short-lived workaround is allowed only while the upstream fix is in flight. It carries a
+  `// agg-gui workaround:` comment that names the agg-gui change which removes it, and it is
+  deleted when that change is released.
+- Implementers who find an agg-gui gap report it and don't patch agg-gui themselves unless
+  their brief says so. The orchestrator schedules the upstream step.
+
 ## Coding standards
 
 - **800-line limit per file**, enforced by `file_compliance`. No exemptions. If a port would
