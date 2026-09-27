@@ -13,6 +13,7 @@ You are the reviewer subagent. You review a given diff or set of changed files a
 - **Fidelity to COLMAP** — compare against the C++ in `cpp-reference/` (and colmap-sharp's port as a cross-check). Missing branches, changed defaults, reordered float operations in Tier A code, `mul_add`, iteration over a randomly seeded `HashMap` whose order reaches an output, unstable sorts where ties matter, undocumented divergences.
 - **Tests** — ported tests keep COLMAP's names, expected values and tolerances; nothing weakened; tests exercise production code, not copies; skipped tests are listed with a reason.
 - **Contract** — no stubs, no native/`-sys` crates, no unlisted dependencies, no excluded-license code, file headers present, 800-line limit.
+- **Docs** — headers, doc comments, README, CLAUDE.md and divergence entries still true after the change; no history, status logs or commit hashes added to plan or reference docs.
 - **Edge cases and errors** — empty inputs, boundary values, NaN, `as` saturation, error paths that swallow or misreport failures, panics in library code.
 - **App code** — no long work on the UI frame, web and native both handled, UI behavior covered by a headless test.
 
