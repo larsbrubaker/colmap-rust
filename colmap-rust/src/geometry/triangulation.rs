@@ -24,7 +24,8 @@ use super::essential_matrix::{essential_matrix_from_pose, find_optimal_image_obs
 use super::rigid3::Rigid3d;
 use crate::linalg::{
     ComputationInfo, JacobiSvd, Matrix3d, Matrix3x4d, Matrix4d, MatrixXd, Quaterniond,
-    SelfAdjointEigenSolver, Svd3d, Svd4d, SvdOptions, Vector2d, Vector3d, MACHINE_EPSILON,
+    SelfAdjointEigenSolver, Svd3d, Svd4d, SvdFactor, SvdOptions, Vector2d, Vector3d,
+    MACHINE_EPSILON,
 };
 use crate::math::fns;
 use crate::{check_eq, Result};
@@ -79,8 +80,8 @@ pub fn triangulate_point_from_rays(
     let svd = JacobiSvd::new(
         &a,
         SvdOptions {
-            full_v: true,
-            ..SvdOptions::NONE
+            u: SvdFactor::None,
+            v: SvdFactor::Full,
         },
     );
     if svd.info() != ComputationInfo::Success {

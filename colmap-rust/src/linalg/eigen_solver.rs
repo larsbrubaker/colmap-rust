@@ -36,7 +36,7 @@
 //! `rust_only_spectral_oracle.rs`.
 
 use super::complex::{Complex, ComplexMatrixXd};
-use super::eigen_solver_vectors::compute_eigenvectors;
+use super::eigen_solver_vectors;
 use super::householder;
 use super::{dot, ComputationInfo, MatrixXd, MACHINE_EPSILON};
 use crate::math::fns;
@@ -57,7 +57,7 @@ impl EigenSolver {
     ///
     /// # Panics
     /// When `a` is not square (programmer error, colmap-sharp's ArgumentException).
-    pub fn new(a: &MatrixXd, compute_eigenvectors_flag: bool) -> Self {
+    pub fn new(a: &MatrixXd, compute_eigenvectors: bool) -> Self {
         assert!(
             a.rows() == a.cols(),
             "Matrix must be square, got {}x{}.",
@@ -70,7 +70,9 @@ impl EigenSolver {
         if a.as_slice().iter().any(|value| !value.is_finite()) {
             return Self {
                 eigenvalues: vec![nan; n],
-                eigenvectors: None,
+                // Requested eigenvectors come back NaN-filled, like JacobiSvd's U/V, so
+                // `eigenvectors()` never panics on bad data (docs/CPP_DIVERGENCES.md entry 32).
+                eigenvectors: compute_eigenvectors.then(|| ComplexMatrixXd::filled(n, n, nan)),
                 info: ComputationInfo::InvalidInput,
             };
         }
@@ -93,7 +95,7 @@ impl EigenSolver {
         // diagonal blocks, so the QR sweeps touch just the active window (LAPACK dhseqr's
         // wantt = wantz = false). Every entry inside the window gets the same operations in
         // the same order either way, so the eigenvalues are bit-identical to the full run.
-        let mut z = if compute_eigenvectors_flag {
+        let mut z = if compute_eigenvectors {
             Some(MatrixXd::identity(n))
         } else {
             None
@@ -104,12 +106,12 @@ impl EigenSolver {
         }
         let converged = {
             let z_data: &mut [f64] = z.as_mut().map_or(&mut [][..], |z| z.as_mut_slice());
-            compute_real_schur(t.as_mut_slice(), n, z_data, compute_eigenvectors_flag)
+            compute_real_schur(t.as_mut_slice(), n, z_data, compute_eigenvectors)
         };
         if !converged {
             return Self {
                 eigenvalues: vec![nan; n],
-                eigenvectors: None,
+                eigenvectors: compute_eigenvectors.then(|| ComplexMatrixXd::filled(n, n, nan)),
                 info: ComputationInfo::NoConvergence,
             };
         }
@@ -129,7 +131,8 @@ impl EigenSolver {
             i += 1;
         }
 
-        let eigenvectors = z.map(|z| compute_eigenvectors(&t, &z, &eigenvalues));
+        let eigenvectors =
+            z.map(|z| eigen_solver_vectors::compute_eigenvectors(&t, &z, &eigenvalues));
 
         for value in &mut eigenvalues {
             *value *= scale;
@@ -155,11 +158,12 @@ impl EigenSolver {
     /// The unit-norm eigenvectors as columns (`m[(row, column)]`). A copy.
     ///
     /// # Panics
-    /// When eigenvectors were not requested (or the solve failed).
+    /// When eigenvectors were not requested. On non-finite input or no convergence they are
+    /// NaN-filled.
     pub fn eigenvectors(&self) -> ComplexMatrixXd {
         self.eigenvectors
             .clone()
-            .expect("Eigenvectors were not requested.")
+            .expect("Eigenvectors were not requested (compute_eigenvectors was false).")
     }
 }
 

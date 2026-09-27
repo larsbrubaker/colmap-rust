@@ -11,10 +11,10 @@
 //! - [`graph_cut`] (Stoer-Wagner min cut, normalized k-way cut), [`graph_cut_min_st`]
 //!   (`MinSTGraphCut`, Boykov-Kolmogorov max-flow) and [`graph_cut_partitioner`] (the
 //!   multilevel partitioner that replaces METIS): `graph_cut.h`/`graph_cut.cc`.
-//!
-//! - [`matrix`]: `matrix.h`, the RQ decomposition.
-//!
-//! `polynomial` is not ported yet.
+//! - [`polynomial`]: `polynomial.h`/`polynomial.cc`, evaluation and root finding (linear,
+//!   quadratic, cubic, Durand-Kerner, companion matrix).
+//! - [`matrix`]: `matrix.h`, `DecomposeMatrixRQ`.
+//! - [`random_eigen`]: `random_eigen.h`, random vectors/matrices/quaternions from the PRNG.
 
 pub mod connected_components;
 pub mod fns;
@@ -22,6 +22,7 @@ pub mod graph_cut;
 pub mod graph_cut_min_st;
 pub mod graph_cut_partitioner;
 pub mod matrix;
+pub mod polynomial;
 pub mod random;
 pub mod random_eigen;
 pub mod spanning_tree;

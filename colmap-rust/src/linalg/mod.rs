@@ -182,6 +182,6 @@ mod self_adjoint_eigen_solver;
 mod svd_fixed;
 pub use complex::{Complex, ComplexMatrixXd};
 pub use eigen_solver::EigenSolver;
-pub use jacobi_svd::{JacobiSvd, SvdOptions};
+pub use jacobi_svd::{JacobiSvd, SvdFactor, SvdOptions};
 pub use self_adjoint_eigen_solver::SelfAdjointEigenSolver;
 pub use svd_fixed::{Svd3d, Svd4d};

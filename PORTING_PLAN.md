@@ -29,18 +29,20 @@ wasm32, and its app view covered by a headless UI test.
   `web/playwright.config.ts` get an adapter, and that `colmap-native` builds on Linux and Windows.
 
 ### Phase 1 — Math, linear algebra, util
-- `math/polynomial`, `math/matrix.h`, `math/random_eigen` (need the decompositions).
 - The rest of `util/` that later phases need: `IdMap`, the libc++ `unordered_map` emulation,
   `Cache`, PLY I/O, `enum_utils`, `timestamp` (port each when its first user lands).
 - `colmap-web` installs `util::timer::set_clock_source` from `performance.now()`.
 
 ### Phase 2 — Geometry
-`geometry/`: `rigid3`, `sim3`, `pose`, `essential_matrix`, `homography_matrix`,
-`triangulation`, `normalization`, `bbox`, `gps`, `pose_prior`.
+Remaining (needs the decompositions; in progress): `essential_matrix`, `homography_matrix`,
+`triangulation`; pose's `AverageUnitVectors`, `AverageDirections`, `AverageQuaternions`,
+`ComputeClosestRotationMatrix`, `DecomposeProjectionMatrix`, `GravityAlignedRotation`; the 12x12
+covariances `GetCovarianceForComposedRigid3d`/`GetCovarianceForRelativeRigid3d`; their deferred
+tests in `rigid3_test.cc`/`pose_test.cc`. Also `rigid3_matchers`/`sim3_matchers` (test helpers).
 App: camera-frustum rendering in the 3D viewport.
 
 ### Phase 3 — Sensor
-`sensor/models` (all camera models, Tier A incl. iterative undistortion), `rig`, `specs`,
+Remaining (in progress): `rig`, `specs`,
 `bitmap` (pixel buffer; the app decodes images), EXIF focal-length reader.
 App: image loading (native file dialog / browser file picker + drag-drop), an image browser,
 and a camera-model undistortion preview.

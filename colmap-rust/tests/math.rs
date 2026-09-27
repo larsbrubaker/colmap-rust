@@ -23,10 +23,16 @@ mod graph_cut;
 mod math;
 #[path = "math/matrix.rs"]
 mod matrix;
+#[path = "math/polynomial.rs"]
+mod polynomial;
 #[path = "math/random.rs"]
 mod random;
+#[path = "math/random_eigen.rs"]
+mod random_eigen;
 #[path = "math/rust_only_graph_cut.rs"]
 mod rust_only_graph_cut;
+#[path = "math/rust_only_polynomial_matrix.rs"]
+mod rust_only_polynomial_matrix;
 #[path = "math/rust_only_random_oracle.rs"]
 mod rust_only_random_oracle;
 #[path = "math/spanning_tree.rs"]

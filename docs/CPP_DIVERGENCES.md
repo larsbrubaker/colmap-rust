@@ -194,6 +194,10 @@ sorting and signs on a diagonal, shapes, non-finite input, underflow at 1e-170, 
 Algorithms 8.5.1/8.5.3) on the input divided by its largest |entry|. Eigen's documented
 contract is kept: only the lower triangle is read, eigenvalues increase (ties keep diagonal
 order), eigenvectors are normalized columns. Eigenvector signs, the basis inside a repeated
+eigenvalue's eigenspace and the last bits can differ. On non-finite input (`info()` is
+`InvalidInput`) the eigenvalues are NaN and, when eigenvectors were requested, the
+eigenvector matrix is NaN-filled, as `JacobiSvd` fills U and V, where Eigen leaves them
+unspecified; `eigenvectors()` panics only when they were not requested. Tier B.
 eigenvalue's eigenspace and the last bits can differ. Tier B.
 
 **Why.** Eigen is MPL-2.0 and not ported; Jacobi is simple, accurate to high relative precision
@@ -205,6 +209,8 @@ entry).
 **Evidence.** `rust_only_spectral_oracle.rs`: 4 numpy (dsyevd) cases including repeated and
 zero eigenvalues: eigenvalues within 4e-12, simple eigenvectors within 1e-9 up to sign, V
 orthonormal and V D V^T == A within 1e-12. `rust_only_spectral_eigen.rs` pins the lower-triangle
+read, ascending order, scales 1e-170 / 1e160, and the NaN-filled eigenvectors on 1x1 NaN
+input.
 read, ascending order and scales 1e-170 / 1e160.
 
 ## 32. EigenSolver: eigenvalues in our Schur-block order, complex eigenvectors in our phase
@@ -220,6 +226,9 @@ first, eigenvectors unit-norm columns, real for a real eigenvalue. What can diff
 the eigenvalues (our deflation order vs Eigen's), each eigenvector's sign and, for complex
 vectors, its phase (the block eigenvector starts as (b, lambda - a) and is scaled to unit norm
 without rotation), and last bits. The eigenvalues-only solve is bit-identical to the full
+solve. On non-finite input (`InvalidInput`) or no convergence (`NoConvergence`) the eigenvalues
+are NaN and requested eigenvectors are NaN-filled (Eigen leaves them unspecified);
+`eigenvectors()` panics only when they were not requested. Complex arithmetic (`linalg::Complex`) follows .NET's `System.Numerics.Complex`
 solve. Complex arithmetic (`linalg::Complex`) follows .NET's `System.Numerics.Complex`
 operators (Smith division), so results match colmap-sharp. Tier B.
 
@@ -234,6 +243,8 @@ colmap-sharp entry 30 notes the Schur order only as it affects the six-point sol
 companion matrices, a defective Jordan-block matrix): eigenvalues matched as a multiset within
 1e-9 (1e-7 defective), ||A v - lambda v|| within the same, unit norm within 1e-12, real vectors
 exactly real. `rust_only_spectral_eigen.rs` pins pair order, eigenvalues-only == full solve
+bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion matrix,
+1e200-scaled input, and the NaN-filled eigenvectors on 1x1 NaN input.
 bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion matrix, and
 1e200-scaled input.
 
@@ -440,6 +451,79 @@ give 16x).
 
 Same as colmap-sharp entry 77.
 
+## 50. Durand-Kerner divides complex numbers with Smith's algorithm, not libc++'s
+
+**What differs.** `FindPolynomialRootsDurandKerner` divides `std::complex<double>` values;
+libc++'s `operator/` rescales both operands by `logb`/`scalbn` of the divisor's larger part and
+then applies the textbook formula (which Apple clang may also FMA-contract).
+`colmap-rust/src/math/polynomial.rs` uses `linalg::Complex`'s division, Smith's algorithm in
+.NET's branch order, so each Newton-like update can differ in the last bits, and after up to 100
+iterations the roots can differ at the 1e-10 convergence threshold. The `+ double` step of the
+Horner evaluation adds to the real part only, as libc++ does. Tier B. Same as colmap-sharp's
+choice (documented in its `Mathematics/Polynomial.cs` header rather than as a numbered entry).
+
+**Why.** Reproducing libc++'s division bit for bit would also need Apple clang's contraction
+decisions; the iteration's contract is convergence to the roots, which both divisions meet.
+Sharing `linalg::Complex` keeps colmap-rust and colmap-sharp on identical bits.
+
+**Evidence.** `tests/math/polynomial.rs`: `find_polynomial_roots_durand_kerner_nominal` matches
+COLMAP's reference roots within 1e-6 in COLMAP's order, and
+`find_cubic_polynomial_roots_multi_root` agrees with the closed form within 1e-4.
+`rust_only_companion_matrix_agrees_with_durand_kerner_on_real_roots` checks a quartic with
+known roots to 1e-8.
+
+## 51. Companion-matrix roots come in our EigenSolver's order
+
+**What differs.** `FindPolynomialRootsCompanionMatrix` returns the companion matrix's
+eigenvalues in the order the eigen solver produces them. COLMAP's come from Eigen's
+`EigenSolver`; ours from `linalg::EigenSolver` (entry 32), whose Schur deflation order can
+differ from Eigen's for some inputs, and whose values can differ in the last bits. A complex
+pair still lists `+imag` first, and the zero root added for trailing zero coefficients is still
+last. Tier B. Same as colmap-sharp (its `Mathematics/Polynomial.cs` header).
+
+**Why.** Eigen is not ported (entry 32). COLMAP's callers (the minimal solvers) treat the roots
+as a set.
+
+**Evidence.** `tests/math/polynomial.rs`: `find_polynomial_roots_companion_matrix_nominal` and
+`_zero_solution` match COLMAP's reference roots within 1e-6 in COLMAP's listed order, so on
+these cases the order is Eigen's.
+
+## 52. Polynomial root outputs are returned, not written through nullable pointers
+
+**What differs.** COLMAP's root finders take `Eigen::VectorXd* real, Eigen::VectorXd* imag`
+(either may be null) and return `bool`; `colmap-rust/src/math/polynomial.rs` returns
+`Result<Option<PolynomialRoots>>` with both parts always computed (`None` for `false`, `Err`
+for a failed `THROW_CHECK`). On `false`, COLMAP leaves the caller's vectors untouched; there is
+nothing to leave here. `FindCubicPolynomialRoots` writes only its first `num_roots` entries of
+the caller's `Vector3d`; `find_cubic_polynomial_roots` returns `(num_roots, Vector3d)` with the
+unused entries zero. Same as colmap-sharp's port (C# `out` parameters, always filled, unused
+cubic entries zero).
+
+**Why.** Rust has no nullable output references worth mirroring, and computing both parts
+costs nothing measurable. No COLMAP caller reads the untouched entries.
+
+**Evidence.** `rust_only_cubic_leaves_unused_entries_zero` and
+`rust_only_polynomial_constant_has_no_roots` in `tests/math/rust_only_polynomial_matrix.rs`;
+the ported `CHECK_EQUAL_RESULT` cases compare the full outputs.
+
+## 53. DecomposeMatrixRQ goes through our Householder QR
+
+**What differs.** `DecomposeMatrixRQ` factors the flipped transpose with
+`Eigen::HouseholderQR`; `colmap-rust/src/math/matrix.rs` uses `linalg::HouseholderQr`
+(colmap-sharp's port, not Eigen's blocked implementation), so R and Q can differ from COLMAP's
+in the last bits. The algorithm around the QR (flips, zeroing loop, `det(Q) > 0`
+normalization with the caller's matrix type's determinant) is COLMAP's. The template becomes
+three entry points: `decompose_matrix_rq` (`MatrixXd`, `Err` unless square),
+`decompose_matrix_rq_3d` and `decompose_matrix_rq_4d`. Tier B. Same as colmap-sharp
+(`Mathematics/MatrixUtils.cs` header).
+
+**Why.** Eigen is MPL-2.0 and not ported.
+
+**Evidence.** `tests/math/matrix.rs`: `decompose_matrix_rq_nominal` (COLMAP's 1e-6 tolerances,
+upper-triangular and unitary at Eigen's default precision).
+`rust_only_decompose_matrix_rq_dynamic_and_3d` covers 2x2/3x3/5x5 at 1e-9 and pins the 3x3
+entry point to the dynamic one bit for bit.
+
 ## 60. StringToDouble parses with Rust's parser and rejects non-decimal spellings
 
 **What differs.** `util::string::string_to_double` (COLMAP's `StringToDouble`, also behind
@@ -632,3 +716,99 @@ normal and points agree with pycolmap within 1e-12 / 1e-11 / 1e-10 relative.
 `tests/geometry/homography_matrix.rs` (homography_matrix_test.cc 1:1) passes, including the
 noise-free `pose_from_homography_matrix_nominal`. colmap-sharp documents the same behavior in
 its `Geometry/HomographyMatrix.cs` header and fixture generator (no numbered entry there).
+## 100. FMA contraction in the camera models
+
+**What differs.** Camera model projection (`camera_model_img_from_cam`) and ray unprojection
+(`camera_model_cam_ray_from_img`) of every perspective model, and `camera_model_cam_from_img`
+of the fisheye, division, FOV and EUCM models, differ from the pycolmap 4.2.0 macOS arm64
+wheel by a few ulps on part of the inputs (at most 2e-14 relative to max(1, |value|) in the
+fixture). Which calls succeed or fail never differs. Same as colmap-sharp entry 12.
+
+**Why.** The wheel is built with contraction on and fuses multiply-adds that sit in one C++
+statement, e.g. `*x = f * *x + c1` in every model's `ImgFromCam` and `u * u + v * v + 1.0`
+in `CamRayFromImg`. colmap-rust never uses FMA in math paths (CLAUDE.md, "No FMA"), so its
+results are the same on every platform. The iterative undistortion runs its distortion on
+`ceres::Jet`, whose operators are separate function calls that clang does not contract, and
+matches the wheel bit for bit. The models that call `sin`/`cos`/`tan`/`atan`/`atan2` (the
+fisheye models, FOV, EQUIRECTANGULAR) also go through the `libm` crate rather than Apple libm
+(entry 1), which can move the same outputs by an ulp; colmap-sharp holds EQUIRECTANGULAR
+bit-exact because .NET calls the platform libm, colmap-rust does not.
+
+**Evidence.** `oracle/camera_models.py` prints it: re-deriving SIMPLE_RADIAL's projected x with
+the unfused formula matches the wheel on 64/75 and 60/75 points of the two parameter sets,
+and on 75/75 with only `f * x + c1` fused; PINHOLE's ray z matches on 98/101 plain and
+101/101 with `u*u + v*v` fused. `tests/sensor/rust_only_camera_model_oracle.rs` requires
+bit-identical `CamFromImg` for the plain pinholes and the models that unproject through the
+iterative undistortion (SIMPLE_RADIAL, RADIAL, OPENCV, FULL_OPENCV) and the pixel threshold,
+and pins everything else at 2e-14 relative to max(1, |value|).
+
+**Related, not observed here.** C++ `EquirectangularCameraModel` evaluates
+`2.0 * EIGEN_PI * (...)` with `EIGEN_PI` a `long double` literal, so on x86-64 Linux (80-bit
+long double) its results may differ from both the macOS wheel (where long double is double)
+and colmap-rust, which uses `std::f64::consts::PI`.
+
+## 101. An unknown camera model id: an error at the boundary functions, a panic on the per-point path
+
+**What differs.** COLMAP's camera model dispatch functions all throw
+`std::domain_error("Camera model does not exist")` for an id outside `CAMERA_MODEL_CASES`.
+colmap-rust splits them:
+- The metadata and validation functions that COLMAP calls at input boundaries
+  (`camera_model_initialize_params`, `camera_model_params_info`, the four index-group getters,
+  `camera_model_num_params`, `camera_model_verify_params`, `camera_model_has_bogus_params`)
+  return `Err` with `ErrorKind::DomainError` and COLMAP's message, the Rust form of the throw.
+- The per-point functions (`camera_model_img_from_cam`, `camera_model_cam_from_img`,
+  `camera_model_cam_ray_from_img`, `camera_model_cam_from_img_threshold`,
+  `camera_model_rescale`, `camera_model_is_perspective`, `..._is_perspective_pinhole`,
+  `..._is_spherical`) stay infallible and panic with the same message.
+- The functions COLMAP answers without throwing (`CameraModelNameToId` returns `kInvalid`,
+  `CameraModelIdToName` returns "", `ExistsCameraModelWithId`,
+  `CameraModelIsPerspectiveFisheye`) answer the same way here.
+Separately, a C++ enum class can hold any integer (`static_cast<CameraModelId>(123456789)`); a
+Rust `CameraModelId` holds only named enumerators, so a raw value is checked once, at
+`CameraModelId::from_i32`, which returns `None` for an unnamed value. The only unknown id that
+reaches a dispatch function is therefore `CameraModelId::Invalid`.
+
+**Why.** COLMAP does pass `kInvalid` into dispatch at its input boundaries: the text reader
+(`scene/reconstruction_io_text.cc`, around line 140) looks a model name up with
+`CameraModelNameToId` and calls `CameraModelNumParams` / `CameraModelVerifyParams` on the
+result without an existence check, and `camera_test.cc` expects `VerifyParams` on a default
+(`kInvalid`) `Camera` to throw `domain_error`. A misspelled model in a user's `cameras.txt`
+must be a recoverable error (in the web app a panic would abort the app), so those functions
+return `Result`. The per-point functions run once per point in every projection, residual and
+undistortion loop, where a `Result` would cost every caller for a condition that cannot occur
+once the camera is validated, so they keep a panic: an internal invariant, where CLAUDE.md's
+error rule allows one.
+
+**Obligation on later phases.** Every path that creates a camera from outside data must
+validate the id through the fallible functions before any per-point call: Phase 4's
+`Camera::verify_params` (returning the error, as `camera_test.cc` expects), the camera
+readers (text, binary, database) and `Camera::create_from_model_name` /
+`create_from_model_id` propagate the `DomainError`; nothing may call a per-point function on
+an unverified `Camera`.
+
+**Evidence.** `tests/sensor/models.rs` ports `models_test.cc` 1:1, including the
+`ExistsCameraModelWithId(static_cast<CameraModelId>(123456789))` check through `from_i32`.
+`tests/sensor/rust_only_models.rs` checks that every boundary function returns
+`Err(DomainError, "Camera model does not exist")` for `Invalid` and that projection and
+unprojection panic with that message.
+
+## 102. The analytic projection Jacobians are unfused and use pure-Rust libm
+
+**What differs.** The `ImgFromCamWithJac` kernels (`sensor/models/jacobian*.rs`, port of
+`models_jacobian.h`) and `camera_model_img_from_cam_with_jac` keep COLMAP's operation order
+but evaluate every multiply-add unfused, and the fisheye, FOV and EQUIRECTANGULAR kernels call
+`atan`/`tan`/`atan2` through the `libm` crate. A clang build with contraction on (the pycolmap
+macOS wheel) can therefore differ in the last bits of the pixel and of the Jacobian entries.
+EQUIRECTANGULAR's `kInv2Pi = 1.0 / (2.0 * EIGEN_PI)` and `kInvPi` are `long double`
+expressions in C++; computed from `f64` pi here, they round to the same doubles on every
+platform (checked at 64-bit and 113-bit long double mantissas), so they are not a source of
+difference.
+
+**Why.** Same causes as entries 1 and 100: colmap-rust never uses FMA in math paths and routes
+transcendentals through `math::fns` so native and wasm agree bit for bit.
+
+**Evidence.** `src/sensor/models/jacobian_tests.rs` ports `models_jacobian_test.cc` 1:1: every
+kernel matches `ImgFromCam` differentiated with the Jet to COLMAP's 1e-10, and the dispatch
+matches the typed kernel. pycolmap exposes these kernels only inside its essential-matrix
+estimators (through `Camera::CamRayFromImgWithJac`), so there is no
+oracle fixture for these kernels.

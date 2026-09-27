@@ -247,3 +247,38 @@ fn rust_only_full_piv_lu_rank_of_collinear_columns() {
     assert_eq!(FullPivLu::new(&a).rank(), 1);
     assert_eq!(FullPivLu::new(&MatrixXd::identity_rect(3, 5)).rank(), 3);
 }
+
+// Degenerate input with eigenvectors requested: the factor is NaN-filled (as JacobiSvd's U/V
+// are), so `eigenvectors()` never panics on bad data (docs/CPP_DIVERGENCES.md entry 31).
+#[test]
+fn rust_only_self_adjoint_eigen_solver_nan_input_gives_nan_eigenvectors() {
+    let a = MatrixXd::from_row_major(1, 1, &[f64::NAN]);
+    let solver = SelfAdjointEigenSolver::new(&a, true);
+    assert_eq!(solver.info(), ComputationInfo::InvalidInput);
+    assert!(solver.eigenvalues()[0].is_nan());
+    let v = solver.eigenvectors();
+    assert_eq!((v.rows(), v.cols()), (1, 1));
+    assert!(v[(0, 0)].is_nan());
+    let without = SelfAdjointEigenSolver::new(&a, false);
+    let message = std::panic::catch_unwind(|| without.eigenvectors())
+        .expect_err("unrequested eigenvectors must panic");
+    let text = message
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| message.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default();
+    assert!(text.contains("not requested"), "{text}");
+}
+
+// Same contract for the general solver (docs/CPP_DIVERGENCES.md entry 32).
+#[test]
+fn rust_only_eigen_solver_nan_input_gives_nan_eigenvectors() {
+    let a = MatrixXd::from_row_major(1, 1, &[f64::NAN]);
+    let solver = EigenSolver::new(&a, true);
+    assert_eq!(solver.info(), ComputationInfo::InvalidInput);
+    let v = solver.eigenvectors();
+    assert_eq!((v.rows(), v.cols()), (1, 1));
+    assert!(v[(0, 0)].re.is_nan() && v[(0, 0)].im.is_nan());
+    let without = EigenSolver::new(&a, false);
+    assert!(std::panic::catch_unwind(|| without.eigenvectors()).is_err());
+}

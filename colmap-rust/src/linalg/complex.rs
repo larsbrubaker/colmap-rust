@@ -185,6 +185,15 @@ impl ComplexMatrixXd {
         }
     }
 
+    /// The rows x cols matrix with every coefficient `value`.
+    pub fn filled(rows: usize, cols: usize, value: Complex) -> Self {
+        Self {
+            rows,
+            cols,
+            data: vec![value; rows * cols],
+        }
+    }
+
     /// Number of rows.
     pub fn rows(&self) -> usize {
         self.rows

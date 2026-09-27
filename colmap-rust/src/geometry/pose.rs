@@ -21,7 +21,7 @@ use super::rigid3::{cross_product_matrix, Rigid3d};
 use super::sim3::Sim3d;
 use crate::linalg::{
     AngleAxisd, HouseholderQr, JacobiSvd, Matrix3d, Matrix3x2d, Matrix3x4d, MatrixXd, Quaterniond,
-    Svd3d, SvdOptions, Vector3d, VectorXd,
+    Svd3d, SvdFactor, SvdOptions, Vector3d, VectorXd,
 };
 use crate::math::fns;
 use crate::math::matrix::decompose_matrix_rq_3d;
@@ -246,8 +246,8 @@ pub fn average_unit_vectors(vectors: &MatrixXd, weights: &VectorXd) -> Result<Ve
     let svd = JacobiSvd::new(
         &a,
         SvdOptions {
-            full_u: true,
-            ..SvdOptions::NONE
+            u: SvdFactor::Full,
+            v: SvdFactor::None,
         },
     );
     let mut average = svd.matrix_u().col(0);
