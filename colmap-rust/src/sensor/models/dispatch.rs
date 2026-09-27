@@ -4,10 +4,17 @@
 //! the model type, so a dispatched call is the same computation as calling the model
 //! directly (COLMAP's tests check `EXPECT_EQ` between the two).
 //!
-//! An unknown model id is COLMAP's `std::domain_error("Camera model does not exist")`, which
-//! here is a panic with that message: the only unknown id a Rust [`CameraModelId`] can hold
-//! is `Invalid`, so reaching it is a caller bug (docs/CPP_DIVERGENCES.md, entry 101). The
-//! functions COLMAP does not throw from (`ExistsCameraModelWithId`, `CameraModelIdToName`,
+//! An unknown model id is COLMAP's `std::domain_error("Camera model does not exist")`. The only
+//! unknown id a Rust [`CameraModelId`] can hold is `Invalid`, and COLMAP does pass it in at its
+//! input boundaries (a text reader looks a model name up with `CameraModelNameToId` and asks
+//! `CameraModelNumParams` / `CameraModelVerifyParams` without checking it exists). So the
+//! metadata and validation functions those boundaries call (initialize, params info, the
+//! index groups, num params, verify, has-bogus) return `Err` with
+//! [`ErrorKind::DomainError`] and COLMAP's message. The per-point functions (projection,
+//! unprojection, threshold, rescale, the kind predicates) stay infallible and panic with the
+//! same message on `Invalid`: callers must hold a verified model id
+//! (docs/CPP_DIVERGENCES.md, entry 101). The functions COLMAP does not throw from
+//! (`ExistsCameraModelWithId`, `CameraModelIdToName`, `CameraModelNameToId`,
 //! `CameraModelIsPerspectiveFisheye`) answer for `Invalid` instead.
 //!
 //! [`camera_model_img_from_cam_with_jac`] dispatches to the analytic per-model kernels of
@@ -15,6 +22,7 @@
 //! [`CameraModelWithJac`] fails to compile, as COLMAP's `static_assert` does.
 
 use crate::linalg::{Matrix2x3d, Matrix3x2d, Vector2d, Vector3d};
+use crate::util::check::{ColmapError, ErrorKind, Result};
 
 use super::{
     CameraModel, CameraModelId, CameraModelWithJac, CameraModelKind, DivisionCameraModel, EUCMCameraModel,
@@ -29,6 +37,17 @@ use super::{
 #[cold]
 fn camera_model_does_not_exist() -> ! {
     panic!("Camera model does not exist")
+}
+
+/// `CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION` as an error, for the fallible functions.
+fn check_camera_model_exists(model_id: CameraModelId) -> Result<()> {
+    if model_id == CameraModelId::Invalid {
+        return Err(ColmapError::new(
+            ErrorKind::DomainError,
+            "Camera model does not exist",
+        ));
+    }
+    Ok(())
 }
 
 /// `switch (model_id) { CAMERA_MODEL_SWITCH_CASES }`: evaluates `$body` with `$M` bound to
@@ -144,47 +163,87 @@ pub fn camera_model_id_to_name(model_id: CameraModelId) -> &'static str {
 /// `CameraModelInitializeParams`: all focal lengths `focal_length`, the principal point at
 /// the image center. Assumes image measurements within `[0, dim]`, i.e. the upper left
 /// corner is the `(0, 0)` coordinate (rather than the center of the upper left pixel).
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
 pub fn camera_model_initialize_params(
     model_id: CameraModelId,
     focal_length: f64,
     width: usize,
     height: usize,
-) -> Vec<f64> {
-    dispatch!(model_id, M => M::initialize_params(focal_length, width, height))
+) -> Result<Vec<f64>> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::initialize_params(focal_length, width, height)))
 }
 
 /// `CameraModelParamsInfo`: the human-readable parameter order.
-pub fn camera_model_params_info(model_id: CameraModelId) -> &'static str {
-    dispatch!(model_id, M => M::PARAMS_INFO)
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
+pub fn camera_model_params_info(model_id: CameraModelId) -> Result<&'static str> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::PARAMS_INFO))
 }
 
 /// `CameraModelFocalLengthIdxs` (empty for spherical models).
-pub fn camera_model_focal_length_idxs(model_id: CameraModelId) -> &'static [usize] {
-    dispatch!(model_id, M => M::FOCAL_LENGTH_IDXS)
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
+pub fn camera_model_focal_length_idxs(model_id: CameraModelId) -> Result<&'static [usize]> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::FOCAL_LENGTH_IDXS))
 }
 
 /// `CameraModelPrincipalPointIdxs` (empty for spherical models).
-pub fn camera_model_principal_point_idxs(model_id: CameraModelId) -> &'static [usize] {
-    dispatch!(model_id, M => M::PRINCIPAL_POINT_IDXS)
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
+pub fn camera_model_principal_point_idxs(model_id: CameraModelId) -> Result<&'static [usize]> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::PRINCIPAL_POINT_IDXS))
 }
 
 /// `CameraModelExtraParamsIdxs` (empty for spherical models).
-pub fn camera_model_extra_params_idxs(model_id: CameraModelId) -> &'static [usize] {
-    dispatch!(model_id, M => M::EXTRA_PARAMS_IDXS)
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
+pub fn camera_model_extra_params_idxs(model_id: CameraModelId) -> Result<&'static [usize]> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::EXTRA_PARAMS_IDXS))
 }
 
 /// `CameraModelMetaDataParamsIdxs` (empty for perspective models).
-pub fn camera_model_meta_data_params_idxs(model_id: CameraModelId) -> &'static [usize] {
-    dispatch!(model_id, M => M::METADATA_IDXS)
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
+pub fn camera_model_meta_data_params_idxs(model_id: CameraModelId) -> Result<&'static [usize]> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::METADATA_IDXS))
 }
 
 /// `CameraModelNumParams`.
-pub fn camera_model_num_params(model_id: CameraModelId) -> usize {
-    dispatch!(model_id, M => M::NUM_PARAMS)
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
+pub fn camera_model_num_params(model_id: CameraModelId) -> Result<usize> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::NUM_PARAMS))
 }
 
 /// `CameraModelRescale`: rescales the parameters in place for a new image resolution, given
 /// the per-axis scale factors `new_dim / old_dim`.
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_rescale(
     model_id: CameraModelId,
     scale_x: f64,
@@ -195,13 +254,22 @@ pub fn camera_model_rescale(
 }
 
 /// `CameraModelVerifyParams`: whether the parameter count matches the model.
-pub fn camera_model_verify_params(model_id: CameraModelId, params: &[f64]) -> bool {
-    dispatch!(model_id, M => params.len() == M::NUM_PARAMS)
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
+pub fn camera_model_verify_params(model_id: CameraModelId, params: &[f64]) -> Result<bool> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => params.len() == M::NUM_PARAMS))
 }
 
 /// `CameraModelHasBogusParams`: principal point outside the image, a focal length over the
 /// larger image side outside `[min, max]`, or an extra parameter's magnitude above
 /// `max_extra_param` (plus the model's own checks, e.g. EUCM's).
+///
+/// # Errors
+///
+/// `DomainError` "Camera model does not exist" for `Invalid`.
 pub fn camera_model_has_bogus_params(
     model_id: CameraModelId,
     params: &[f64],
@@ -210,20 +278,26 @@ pub fn camera_model_has_bogus_params(
     min_focal_length_ratio: f64,
     max_focal_length_ratio: f64,
     max_extra_param: f64,
-) -> bool {
-    dispatch!(model_id, M => M::has_bogus_params(
+) -> Result<bool> {
+    check_camera_model_exists(model_id)?;
+    Ok(dispatch!(model_id, M => M::has_bogus_params(
         params,
         width,
         height,
         min_focal_length_ratio,
         max_focal_length_ratio,
         max_extra_param,
-    ))
+    )))
 }
 
 /// `CameraModelImgFromCam`: camera coordinates `(u, v, w)` to pixels, or `None` if the
 /// projection fails. The inverse of [`camera_model_cam_from_img`]. COLMAP's default for
 /// `check_cheirality` is true.
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_img_from_cam(
     model_id: CameraModelId,
     params: &[f64],
@@ -283,6 +357,11 @@ pub fn camera_model_img_from_cam_with_jac(
 
 /// `CameraModelCamFromImg`: pixels to normalized camera coordinates `(u, v)`, or `None` if
 /// lifting fails. Limited to the forward hemisphere; see [`camera_model_cam_ray_from_img`].
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_cam_from_img(
     model_id: CameraModelId,
     params: &[f64],
@@ -297,6 +376,11 @@ pub fn camera_model_cam_from_img(
 /// `CameraModelCamRayFromImg`: a pixel to a unit bearing vector in the camera frame, for
 /// any pixel the model can unproject, including back-facing rays of omnidirectional
 /// cameras. Prefer this to lifting, homogenizing and normalizing when a 3D ray is needed.
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_cam_ray_from_img(
     model_id: CameraModelId,
     params: &[f64],
@@ -318,6 +402,11 @@ pub fn camera_model_cam_ray_from_img(
 
 /// `CameraModelCamFromImgThreshold`: a pixel threshold in normalized camera units (divided
 /// by the mean focal length for perspective models).
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_cam_from_img_threshold(
     model_id: CameraModelId,
     params: &[f64],
@@ -335,17 +424,32 @@ pub fn camera_model_is_perspective_fisheye(model_id: CameraModelId) -> bool {
 }
 
 /// `CameraModelIsPerspective`: has a focal length and a finite image plane.
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_is_perspective(model_id: CameraModelId) -> bool {
     dispatch!(model_id, M => M::KIND != CameraModelKind::Spherical)
 }
 
 /// `CameraModelIsPerspectivePinhole`: projects as `X / Z`, then deforms the plane, so a
 /// calibration matrix K is meaningful.
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_is_perspective_pinhole(model_id: CameraModelId) -> bool {
     dispatch!(model_id, M => M::KIND == CameraModelKind::PerspectivePinhole)
 }
 
 /// `CameraModelIsSpherical`.
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_is_spherical(model_id: CameraModelId) -> bool {
     dispatch!(model_id, M => M::KIND == CameraModelKind::Spherical)
 }
