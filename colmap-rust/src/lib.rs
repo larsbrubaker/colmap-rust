@@ -17,7 +17,8 @@
 //!   colmap-sharp's `LinearAlgebra/`.
 //! - [`geometry`]: COLMAP's `geometry/` without the decomposition-based parts — [`geometry::Rigid3d`],
 //!   [`geometry::Sim3d`], pose helpers, pose priors, GPS conversions, normalization and boxes.
-//! - [`sensor`]: COLMAP's `sensor/` — so far the camera models ([`sensor::models`]).
+//! - [`sensor`]: COLMAP's `sensor/` — camera models, rigs, the bitmap pixel buffer with EXIF,
+//!   and the camera sensor-width database.
 
 pub mod geometry;
 pub mod linalg;
