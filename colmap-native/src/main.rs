@@ -1,6 +1,7 @@
 // colmap-native: the desktop shell for COLMAP Rust (binary `colmap-rust`). Opens an agg-gui-shell
-// window, installs the shared theme/fonts, builds `colmap_app::build_app`, and marks the app's
-// first-paint gate after each presented frame. Everything the user sees lives in colmap-app.
+// window, installs the shared theme/fonts, builds `colmap_app::build_app`, and marks the app
+// presented (its ready signal) after each painted frame. Everything the user sees lives in
+// colmap-app.
 //
 // Usage: `colmap-rust [--screenshot <file.png>]` — the flag paints a few settle frames, writes
 // the window to a PNG through agg-gui-shell's deterministic capture, and exits.
@@ -20,8 +21,9 @@ struct NativeHost {
 
 impl ShellHost for NativeHost {
     fn after_paint(&mut self, _ctx: &mut WgpuGfxCtx, _frame: &Frame) {
-        // Runs after `end_frame`, right before `present`: the frame is complete.
-        self.state.first_paint.mark_painted();
+        // Runs after `end_frame`, right before `present`: the frame is complete. agg-gui-shell
+        // has no `after_present` hook (agg-gui-web-shell does), so this is the closest point.
+        self.state.mark_presented();
     }
 }
 

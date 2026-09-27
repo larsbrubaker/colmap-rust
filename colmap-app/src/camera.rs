@@ -19,9 +19,12 @@ pub const MAX_PITCH: f32 = 89.0 * std::f32::consts::PI / 180.0;
 pub const MIN_DISTANCE: f32 = 0.05;
 /// Farthest the eye may get from the target (world units).
 pub const MAX_DISTANCE: f32 = 10_000.0;
-/// Wheel zoom: the distance is multiplied by `exp(-delta_y * ZOOM_PER_WHEEL_PIXEL)`, so a
-/// forward wheel step (positive `delta_y` in agg-gui's convention) moves the eye closer.
-pub const ZOOM_PER_WHEEL_PIXEL: f32 = 0.002;
+/// Wheel zoom: the distance is multiplied by `ZOOM_STEP_PER_NOTCH.powf(delta_y)`. agg-gui's
+/// `MouseWheel::delta_y` is in notches (positive = wheel rotated forward / away from the user,
+/// after the OS scroll-direction preference), fractional for trackpads. So one forward notch
+/// moves the eye 10% closer (zoom in) and one backward notch undoes it — the same step and
+/// direction as AtomArtist's viewport (`on_wheel_at_pos`: factor 0.9 for `delta_y > 0`).
+pub const ZOOM_STEP_PER_NOTCH: f32 = 0.9;
 
 /// Turntable camera orbiting `target`.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -71,9 +74,10 @@ impl OrbitCamera {
         self.target -= (right * dx + up * dy) * world_per_pixel;
     }
 
-    /// Dolly toward (positive `delta_y`) or away from the target, clamped to the distance range.
+    /// Dolly toward (positive `delta_y`, wheel notches) or away from the target, clamped to the
+    /// distance range.
     pub fn zoom(&mut self, delta_y: f32) {
-        let factor = (-delta_y * ZOOM_PER_WHEEL_PIXEL).exp();
+        let factor = ZOOM_STEP_PER_NOTCH.powf(delta_y);
         self.distance = (self.distance * factor).clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 
@@ -180,8 +184,18 @@ mod tests {
     fn zoom_moves_closer_on_positive_delta_and_clamps() {
         let mut cam = OrbitCamera::default();
         let d0 = cam.distance;
-        cam.zoom(120.0);
-        assert!(cam.distance < d0);
+        cam.zoom(1.0);
+        assert_eq!(cam.distance, d0 * ZOOM_STEP_PER_NOTCH);
+        cam.zoom(-1.0);
+        assert!(
+            (cam.distance - d0).abs() < 1e-4 * d0,
+            "a notch back undoes it"
+        );
+        cam.zoom(0.5);
+        assert!(
+            cam.distance < d0 && cam.distance > d0 * ZOOM_STEP_PER_NOTCH,
+            "fractional"
+        );
         cam.zoom(1.0e6);
         assert_eq!(cam.distance, MIN_DISTANCE);
         cam.zoom(-1.0e6);

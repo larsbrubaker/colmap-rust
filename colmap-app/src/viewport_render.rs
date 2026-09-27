@@ -21,9 +21,9 @@ use agg_gui::Rect;
 use agg_gui_wgpu::{WgpuCustomRender, WgpuCustomRenderCtx};
 use wgpu::util::DeviceExt;
 
+use crate::backend_info::{backend_info, BackendInfo};
 use crate::camera::OrbitCamera;
 use crate::scene::{LineVertex, Scene};
-use crate::state::BackendInfo;
 
 const LINE_WGSL: &str = "
 struct Uniforms { view_proj: mat4x4<f32> }
@@ -287,15 +287,6 @@ fn intersect(a: [u32; 4], b: [i32; 4]) -> Option<[u32; 4]> {
     (x1 > x0 && y1 > y0).then(|| [x0, y0, x1 - x0, y1 - y0])
 }
 
-/// The About sheet's view of a wgpu adapter.
-pub fn backend_info(info: &wgpu::AdapterInfo) -> BackendInfo {
-    BackendInfo {
-        adapter_name: info.name.clone(),
-        backend: format!("{:?}", info.backend),
-        device_type: format!("{:?}", info.device_type),
-    }
-}
-
 /// The viewport's custom renderer. Holds the shared scene and camera so the frame drawn is the
 /// state as of `end_frame`, and the shared backend cell it republishes on every GPU rebuild.
 pub struct ViewportRenderer {
@@ -511,13 +502,14 @@ mod tests {
         renderer.ensure_gpu(first, format);
         let published = backend.borrow().clone().expect("published on first build");
         assert_eq!(published, backend_info(&first.adapter_info()));
-        assert_eq!(published.backend, "Noop");
+        assert_eq!(published.backend, "no-op");
 
         // Same device and format: no rebuild, the cell is left alone.
         let sentinel = BackendInfo {
             adapter_name: "sentinel".into(),
             backend: "-".into(),
             device_type: "-".into(),
+            driver: "-".into(),
         };
         *backend.borrow_mut() = Some(sentinel.clone());
         renderer.ensure_gpu(first, format);

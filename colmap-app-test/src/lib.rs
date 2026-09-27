@@ -178,7 +178,7 @@ impl TestHarness {
         self.mouse_up(button)
     }
 
-    /// Wheel at the cursor. Positive `delta_y` is a forward (zoom-in) step.
+    /// Wheel at the cursor, in agg-gui notches. Positive `delta_y` is a forward (zoom-in) step.
     pub fn scroll(&mut self, delta_y: f64) -> &mut Self {
         let (x, y) = self.cursor;
         self.app.on_mouse_wheel(x, y, delta_y);

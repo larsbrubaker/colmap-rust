@@ -53,11 +53,28 @@ fn backend_line_follows_state() {
     *h.state().backend.borrow_mut() = Some(colmap_app::BackendInfo {
         adapter_name: "Test Adapter".to_string(),
         backend: "Metal".to_string(),
-        device_type: "IntegratedGpu".to_string(),
+        device_type: "integrated GPU".to_string(),
+        driver: String::new(),
     });
     h.click_id(ABOUT_BUTTON_ID);
     assert_eq!(
         h.property(ABOUT_BACKEND_ID, "text").as_deref(),
-        Some("Renderer: Test Adapter (Metal, IntegratedGpu)")
+        Some("Renderer: Test Adapter, Metal, integrated GPU")
+    );
+}
+
+#[test]
+fn backend_line_for_a_browser_adapter_omits_empty_fields() {
+    let mut h = TestHarness::new();
+    *h.state().backend.borrow_mut() = Some(colmap_app::BackendInfo {
+        adapter_name: String::new(),
+        backend: "WebGPU (browser)".to_string(),
+        device_type: String::new(),
+        driver: String::new(),
+    });
+    h.click_id(ABOUT_BUTTON_ID);
+    assert_eq!(
+        h.property(ABOUT_BACKEND_ID, "text").as_deref(),
+        Some("Renderer: WebGPU (browser)")
     );
 }

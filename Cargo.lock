@@ -493,12 +493,10 @@ dependencies = [
 name = "colmap-web"
 version = "0.1.0"
 dependencies = [
- "agg-gui",
  "agg-gui-web-shell",
  "colmap-app",
  "js-sys",
  "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]

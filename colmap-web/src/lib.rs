@@ -6,17 +6,17 @@
 //! checks `navigator.gpu` first, so the common case shows the app's own message).
 //!
 //! Like `colmap-native`, it only wires the shell: installs the shared theme and fonts at the
-//! device scale, builds `colmap_app::build_app`, and marks the app's first-paint gate
-//! (`AppState::first_paint`) after each painted frame. Once a frame has been presented it tells
-//! the page, for the Playwright smoke test (`web/tests/smoke.spec.ts`): `window.__colmapReady =
-//! true` and `data-ready="1"` on the canvas. Everything the user sees lives in colmap-app.
+//! device scale and builds `colmap_app::build_app`. From the shell's `after_present` hook (the
+//! frame is on the canvas) it marks the app presented (`AppState::mark_presented`) and, once,
+//! tells the page for the Playwright smoke test (`web/tests/smoke.spec.ts`):
+//! `window.__colmapReady = true` and `data-ready="1"` on the canvas. Everything the user sees
+//! lives in colmap-app.
 
 #[cfg(target_arch = "wasm32")]
 mod web {
-    use agg_gui::App;
+    use agg_gui_web_shell::agg_gui::App;
     use agg_gui_web_shell::{
-        start, Backend, Frame, RedrawPolicy, WebShellConfig, WebShellControl, WebShellError,
-        WebShellHost, WgpuGfxCtx,
+        start, web_sys, Backend, Frame, RedrawPolicy, WebShellConfig, WebShellError, WebShellHost,
     };
     use colmap_app::{build_app, install_theme_and_fonts, AppState};
     use wasm_bindgen::prelude::*;
@@ -34,16 +34,10 @@ mod web {
     }
 
     impl WebShellHost for WebHost {
-        fn after_paint(&mut self, _ctx: &mut WgpuGfxCtx, _frame: &Frame) {
-            // Runs after `end_frame`, right before `present`: the frame is complete. Same
-            // point as colmap-native marks it.
-            self.state.first_paint.mark_painted();
-        }
-
-        fn on_idle(&mut self, _app: &mut App, control: &mut WebShellControl<'_>) {
-            // `on_idle` runs after the tick's present, so the page only hears "ready" once a
-            // frame is actually on screen.
-            if !self.announced && control.painted() && self.state.is_ready() {
+        fn after_present(&mut self, _app: &mut App, _frame: &Frame) {
+            // The frame is on the canvas: the app is ready, and the page hears it once.
+            self.state.mark_presented();
+            if !self.announced {
                 announce_ready(&self.canvas);
                 self.announced = true;
             }
@@ -63,6 +57,7 @@ mod web {
     pub fn start_colmap_web() -> Result<(), JsValue> {
         let config = WebShellConfig::new(CANVAS_ID)
             .with_backend(Backend::WebGpu)
+            .with_app_name("COLMAP Rust")
             .with_device_label("colmap-rust")
             .with_redraw_policy(RedrawPolicy::Reactive);
         let state = AppState::new();

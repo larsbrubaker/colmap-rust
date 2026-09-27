@@ -2,7 +2,7 @@
 // the real widget tree drive the shared orbit camera, and the widget paints without a GPU.
 
 use agg_gui::MouseButton;
-use colmap_app::camera::{MAX_DISTANCE, MIN_DISTANCE};
+use colmap_app::camera::{MAX_DISTANCE, MIN_DISTANCE, ZOOM_STEP_PER_NOTCH};
 use colmap_app::viewport::VIEWPORT_ID;
 use colmap_app_test::TestHarness;
 
@@ -53,20 +53,27 @@ fn wheel_zooms_and_clamps_distance() {
     let (x, y) = viewport_center(&h);
     h.mouse_move(x, y);
     let d0 = h.state().camera.borrow().distance;
-    h.scroll(120.0);
+    h.scroll(1.0);
     let d1 = h.state().camera.borrow().distance;
-    assert!(d1 < d0, "forward wheel zooms in: {d0} -> {d1}");
-    h.scroll(-240.0);
+    assert!(
+        d1 < d0,
+        "forward wheel (away from the user) zooms in: {d0} -> {d1}"
+    );
+    assert!(
+        (d1 - d0 * ZOOM_STEP_PER_NOTCH).abs() < 1e-4 * d0,
+        "one notch is one AtomArtist-sized step: {d0} -> {d1}"
+    );
+    h.scroll(-2.0);
     assert!(
         h.state().camera.borrow().distance > d1,
         "backward wheel zooms out"
     );
     for _ in 0..200 {
-        h.scroll(1000.0);
+        h.scroll(10.0);
     }
     assert_eq!(h.state().camera.borrow().distance, MIN_DISTANCE);
     for _ in 0..400 {
-        h.scroll(-1000.0);
+        h.scroll(-10.0);
     }
     assert_eq!(h.state().camera.borrow().distance, MAX_DISTANCE);
 }
@@ -79,7 +86,7 @@ fn wheel_over_the_pipeline_panel_does_not_zoom() {
         .expect("panel on screen");
     h.mouse_move(x, y);
     let d0 = h.state().camera.borrow().distance;
-    h.scroll(120.0);
+    h.scroll(1.0);
     assert_eq!(h.state().camera.borrow().distance, d0);
 }
 

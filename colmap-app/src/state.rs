@@ -9,31 +9,10 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use crate::backend_info::BackendInfo;
 use crate::camera::OrbitCamera;
 use crate::pipeline::PipelineStatus;
-use crate::ready::FirstPaintGate;
 use crate::scene::Scene;
-
-/// The GPU the viewport renders with, as wgpu reports it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BackendInfo {
-    /// Adapter name, e.g. "Apple M2 Pro".
-    pub adapter_name: String,
-    /// Graphics API, e.g. "Metal", "Vulkan", "BrowserWebGpu".
-    pub backend: String,
-    /// Adapter class, e.g. "IntegratedGpu".
-    pub device_type: String,
-}
-
-impl BackendInfo {
-    /// One line for the About panel.
-    pub fn summary(&self) -> String {
-        format!(
-            "{} ({}, {})",
-            self.adapter_name, self.backend, self.device_type
-        )
-    }
-}
 
 /// Everything the UI reads and writes.
 #[derive(Clone, Default)]
@@ -49,8 +28,9 @@ pub struct AppState {
     /// The viewport renderer's current adapter, republished whenever it rebuilds its GPU
     /// objects on a new device (device loss, backend switch); `None` headless.
     pub backend: Rc<RefCell<Option<BackendInfo>>>,
-    /// Set by the host after the first presented frame; the app's ready signal.
-    pub first_paint: Rc<FirstPaintGate>,
+    /// Set by the shell once a frame is on screen; the app's ready signal (see
+    /// [`AppState::mark_presented`]).
+    pub presented: Rc<Cell<bool>>,
 }
 
 impl AppState {
@@ -59,8 +39,18 @@ impl AppState {
         Self::default()
     }
 
-    /// True once a frame has been painted and presented (see [`FirstPaintGate`]).
+    /// Record that a frame has been presented. Each shell calls it from the point where its
+    /// frame is on screen: colmap-web from the web shell's `after_present`, colmap-native from
+    /// `after_paint` (agg-gui-shell has no post-present hook; `after_paint` runs after
+    /// `end_frame`, immediately before `present`). A tick that bails before presenting never
+    /// reaches either hook, so the flag stays false. The shells themselves own "always paint
+    /// the first frame" (agg-gui-shell / agg-gui-web-shell), so no gate logic lives here.
+    pub fn mark_presented(&self) {
+        self.presented.set(true);
+    }
+
+    /// True once a frame has been presented.
     pub fn is_ready(&self) -> bool {
-        self.first_paint.has_painted()
+        self.presented.get()
     }
 }

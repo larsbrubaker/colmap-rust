@@ -1,7 +1,7 @@
 //! colmap-app: the COLMAP Rust application, built on agg-gui.
 //!
 //! [`build_app`] returns the production widget tree. The native shell (`colmap-native`), the
-//! web shell (next step) and the headless UI harness (`colmap-app-test`) all build exactly this
+//! web shell (`colmap-web`) and the headless UI harness (`colmap-app-test`) all build exactly this
 //! tree over an [`AppState`], after calling [`install_theme_and_fonts`].
 //!
 //! Layout: a top bar (title + About button), then a row with the Pipeline panel on the left and
@@ -9,14 +9,15 @@
 //!
 //! Modules: `camera` (orbit camera math), `scene` (drawable layers), `viewport` +
 //! `viewport_render` (the wgpu custom-render widget), `pipeline` + `pipeline_panel` (stage
-//! status), `chrome` (top bar, About), `state`, `ready` (first-paint gate), `fonts`, `widgets`.
+//! status), `chrome` (top bar, About), `backend_info` (GPU adapter labels), `state` (incl. the
+//! presented / ready flag), `fonts`, `widgets`.
 
+pub mod backend_info;
 pub mod camera;
 pub mod chrome;
 pub mod fonts;
 pub mod pipeline;
 pub mod pipeline_panel;
-pub mod ready;
 pub mod scene;
 pub mod state;
 pub mod viewport;
@@ -28,11 +29,11 @@ use std::sync::Arc;
 use agg_gui::text::Font;
 use agg_gui::{FlexColumn, FlexRow, Stack, Widget};
 
+pub use backend_info::BackendInfo;
 pub use chrome::APP_TITLE;
 pub use fonts::install_theme_and_fonts;
 pub use pipeline::{PipelineStatus, Stage, StageStatus};
-pub use ready::FirstPaintGate;
-pub use state::{AppState, BackendInfo};
+pub use state::AppState;
 
 /// Build the production widget tree over `state`. `font` is the UI font returned by
 /// [`install_theme_and_fonts`].
