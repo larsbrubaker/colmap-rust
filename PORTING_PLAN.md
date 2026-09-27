@@ -27,7 +27,7 @@ wasm32, and its app view covered by a headless UI test.
 ### Phase 0 — Scaffold, testing framework, app shell, deploy
 - Cargo workspace (`colmap-rust`, `colmap-gpu`, `colmap-app`, `colmap-app-test`,
   `colmap-native`, `colmap-web`), dev-profile opt-levels as in agg-gui/AtomArtist, agg-gui
-  from crates.io with a commented `[patch.crates-io]` to `../agg-gui`.
+  by path (`../agg-gui`).
 - `file_compliance` test (800 non-empty lines, header comment, no conflict markers).
 - `colmap-app-test` headless harness with a first test.
 - An app that opens natively and in the browser: title bar, a placeholder-free "About /
@@ -121,7 +121,7 @@ SQLite files, Ceres internals not ported, CUDA/GPU, SiftGPU, ONNX, vocabulary tr
 reasons to Rust. Every skipped COLMAP test is listed here by name when its file is ported.
 
 ## agg-gui upstream queue
-Found while building colmap-app (Phase 0b). Fix in agg-gui, release, then remove the workaround here:
+Found while building colmap-app (Phase 0b). Fix in agg-gui, then remove the workaround here in the same session:
 - `WgpuCustomRenderCtx::parent_clip`'s doc says `[x,y,w,h]` top-down, but it is stored Y-up
   (`[x, y_bottom, w, h]`, `ctx_core::compute_scissor`). Fix the doc or the representation, and add a
   readback test. Workaround: `colmap-app/src/viewport_render.rs::clip_to_top_down`.
@@ -131,6 +131,10 @@ Found while building colmap-app (Phase 0b). Fix in agg-gui, release, then remove
   themselves.
 - agg-gui-shell needs a ready-made file-backed `WindowBoundsStore`. Workaround:
   `colmap-native/src/bounds_store.rs`.
+- `wgpu::Device` equality compares only the wgpu-core id, and ids restart per `Instance`, so a
+  custom renderer can't reliably tell that the device was replaced (device loss / backend switch)
+  and would reuse old pipelines. Expose a device generation/identity on `WgpuCustomRenderCtx`.
+  Caveat noted on `colmap-app/src/viewport_render.rs::ensure_gpu`.
 - (In progress) `agg-gui-web-shell`: a published web shell crate.
 
 ## Decisions
@@ -138,7 +142,9 @@ Found while building colmap-app (Phase 0b). Fix in agg-gui, release, then remove
   SharedArrayBuffer (and so wasm threads / rayon) needs, and we accept that cost: on the web,
   long work is chunked across frames (or moved to a plain Web Worker without shared memory).
   Native uses rayon. A `coi-serviceworker` shim could enable isolation on Pages later; not now.
-- **Web shell comes from agg-gui.** A published `agg-gui-web-shell` crate (canvas,
+- **agg-gui is a path dependency** (`../agg-gui`), so colmap-rust can follow agg-gui `main` or a
+  development branch; CI checks it out beside this repo. Only the app crates use it.
+- **Web shell comes from agg-gui.** A (to-be-published) `agg-gui-web-shell` crate (canvas,
   requestAnimationFrame loop, DOM input, WebGPU surface) lives in the agg-gui repo; colmap-web
   uses it rather than carrying its own copy.
 - **colmap-rust will be published to crates.io** once the core is usable (crate `colmap-rust`,

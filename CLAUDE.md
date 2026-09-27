@@ -179,8 +179,11 @@ oracle/             pycolmap fixture generators (test-time only).
 The app is agg-gui from the first commit — there is no JavaScript UI. The core library never
 depends on agg-gui or wgpu, so it stays usable from other hosts (and testable without a GPU).
 
-agg-gui comes from crates.io. To develop against local agg-gui sources, uncomment the
-`[patch.crates-io]` block in the root `Cargo.toml` (it points at `../agg-gui`).
+agg-gui is a **path dependency** (`../agg-gui/<crate>`, a sibling checkout in rust-apps) so
+colmap-rust can track agg-gui `main` or a development branch without waiting for a crates.io release.
+Only the app crates (`colmap-app`, `colmap-app-test`, `colmap-native`, `colmap-web`) use it; the core
+`colmap-rust` crate never depends on agg-gui, so it stays publishable on its own. CI checks agg-gui
+out next to this repo (`AGG_GUI_REF` in the workflows, default `main`).
 
 ## agg-gui is ours: fix it upstream
 
@@ -190,15 +193,16 @@ Don't work around it in colmap-app.
 
 - Do the agg-gui change as its own step, following agg-gui's own CLAUDE.md: a test-first bug fix,
   the 800-line limit, and its CI green (including its Pages demo and Playwright tests when the
-  change touches rendering or the web shell).
-- Develop against it with the root `[patch.crates-io]` block. colmap-rust's `main` depends on
-  published versions, so land the agg-gui change, publish the crate (Lars confirms each crates.io
-  publish), and then bump colmap-rust's version requirement.
+  change touches rendering or the web shell). Commit it in agg-gui (on `main`, or on a branch that
+  colmap-rust's CI points `AGG_GUI_REF` at) *before* the colmap-rust commit that relies on it, and
+  push agg-gui first so colmap-rust's CI can see it.
+- There is no publish round trip. Publishing agg-gui crates to crates.io is a separate decision
+  (Lars confirms each publish), never something colmap-rust waits on.
 - A short-lived workaround is allowed only while the upstream fix is in flight. It carries a
-  `// agg-gui workaround:` comment that names the agg-gui change which removes it, and it is
-  deleted when that change is released.
-- Implementers who find an agg-gui gap report it and don't patch agg-gui themselves unless
-  their brief says so. The orchestrator schedules the upstream step.
+  `// agg-gui workaround:` comment naming the agg-gui change that removes it, and is deleted when
+  that change lands.
+- Implementers who find an agg-gui gap report it and don't patch agg-gui themselves unless their
+  brief says so. The orchestrator schedules the upstream step (queue: `PORTING_PLAN.md`).
 
 ## Coding standards
 
