@@ -19,7 +19,10 @@ use super::{maxi, mini, Matrix3d, Quaterniond, Vector3d, DUMMY_PRECISION, MACHIN
 use crate::math::fns;
 
 /// Angle-axis rotation. Replacement for `Eigen::AngleAxisd`.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+///
+/// Deliberately no `Default`: Eigen's default constructor leaves it uninitialized, and a
+/// derived default would carry a zero (non-unit) axis. Construct it with [`AngleAxisd::new`].
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AngleAxisd {
     /// Rotation angle in radians.
     pub angle: f64,
