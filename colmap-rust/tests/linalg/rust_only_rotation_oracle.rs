@@ -11,7 +11,7 @@
 // - Tier A up to entry 1 (`rust_only_atan2_fields`): angle and angle_to call atan2, which is
 //   the `libm` crate's, not Apple libm's (docs/CPP_DIVERGENCES.md, entry 1). With std's atan2
 //   (Apple libm on macOS) both formulas reproduce all 138 cases bit for bit; with `fns::atan2`
-//   14 angles and 13 angle_tos differ by 1 ulp. Pinned at 2 ulp relative.
+//   14 angles and 13 angle_tos differ by 1 ulp. Pinned at 2 ulp (distance on the bits).
 // - Tier B (`rust_only_tolerance_fields`), each for a reason on the C++ side that we
 //   deliberately do not reproduce, see docs/CPP_DIVERGENCES.md:
 //   rotated         - the macOS arm64 wheel contracts the cross products inside q * v into
@@ -126,8 +126,23 @@ fn rust_only_exact_fields() {
 #[test]
 fn rust_only_atan2_fields() {
     for field in ["angle", "angle_to"] {
-        assert_all_cases(field, |e, a| (e - a).abs() <= 2.0 * f64::EPSILON * e.abs());
+        assert_all_cases(field, |e, a| ulp_distance(e, a) <= 2);
     }
+}
+
+// Number of representable doubles between a and b: the bits mapped to a monotonic integer
+// line (negative values mirrored below zero, so -0.0 and +0.0 are both 0).
+fn ulp_distance(a: f64, b: f64) -> u64 {
+    fn ordered(x: f64) -> i64 {
+        let bits = x.to_bits() as i64;
+        if bits < 0 {
+            i64::MIN - bits
+        } else {
+            bits
+        }
+    }
+    assert!(!a.is_nan() && !b.is_nan(), "NaN in ulp comparison");
+    ordered(a).abs_diff(ordered(b))
 }
 
 #[test]

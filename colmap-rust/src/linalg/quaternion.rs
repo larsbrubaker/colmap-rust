@@ -39,10 +39,14 @@ use super::{AngleAxisd, Matrix3d, Vector3d, Vector4d, DUMMY_PRECISION};
 use crate::math::fns;
 use std::ops::Mul;
 
-/// Rotation quaternion of doubles. Replacement for `Eigen::Quaterniond`. `Default` is the
-/// zero quaternion (all coefficients 0), not the identity.
+/// Rotation quaternion of doubles. Replacement for `Eigen::Quaterniond`.
+///
+/// Deliberately no `Default`: Eigen's default constructor leaves the coefficients
+/// uninitialized, so there is nothing to match, and a zero quaternion default would be a trap
+/// (a derived `Default` on a pose type would give a non-rotation whose composition and inverse
+/// collapse to zero). Use [`Quaterniond::identity`].
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Quaterniond {
     /// The x (i) coefficient.
     pub x: f64,
@@ -120,7 +124,7 @@ impl Quaterniond {
                 -self.z / squared_norm,
             )
         } else {
-            Self::default()
+            Self::new(0.0, 0.0, 0.0, 0.0)
         }
     }
 
