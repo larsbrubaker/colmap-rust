@@ -11,7 +11,7 @@ use colmap_rust::math::graph_cut::{
     compute_min_graph_cut_stoer_wagner, compute_normalized_min_graph_cut,
 };
 use colmap_rust::math::graph_cut_min_st::MinSTGraphCut;
-use colmap_rust::math::graph_cut_partitioner::{grow_region, partition_with_work};
+use colmap_rust::math::graph_cut_partitioner::{grow_region, partition, partition_with_work};
 use colmap_rust::math::random::libcxx::{generate_canonical, uniform_int};
 use colmap_rust::math::random::Mt19937;
 use std::collections::BTreeSet;
@@ -400,7 +400,7 @@ fn rust_only_multilevel_partitioner_work_grows_near_linearly() {
         let work = |n: usize| {
             let (num_vertices, edges) = make_graph(shape, n);
             let (xadj, adjncy, adjwgt) = to_csr(num_vertices, &edges);
-            partition_with_work(&xadj, &adjncy, &adjwgt, 2).1
+            partition_with_work(&xadj, &adjncy, &adjwgt, 2).unwrap().1
         };
         let ratio = work(20000) as f64 / work(5000) as f64;
         assert!(ratio < 6.0, "{shape}: {ratio}");
@@ -413,6 +413,77 @@ fn rust_only_multilevel_partitioner_grow_region_skips_a_vertex_that_does_not_fit
     // weighs 5, more than the grown side may hold, so growth must pass over it and take the
     // lighter vertices instead of stopping.
     let (xadj, adjncy, adjwgt) = to_csr(4, &[(0, 1, 10), (0, 2, 1), (0, 3, 1)]);
-    let side = grow_region(&xadj, &adjncy, &adjwgt, &[1, 5, 1, 1], 0, 3.0, 3);
+    let side = grow_region(&xadj, &adjncy, &adjwgt, &[1, 5, 1, 1], 0, 3.0, 3).unwrap();
     assert_eq!(side, vec![0, 1, 0, 0]);
+}
+
+#[test]
+fn rust_only_min_st_graph_cut_i32_max_capacities_do_not_panic() {
+    // Integer flow sums are unchecked in COLMAP/Boost (signed overflow is UB there) and in
+    // colmap-sharp (C# wraps). Here they wrap, so a debug build must not panic on them.
+    const MAX: i32 = i32::MAX;
+
+    // Two nodes whose direct s -> v -> t flows sum past i32::MAX.
+    let mut graph = MinSTGraphCut::<i32>::new(2);
+    graph.add_node(0, MAX, MAX).unwrap();
+    graph.add_node(1, MAX, MAX).unwrap();
+    graph.compute();
+
+    // One node's terminal capacities summed past i32::MAX.
+    let mut graph = MinSTGraphCut::<i32>::new(1);
+    graph.add_node(0, MAX, 0).unwrap();
+    graph.add_node(0, MAX, 0).unwrap();
+    graph.compute();
+
+    // An augmentation that pushes i32::MAX onto a reverse residual already at i32::MAX.
+    let mut graph = MinSTGraphCut::<i32>::new(2);
+    graph.add_node(0, MAX, 0).unwrap();
+    graph.add_node(1, 0, MAX).unwrap();
+    graph.add_edge(0, 1, MAX, MAX).unwrap();
+    assert_eq!(graph.compute(), MAX);
+
+    // Direct source -> sink edges summed past i32::MAX.
+    let mut graph = MinSTGraphCut::<i32>::new(1);
+    graph.add_edge(1, 2, MAX, 0).unwrap();
+    graph.add_edge(1, 2, MAX, 0).unwrap();
+    graph.compute();
+}
+
+#[test]
+fn rust_only_multilevel_partitioner_rejects_invalid_input() {
+    // A path 0 - 1 - 2.
+    let (xadj, adjncy, adjwgt) = to_csr(3, &[(0, 1, 1), (1, 2, 1)]);
+    assert!(partition(&xadj, &adjncy, &adjwgt, 2).is_ok());
+    // num_parts = 0 would otherwise recurse forever.
+    assert!(partition(&xadj, &adjncy, &adjwgt, 0).is_err());
+    assert!(partition_with_work(&xadj, &adjncy, &adjwgt, 0).is_err());
+    // A neighbor index out of range.
+    let bad_adjncy = vec![1, 0, 3, 1];
+    assert!(partition(&xadj, &bad_adjncy, &adjwgt, 2).is_err());
+    // adjwgt shorter than adjncy.
+    assert!(partition(&xadj, &adjncy, &adjwgt[..3], 2).is_err());
+    // xadj not ending at adjncy.len(), not starting at 0, or decreasing.
+    assert!(partition(&[0, 1, 3, 3], &adjncy, &adjwgt, 2).is_err());
+    assert!(partition(&[1, 1, 3, 4], &adjncy, &adjwgt, 2).is_err());
+    assert!(partition(&[0, 3, 1, 4], &adjncy, &adjwgt, 2).is_err());
+    // An empty xadj (no vertex count).
+    assert!(partition(&[], &[], &[], 2).is_err());
+
+    let weights = [1, 1, 1];
+    assert!(grow_region(&xadj, &adjncy, &adjwgt, &weights, 2, 1.0, 1).is_ok());
+    // Seed out of range.
+    assert!(grow_region(&xadj, &adjncy, &adjwgt, &weights, 3, 1.0, 1).is_err());
+    // Vertex weights not one per vertex.
+    assert!(grow_region(&xadj, &adjncy, &adjwgt, &weights[..2], 0, 1.0, 1).is_err());
+    // A neighbor index out of range.
+    assert!(grow_region(&xadj, &bad_adjncy, &adjwgt, &weights, 0, 1.0, 1).is_err());
+}
+
+#[test]
+fn rust_only_min_st_graph_cut_rejects_nan_capacities() {
+    let mut graph = MinSTGraphCut::<f32>::new(2);
+    assert!(graph.add_node(0, f32::NAN, 1.0).is_err());
+    assert!(graph.add_node(0, 1.0, f32::NAN).is_err());
+    assert!(graph.add_edge(0, 1, f32::NAN, 1.0).is_err());
+    assert!(graph.add_edge(0, 1, 1.0, f32::NAN).is_err());
 }

@@ -204,7 +204,7 @@ pub fn compute_normalized_min_graph_cut(
     xadj.push(adjncy.len());
     check!(adjncy.len() == 2 * edges.len());
 
-    let cut_labels = graph_cut_partitioner::partition(&xadj, &adjncy, &adjwgt, num_parts as usize);
+    let cut_labels = graph_cut_partitioner::partition(&xadj, &adjncy, &adjwgt, num_parts as usize)?;
 
     Ok(index_to_id
         .iter()

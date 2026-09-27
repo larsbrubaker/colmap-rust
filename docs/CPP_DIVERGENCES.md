@@ -276,7 +276,7 @@ as Delaunay meshing uses it) the returned flow is summed in a different order, s
 from COLMAP's by rounding, and a node whose residual path to a terminal is only a rounding
 residue can be labeled on the other side of the cut. `is_connected_to_source` /
 `is_connected_to_sink` return a `Result`, failing a check for an index out of range or before
-`compute`, where COLMAP's `colors_.at()` throws `std::out_of_range`.
+`compute`, where COLMAP's `colors_.at()` throws `std::out_of_range`. Integer flow sums that overflow wrap (`FlowValue`), where Boost's signed overflow is undefined behavior.
 
 **Why.** Boost is not ported (`docs/LICENSE_AUDIT.md`), and Kolmogorov's own maxflow library is
 GPL/research-only, so neither is transcribed. Reproducing Boost's exact float rounding would

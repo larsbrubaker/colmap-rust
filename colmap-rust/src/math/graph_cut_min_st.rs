@@ -41,21 +41,29 @@
 use crate::util::check::CheckOpValue;
 use crate::{check, check_ge, check_le, check_lt};
 use std::collections::VecDeque;
-use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
-
 /// A capacity/flow type for [`MinSTGraphCut`] (COLMAP's `value_t`).
-pub trait FlowValue:
-    Copy
-    + PartialOrd
-    + Add<Output = Self>
-    + Sub<Output = Self>
-    + Neg<Output = Self>
-    + AddAssign
-    + SubAssign
-    + CheckOpValue
-{
+///
+/// Flow arithmetic goes through [`Self::add`], [`Self::sub`] and [`Self::neg`]. For the
+/// integer types these wrap on overflow: COLMAP's Boost max-flow sums `value_t` unchecked
+/// (signed overflow is undefined behavior there) and colmap-sharp's C# wraps, so wrapping is
+/// the defined stand-in, and a debug build never panics on huge capacities. The float types
+/// use the plain IEEE operations.
+///
+/// NaN capacities are rejected by `add_node`/`add_edge` (the `>= 0` check fails, as COLMAP's
+/// `THROW_CHECK_GE` does). Infinite capacities are accepted, as in COLMAP, and can produce a
+/// NaN flow (`inf - inf`), the same as Boost.
+pub trait FlowValue: Copy + PartialOrd + CheckOpValue {
     /// The additive identity.
     const ZERO: Self;
+
+    /// `self + b`, wrapping for integers.
+    fn add(self, b: Self) -> Self;
+
+    /// `self - b`, wrapping for integers.
+    fn sub(self, b: Self) -> Self;
+
+    /// `-self`, wrapping for integers.
+    fn neg(self) -> Self;
 
     /// The smaller of the two (`b` when `b < a`, else `a`).
     #[inline]
@@ -68,18 +76,36 @@ pub trait FlowValue:
     }
 }
 
-impl FlowValue for i32 {
-    const ZERO: Self = 0;
+macro_rules! impl_flow_value_int {
+    ($($t:ty),*) => {$(
+        impl FlowValue for $t {
+            const ZERO: Self = 0;
+            #[inline]
+            fn add(self, b: Self) -> Self { self.wrapping_add(b) }
+            #[inline]
+            fn sub(self, b: Self) -> Self { self.wrapping_sub(b) }
+            #[inline]
+            fn neg(self) -> Self { self.wrapping_neg() }
+        }
+    )*};
 }
-impl FlowValue for i64 {
-    const ZERO: Self = 0;
+
+macro_rules! impl_flow_value_float {
+    ($($t:ty),*) => {$(
+        impl FlowValue for $t {
+            const ZERO: Self = 0.0;
+            #[inline]
+            fn add(self, b: Self) -> Self { self + b }
+            #[inline]
+            fn sub(self, b: Self) -> Self { self - b }
+            #[inline]
+            fn neg(self) -> Self { -self }
+        }
+    )*};
 }
-impl FlowValue for f32 {
-    const ZERO: Self = 0.0;
-}
-impl FlowValue for f64 {
-    const ZERO: Self = 0.0;
-}
+
+impl_flow_value_int!(i32, i64);
+impl_flow_value_float!(f32, f64);
 
 const FREE_NODE: u8 = 0;
 const SOURCE_TREE: u8 = 1;
@@ -256,12 +282,13 @@ impl<V: FlowValue> MinSTGraphCut<V> {
     /// nothing).
     fn add_terminal_arc(&mut self, from: usize, to: usize, arc_capacity: V) {
         let (source, sink, n) = (self.source_node(), self.sink_node(), self.num_nodes);
+        // Wrapping sums for integers: see FlowValue.
         if from == source && to == sink {
-            self.direct_flow_capacity += arc_capacity;
+            self.direct_flow_capacity = self.direct_flow_capacity.add(arc_capacity);
         } else if from == source && to < n {
-            self.source_capacity[to] += arc_capacity;
+            self.source_capacity[to] = self.source_capacity[to].add(arc_capacity);
         } else if from < n && to == sink {
-            self.sink_capacity[from] += arc_capacity;
+            self.sink_capacity[from] = self.sink_capacity[from].add(arc_capacity);
         }
     }
 }
@@ -334,8 +361,8 @@ impl<V: FlowValue> Solver<V> {
         for v in 0..n {
             let to_source = graph.source_capacity[v];
             let to_sink = graph.sink_capacity[v];
-            solver.flow += to_source.min_value(to_sink);
-            solver.terminal[v] = to_source - to_sink;
+            solver.flow = solver.flow.add(to_source.min_value(to_sink));
+            solver.terminal[v] = to_source.sub(to_sink);
             if solver.terminal[v] > V::ZERO {
                 solver.add_to_tree(v, SOURCE_TREE, TERMINAL_PARENT);
             } else if solver.terminal[v] < V::ZERO {
@@ -348,7 +375,7 @@ impl<V: FlowValue> Solver<V> {
     fn run(&mut self) -> V {
         while let Some(meeting_edge) = self.grow() {
             let bottleneck = self.augment(meeting_edge);
-            self.flow += bottleneck;
+            self.flow = self.flow.add(bottleneck);
             self.adopt();
         }
         self.flow
@@ -442,7 +469,7 @@ impl<V: FlowValue> Solver<V> {
             bottleneck = bottleneck.min_value(self.residual[to_parent]);
             v = self.head[to_parent];
         }
-        bottleneck = bottleneck.min_value(-self.terminal[v]);
+        bottleneck = bottleneck.min_value(self.terminal[v].neg());
 
         self.push(meeting_edge, bottleneck);
 
@@ -455,7 +482,7 @@ impl<V: FlowValue> Solver<V> {
             }
             v = self.head[to_parent];
         }
-        self.terminal[v] -= bottleneck;
+        self.terminal[v] = self.terminal[v].sub(bottleneck);
         if self.terminal[v] <= V::ZERO {
             self.make_orphan(v);
         }
@@ -469,7 +496,7 @@ impl<V: FlowValue> Solver<V> {
             }
             v = self.head[to_parent];
         }
-        self.terminal[v] += bottleneck;
+        self.terminal[v] = self.terminal[v].add(bottleneck);
         if self.terminal[v] >= V::ZERO {
             self.make_orphan(v);
         }
@@ -478,8 +505,8 @@ impl<V: FlowValue> Solver<V> {
     }
 
     fn push(&mut self, edge: usize, amount: V) {
-        self.residual[edge] -= amount;
-        self.residual[edge ^ 1] += amount;
+        self.residual[edge] = self.residual[edge].sub(amount);
+        self.residual[edge ^ 1] = self.residual[edge ^ 1].add(amount);
     }
 
     fn make_orphan(&mut self, node: usize) {

@@ -25,6 +25,7 @@
 //! `BinaryHeap` of `Reverse` entries; both order by the full tuple, so ties go to the lowest
 //! vertex index exactly as in C#.
 
+use crate::check;
 use std::cmp::Reverse;
 use std::collections::{BTreeSet, BinaryHeap};
 
@@ -48,8 +49,14 @@ const UNMATCHED_FOR_TWO_HOP: f64 = 0.1;
 /// Partitions a weighted undirected graph given in CSR form (`xadj`, `adjncy`, `adjwgt`, each
 /// edge stored in both directions, unit vertex weights) into `num_parts` parts. Returns one
 /// label in `[0, num_parts)` per vertex. Parallel edges add up and self-loops are ignored.
-pub fn partition(xadj: &[usize], adjncy: &[usize], adjwgt: &[i32], num_parts: usize) -> Vec<usize> {
-    partition_with_work(xadj, adjncy, adjwgt, num_parts).0
+/// Fails a check for `num_parts == 0` or a malformed CSR graph (see [`check_csr`]).
+pub fn partition(
+    xadj: &[usize],
+    adjncy: &[usize],
+    adjwgt: &[i32],
+    num_parts: usize,
+) -> crate::Result<Vec<usize>> {
+    Ok(partition_with_work(xadj, adjncy, adjwgt, num_parts)?.0)
 }
 
 /// [`partition`], also returning a count of the elementary steps taken (adjacency entries,
@@ -60,9 +67,12 @@ pub fn partition_with_work(
     adjncy: &[usize],
     adjwgt: &[i32],
     num_parts: usize,
-) -> (Vec<usize>, u64) {
+) -> crate::Result<(Vec<usize>, u64)> {
+    // num_parts == 0 would recurse forever (0 / 2 parts on each side).
+    check!(num_parts >= 1);
+    check_csr(xadj, adjncy, adjwgt)?;
     let mut partitioner = Partitioner { work: 0 };
-    let num_vertices = xadj.len().saturating_sub(1);
+    let num_vertices = xadj.len() - 1;
     let input = Graph {
         xadj: xadj.to_vec(),
         adjncy: adjncy.to_vec(),
@@ -75,11 +85,12 @@ pub fn partition_with_work(
     let graph = partitioner.contract(&input, &identity, num_vertices);
     let mut labels = vec![0usize; num_vertices];
     partitioner.partition_recursive(&graph, &identity, num_parts, 0, &mut labels);
-    (labels, partitioner.work)
+    Ok((labels, partitioner.work))
 }
 
 /// Greedy graph growing from `seed` for a graph in CSR form with vertex weights; returns 0
-/// for the grown side and 1 for the rest. Exposed for tests.
+/// for the grown side and 1 for the rest. Exposed for tests. Fails a check for a malformed
+/// CSR graph, `vertex_weights` not one per vertex, or `seed` out of range.
 pub fn grow_region(
     xadj: &[usize],
     adjncy: &[usize],
@@ -88,14 +99,32 @@ pub fn grow_region(
     seed: usize,
     target0: f64,
     max_weight0: i64,
-) -> Vec<usize> {
+) -> crate::Result<Vec<usize>> {
+    check_csr(xadj, adjncy, adjwgt)?;
+    let num_vertices = xadj.len() - 1;
+    check!(vertex_weights.len() == num_vertices);
+    check!(seed < num_vertices);
     let graph = Graph {
         xadj: xadj.to_vec(),
         adjncy: adjncy.to_vec(),
         adjwgt: adjwgt.to_vec(),
         vertex_weights: vertex_weights.to_vec(),
     };
-    Partitioner { work: 0 }.grow_region(&graph, Some(seed), target0, max_weight0)
+    Ok(Partitioner { work: 0 }.grow_region(&graph, Some(seed), target0, max_weight0))
+}
+
+/// Checks that (`xadj`, `adjncy`, `adjwgt`) is a well-formed CSR graph, so the partitioner
+/// can index it without panicking: `xadj` holds n + 1 non-decreasing offsets from 0 to
+/// `adjncy.len()`, `adjwgt` has one weight per entry, and every neighbor is below n.
+fn check_csr(xadj: &[usize], adjncy: &[usize], adjwgt: &[i32]) -> crate::Result<()> {
+    check!(!xadj.is_empty());
+    check!(xadj[0] == 0);
+    check!(xadj[xadj.len() - 1] == adjncy.len());
+    check!(xadj.windows(2).all(|w| w[0] <= w[1]));
+    check!(adjwgt.len() == adjncy.len());
+    let num_vertices = xadj.len() - 1;
+    check!(adjncy.iter().all(|&u| u < num_vertices));
+    Ok(())
 }
 
 /// A graph in CSR form with vertex weights.
