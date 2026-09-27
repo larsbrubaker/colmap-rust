@@ -10,14 +10,14 @@
 //! functions COLMAP does not throw from (`ExistsCameraModelWithId`, `CameraModelIdToName`,
 //! `CameraModelIsPerspectiveFisheye`) answer for `Invalid` instead.
 //!
-//! `CameraModelImgFromCamWithJac` and the analytic `ImgFromCamWithJac` kernels
-//! (`models_jacobian.h`) are not here yet; [`cam_ray_from_img_jacobian`], which only
-//! consumes a Jacobian, is.
+//! [`camera_model_img_from_cam_with_jac`] dispatches to the analytic per-model kernels of
+//! `models_jacobian.h` (`jacobian*.rs`); binding `M` to a model without
+//! [`CameraModelWithJac`] fails to compile, as COLMAP's `static_assert` does.
 
 use crate::linalg::{Matrix2x3d, Matrix3x2d, Vector2d, Vector3d};
 
 use super::{
-    CameraModel, CameraModelId, CameraModelKind, DivisionCameraModel, EUCMCameraModel,
+    CameraModel, CameraModelId, CameraModelWithJac, CameraModelKind, DivisionCameraModel, EUCMCameraModel,
     EquirectangularCameraModel, FOVCameraModel, FisheyeCameraModel, FullOpenCVCameraModel,
     OpenCVCameraModel, OpenCVFisheyeCameraModel, PinholeCameraModel, RadTanThinPrismFisheyeModel,
     RadialCameraModel, RadialFisheyeCameraModel, SimpleDivisionCameraModel,
@@ -242,6 +242,43 @@ pub fn camera_model_img_from_cam(
         check_cheirality,
     ));
     ok.then(|| Vector2d::new(x, y))
+}
+
+/// `CameraModelImgFromCamWithJac`: [`camera_model_img_from_cam`] through the model's
+/// analytic `ImgFromCamWithJac`, also writing the projection Jacobian
+/// `d(x, y) / d(u, v, w)` into `j_uvw` when it is given (`None` skips it, COLMAP's
+/// `nullptr`). `None` on failure, with `j_uvw` untouched. COLMAP's default for
+/// `check_cheirality` is true.
+pub fn camera_model_img_from_cam_with_jac(
+    model_id: CameraModelId,
+    params: &[f64],
+    uvw: Vector3d,
+    j_uvw: Option<&mut Matrix2x3d>,
+    check_cheirality: bool,
+) -> Option<Vector2d> {
+    let mut x = 0.0;
+    let mut y = 0.0;
+    // 2x3 row-major Jacobian, zero-initialized like COLMAP's, which copies it out whole.
+    let mut j_uvw_data = [0.0; 6];
+    let with_jac = j_uvw.is_some();
+    let ok = dispatch!(model_id, M => M::img_from_cam_with_jac(
+        params,
+        uvw.x,
+        uvw.y,
+        uvw.z,
+        &mut x,
+        &mut y,
+        None,
+        with_jac.then_some(&mut j_uvw_data),
+        check_cheirality,
+    ));
+    if !ok {
+        return None;
+    }
+    if let Some(j_uvw) = j_uvw {
+        *j_uvw = Matrix2x3d::from_row_major(j_uvw_data);
+    }
+    Some(Vector2d::new(x, y))
 }
 
 /// `CameraModelCamFromImg`: pixels to normalized camera coordinates `(u, v)`, or `None` if
