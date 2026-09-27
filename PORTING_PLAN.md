@@ -11,6 +11,44 @@ license decisions are in `docs/LICENSE_AUDIT.md`.
 that runs natively and on GitHub Pages, cancellable with progress. Each phase makes its result
 visible in the app so the web build is the integration test.
 
+## Resume here (paused 2026-09-27)
+
+**On `main` and reviewed:** Phase 0 (scaffold, app shells, CI), Phase 1 (util, math, linalg), Phase 2
+(geometry), Phase 3 camera models + Jacobians, Phase 5 RANSAC family (`optim/`).
+
+**Setting up on another machine:** clone `rust-apps` with submodules (colmap-rust needs `../agg-gui`
+as a sibling); in colmap-rust run `scripts/fetch-reference.sh` (and `oracle/setup.sh` only if you
+regenerate fixtures). Agent worktrees live in `.claude/worktrees/`, so create the symlink
+`.claude/worktrees/agg-gui -> <rust-apps>/agg-gui` (git-ignored) or the app crates won't resolve.
+Divergence-log merges: keep both sides' entries in numeric order (entries are independent sections).
+After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balanced.
+
+**Paused work on pushed `wip/*` branches** (each started from an older `main`; merge `main` in
+first):
+- `wip/phase3c-sensor-rest` — sensor `rig`, `specs` (generated table), `database`, `bitmap`,
+  EXIF reader; reviewed, and the review fixes are committed (`802aa49`: row-window Rescale,
+  `Bitmap::try_new`, EXIF doc wording, printf `nan`/`inf`) but **not yet verified or re-reviewed**.
+  To finish: run the core-crate checks, quick re-review of `802aa49`, merge, and
+  on merge add a `### sensor/` list under "Skipped tests": `bitmap_test.cc` ReadWriteAsRGB,
+     ReadWriteUnicodePath, ReadWriteAsGrey, ReadWriteAsGreyNonLinear, ReadWriteLinearColorspace,
+     WriteJpegWithQuality, WriteInvalidFormat, ReadNonImageFile, ReadNonExistentFile,
+     ReadUnsupportedChannels, all ParameterizedBitmapFormatTests, and the PNG round-trip tails of
+     CloneAsRGB/CloneAsGrey (the host decodes images; no file I/O in the core).
+- `wip/phase4a-scene-types` — Phase 4a scene data types (point2d, point3d, track, camera, frame,
+  image, projection, visibility_pyramid, two_view_geometry) with their tests; **unverified WIP**
+  (paused while writing image/camera/projection tests). Finish, run the core-crate checks, review.
+  `Camera::verify_params` must return `Err` for an invalid model id (divergence 101).
+- `wip/phase5b-sparse-lad` — sparse CSC matrix, simplicial Cholesky, `optim` sparse_cholesky,
+  least_absolute_deviations, tiny_solver with tests; **unverified WIP** (paused starting
+  TinySolver). AMD ordering may still be missing. Merge `main` (it now has `optim/`), finish, review.
+
+**Not started (were just launched):** Phase 6a (`SimilarityTransformEstimator`, then the five
+deferred optim tests below), Phase 6b (PoseLib minimal solvers).
+
+**Other open items:** PR larsbrubaker/colmap-rust#1 (CI smoke test via GPU readback; green) is
+waiting for Lars to merge — it turns on the Pages deploy. The rust-apps commit adding the
+colmap-rust submodule + README entry is local on the original machine only.
+
 ## Out of scope (do not re-litigate)
 
 Same as colmap-sharp: COLMAP's Qt GUI (`ui/`; our UI is new and agg-gui based), CLI executables
