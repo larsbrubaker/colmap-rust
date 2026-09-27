@@ -673,3 +673,79 @@ When a logger lands, this entry goes away.
 
 **Evidence.** `tests/geometry/pose_prior.rs`, `pose_prior_gravity_from_exif_orientation`
 (pose_prior_test.cc 1:1) checks every `None` case.
+
+## 100. FMA contraction in the camera models
+
+**What differs.** Camera model projection (`camera_model_img_from_cam`) and ray unprojection
+(`camera_model_cam_ray_from_img`) of every perspective model, and `camera_model_cam_from_img`
+of the fisheye, division, FOV and EUCM models, differ from the pycolmap 4.2.0 macOS arm64
+wheel by a few ulps on part of the inputs (at most 2e-14 relative to max(1, |value|) in the
+fixture). Which calls succeed or fail never differs. Same as colmap-sharp entry 12.
+
+**Why.** The wheel is built with contraction on and fuses multiply-adds that sit in one C++
+statement, e.g. `*x = f * *x + c1` in every model's `ImgFromCam` and `u * u + v * v + 1.0`
+in `CamRayFromImg`. colmap-rust never uses FMA in math paths (CLAUDE.md, "No FMA"), so its
+results are the same on every platform. The iterative undistortion runs its distortion on
+`ceres::Jet`, whose operators are separate function calls that clang does not contract, and
+matches the wheel bit for bit. The models that call `sin`/`cos`/`tan`/`atan`/`atan2` (the
+fisheye models, FOV, EQUIRECTANGULAR) also go through the `libm` crate rather than Apple libm
+(entry 1), which can move the same outputs by an ulp; colmap-sharp holds EQUIRECTANGULAR
+bit-exact because .NET calls the platform libm, colmap-rust does not.
+
+**Evidence.** `oracle/camera_models.py` prints it: re-deriving SIMPLE_RADIAL's projected x with
+the unfused formula matches the wheel on 64/75 and 60/75 points of the two parameter sets,
+and on 75/75 with only `f * x + c1` fused; PINHOLE's ray z matches on 98/101 plain and
+101/101 with `u*u + v*v` fused. `tests/sensor/rust_only_camera_model_oracle.rs` requires
+bit-identical `CamFromImg` for the plain pinholes and the models that unproject through the
+iterative undistortion (SIMPLE_RADIAL, RADIAL, OPENCV, FULL_OPENCV) and the pixel threshold,
+and pins everything else at 2e-14 relative to max(1, |value|).
+
+**Related, not observed here.** C++ `EquirectangularCameraModel` evaluates
+`2.0 * EIGEN_PI * (...)` with `EIGEN_PI` a `long double` literal, so on x86-64 Linux (80-bit
+long double) its results may differ from both the macOS wheel (where long double is double)
+and colmap-rust, which uses `std::f64::consts::PI`.
+
+## 101. An unknown camera model id: an error at the boundary functions, a panic on the per-point path
+
+**What differs.** COLMAP's camera model dispatch functions all throw
+`std::domain_error("Camera model does not exist")` for an id outside `CAMERA_MODEL_CASES`.
+colmap-rust splits them:
+- The metadata and validation functions that COLMAP calls at input boundaries
+  (`camera_model_initialize_params`, `camera_model_params_info`, the four index-group getters,
+  `camera_model_num_params`, `camera_model_verify_params`, `camera_model_has_bogus_params`)
+  return `Err` with `ErrorKind::DomainError` and COLMAP's message, the Rust form of the throw.
+- The per-point functions (`camera_model_img_from_cam`, `camera_model_cam_from_img`,
+  `camera_model_cam_ray_from_img`, `camera_model_cam_from_img_threshold`,
+  `camera_model_rescale`, `camera_model_is_perspective`, `..._is_perspective_pinhole`,
+  `..._is_spherical`) stay infallible and panic with the same message.
+- The functions COLMAP answers without throwing (`CameraModelNameToId` returns `kInvalid`,
+  `CameraModelIdToName` returns "", `ExistsCameraModelWithId`,
+  `CameraModelIsPerspectiveFisheye`) answer the same way here.
+Separately, a C++ enum class can hold any integer (`static_cast<CameraModelId>(123456789)`); a
+Rust `CameraModelId` holds only named enumerators, so a raw value is checked once, at
+`CameraModelId::from_i32`, which returns `None` for an unnamed value. The only unknown id that
+reaches a dispatch function is therefore `CameraModelId::Invalid`.
+
+**Why.** COLMAP does pass `kInvalid` into dispatch at its input boundaries: the text reader
+(`scene/reconstruction_io_text.cc`, around line 140) looks a model name up with
+`CameraModelNameToId` and calls `CameraModelNumParams` / `CameraModelVerifyParams` on the
+result without an existence check, and `camera_test.cc` expects `VerifyParams` on a default
+(`kInvalid`) `Camera` to throw `domain_error`. A misspelled model in a user's `cameras.txt`
+must be a recoverable error (in the web app a panic would abort the app), so those functions
+return `Result`. The per-point functions run once per point in every projection, residual and
+undistortion loop, where a `Result` would cost every caller for a condition that cannot occur
+once the camera is validated, so they keep a panic: an internal invariant, where CLAUDE.md's
+error rule allows one.
+
+**Obligation on later phases.** Every path that creates a camera from outside data must
+validate the id through the fallible functions before any per-point call: Phase 4's
+`Camera::verify_params` (returning the error, as `camera_test.cc` expects), the camera
+readers (text, binary, database) and `Camera::create_from_model_name` /
+`create_from_model_id` propagate the `DomainError`; nothing may call a per-point function on
+an unverified `Camera`.
+
+**Evidence.** `tests/sensor/models.rs` ports `models_test.cc` 1:1, including the
+`ExistsCameraModelWithId(static_cast<CameraModelId>(123456789))` check through `from_i32`.
+`tests/sensor/rust_only_models.rs` checks that every boundary function returns
+`Err(DomainError, "Camera model does not exist")` for `Invalid` and that projection and
+unprojection panic with that message.
