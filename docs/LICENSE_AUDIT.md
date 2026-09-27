@@ -63,7 +63,10 @@ a permissive license, pure Rust (it must still build for wasm32), and a pinned m
 
 | Crate | License | Why |
 |---|---|---|
-| *(none yet)* | | Phase 0 starts with std only. `rayon` (MIT/Apache-2.0) is the expected first addition, behind a `parallel` feature, for determinism-preserving parallel loops. |
+| `libm` 0.2 | MIT (a port of musl's libm, MIT) | Every transcendental in `math::fns` (f64 and f32). Pure Rust, no dependencies; its `build.rs` only emits cfg flags (no native code). Chosen because it gives identical bits on every target, native and wasm32, where std's platform libm does not (docs/CPP_DIVERGENCES.md, entry 1). |
+
+`rayon` (MIT/Apache-2.0) is the expected next addition, behind a `parallel` feature, for
+determinism-preserving parallel loops.
 
 `colmap-gpu` may additionally use `wgpu` (MIT/Apache-2.0). The app crates may use agg-gui and
 its stack (MIT), `wasm-bindgen`/`web-sys`/`js-sys` (MIT/Apache-2.0), and permissive image

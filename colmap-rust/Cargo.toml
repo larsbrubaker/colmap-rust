@@ -1,4 +1,4 @@
-# colmap-rust core library: the pure-Rust, std-only port of COLMAP (no GUI, no GPU).
+# colmap-rust core library: the pure-Rust port of COLMAP (no GUI, no GPU).
 [package]
 name = "colmap-rust"
 description = "Pure-Rust port of COLMAP (Structure-from-Motion and Multi-View Stereo)"
@@ -14,3 +14,5 @@ name = "colmap_rust"
 path = "src/lib.rs"
 
 [dependencies]
+# Pure-Rust libm (musl port): bit-identical on every target; docs/CPP_DIVERGENCES.md entry 1.
+libm = "0.2"

@@ -80,7 +80,10 @@ Four nets. A phase is not done until all that apply are green.
 
 1. **Ported COLMAP tests** — `colmap-rust/tests/<module>/<file>.rs`, one file per `*_test.cc`,
    same test names. Tests MUST exercise production code, never copies of it. Unit tests that
-   need private access live in `src/**/tests.rs`.
+   need private access live in `src/**/tests.rs`. Each module is one test binary,
+   `colmap-rust/tests/<module>.rs`, which pulls its files in with
+   `#[path = "<module>/<file>.rs"] mod <file>;` (run one with
+   `cargo test -p colmap-rust --test <module>`).
 2. **Oracle fixtures** — `oracle/` holds Python scripts that run the pinned `pycolmap` wheel
    (`oracle/requirements.txt`) and write inputs and outputs to `colmap-rust/tests/data/oracle/`.
    Fixtures are checked in, so `cargo test` never needs Python. colmap-sharp's checked-in
@@ -115,10 +118,12 @@ Plus the gates that run with net 1:
   lane repeats the scalar IEEE operations in the same order, with a test pinning bit-identity to
   the scalar path. Apple clang contracts `a*b + c` by default, so when a Tier A oracle diff
   lands exactly on a multiply-add, suspect the C++ side first and record it.
-- **Transcendentals.** `sin`/`cos`/`exp`/`log`/`atan2`/`pow` go through `colmap_rust::math::fns`
-  so the implementation can be pinned in one place (std's libm differs between native targets
-  and wasm). Phase 0 decides std vs. the `libm` crate by probe; Tier A code must give the same
-  bits native and wasm.
+- **Transcendentals.** `sin`/`cos`/`exp`/`log`/`atan2`/`pow` (f64, and the `sinf`/`expf`/...
+  f32 forms) always go through `colmap_rust::math::fns`, never the `f64`/`f32` methods. It is
+  backed by the pure-Rust `libm` crate, which gives the same bits native and wasm (std's does
+  not); the cost is 1-2 ulp differences from Apple libm, so Tier A oracle tests of code that
+  calls transcendentals may need a tolerance and cite `docs/CPP_DIVERGENCES.md` entry 1.
+  `tests/math/fns_probe.rs` pins the bits on every CI platform.
 - **Hash iteration order.** `std::collections::HashMap`/`HashSet` are randomly seeded; never
   iterate one where the order can reach an output. Use `BTreeMap`, a sorted `Vec`, an
   insertion-ordered map, or — where COLMAP's own order matters — the libc++ `unordered_map`
@@ -197,7 +202,7 @@ agg-gui comes from crates.io. To develop against local agg-gui sources, uncommen
 ```bash
 cargo build --workspace
 cargo test --workspace
-cargo test -p colmap-rust --test <file>              # one ported *_test.cc
+cargo test -p colmap-rust --test <module>            # one module's ported tests
 cargo test -p colmap-rust <name> -- --exact --nocapture
 cargo test -p colmap-rust --test file_compliance
 cargo build -p colmap-rust --target wasm32-unknown-unknown

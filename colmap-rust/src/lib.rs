@@ -1,5 +1,6 @@
 //! colmap-rust: a pure-Rust port of COLMAP 4.2.0 (Structure-from-Motion and Multi-View
-//! Stereo). std only, no GUI and no GPU, and it builds for `wasm32-unknown-unknown`.
+//! Stereo). Pure Rust (std plus the `libm` crate), no GUI and no GPU, and it builds for
+//! `wasm32-unknown-unknown`.
 //!
 //! Modules mirror COLMAP's `src/colmap/` tree. A module appears here only once it has real,
 //! ported content (see `PORTING_PLAN.md` for the order the rest arrive in):

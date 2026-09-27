@@ -1,17 +1,19 @@
-// Rust-only probe (no COLMAP counterpart): pins the exact bits of every function in
-// `colmap_rust::math::fns` over a fixed, broad input set, against a table generated on
-// macOS aarch64 (`tests/data/fns_probe_expected.txt`, Apple libm behind std).
+// Rust-only probe (no COLMAP counterpart): the cross-platform guarantee for
+// `colmap_rust::math::fns`. It pins the exact bits of every f64 and f32 function over a
+// fixed, broad input set against checked-in tables (`tests/data/fns_probe_expected.txt` and
+// `fns_probe_expected_f32.txt`), so any target whose results differ fails here with a
+// per-function count and examples. CI runs it on Linux, macOS and Windows, which enforces
+// native == native across platforms; wasm32 was checked against the same tables by running
+// a `wasm32-unknown-unknown` build of these functions under node when they were generated.
 //
-// Purpose: decide the `math::fns` backend (PORTING_PLAN.md Phase 0). std calls the
-// platform C libm natively (Apple libm, glibc, UCRT) and compiler-builtins' musl port on
-// wasm32, so the same Rust code can round differently per target. CI runs this on Linux,
-// macOS and Windows; any disagreement fails here with a per-function count and examples.
-// The same table was checked against a `wasm32-unknown-unknown` build of these functions
-// run under node: 490 of 7154 probes differ by 1-2 ulp (details in the Phase 0a commit
-// message).
+// Why it exists: std's transcendentals call the platform C libm natively (Apple libm, glibc,
+// UCRT) and compiler-builtins' musl port on wasm32, and differed (490 of 7154 f64 probes,
+// 1-2 ulp, wasm vs macOS). `math::fns` therefore uses the pure-Rust `libm` crate, which is
+// bit-identical native and wasm (docs/CPP_DIVERGENCES.md, entry 1).
 //
-// Regenerate (on macOS only, since COLMAP/pycolmap oracles are macOS builds):
-//   COLMAP_REGENERATE_FNS_PROBE=1 cargo test -p colmap-rust --test math rust_only_fns_probe
+// The inputs are built from bits and basic arithmetic only, never from the functions under
+// test. Regenerate after changing the inputs or the backend:
+//   COLMAP_REGENERATE_FNS_PROBE=1 cargo test -p colmap-rust --test math -- --test-threads=1
 
 use colmap_rust::math::fns;
 use std::fmt::Write as _;
@@ -41,6 +43,33 @@ fn eval(name: &str, x: f64, y: f64) -> f64 {
         "cbrt" => fns::cbrt(x),
         "hypot" => fns::hypot(x, y),
         _ => panic!("unknown probe function {name}"),
+    }
+}
+
+/// Every probed f32 function, by the name used in the f32 table.
+const FUNCTIONS_F32: [&str; 15] = [
+    "sinf", "cosf", "tanf", "asinf", "acosf", "atanf", "atan2f", "expf", "logf", "log2f", "log10f",
+    "powf", "sqrtf", "cbrtf", "hypotf",
+];
+
+fn eval_f32(name: &str, x: f32, y: f32) -> f32 {
+    match name {
+        "sinf" => fns::sinf(x),
+        "cosf" => fns::cosf(x),
+        "tanf" => fns::tanf(x),
+        "asinf" => fns::asinf(x),
+        "acosf" => fns::acosf(x),
+        "atanf" => fns::atanf(x),
+        "atan2f" => fns::atan2f(x, y),
+        "expf" => fns::expf(x),
+        "logf" => fns::logf(x),
+        "log2f" => fns::log2f(x),
+        "log10f" => fns::log10f(x),
+        "powf" => fns::powf(x, y),
+        "sqrtf" => fns::sqrtf(x),
+        "cbrtf" => fns::cbrtf(x),
+        "hypotf" => fns::hypotf(x, y),
+        _ => panic!("unknown f32 probe function {name}"),
     }
 }
 
@@ -170,92 +199,174 @@ fn inputs(name: &str) -> Vec<(f64, f64)> {
     out
 }
 
-fn table_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/fns_probe_expected.txt")
-}
-
-/// The table: `<fn> <x bits> <y bits> <result bits>` in hex, one probe per line.
-fn generate_table() -> String {
-    let mut table = String::from(
-        "# math::fns probe: <fn> <x bits> <y bits> <result bits>, f64 bit patterns in hex.\n\
-         # Generated on macOS aarch64 (Apple libm behind std) by tests/math/fns_probe.rs.\n",
-    );
-    for name in FUNCTIONS {
-        for (x, y) in inputs(name) {
-            let r = eval(name, x, y);
-            writeln!(
-                table,
-                "{name} {:016x} {:016x} {:016x}",
-                x.to_bits(),
-                y.to_bits(),
-                r.to_bits()
-            )
-            .expect("writing to a String cannot fail");
-        }
-    }
-    table
-}
-
-/// Distance in units in the last place between two finite doubles of the same sign.
-fn ulps(a: f64, b: f64) -> u64 {
-    let key = |v: f64| {
-        let bits = v.to_bits() as i64;
-        if bits < 0 {
-            i64::MIN - bits
-        } else {
-            bits
-        }
+/// Inputs for one f32 function: its f64 counterpart's inputs rounded to f32 (`as` rounds to
+/// nearest, exactly, everywhere), plus 100 values from f32-specific ranges where the f64 ones
+/// would mostly overflow or underflow.
+fn inputs_f32(name: &str) -> Vec<(f32, f32)> {
+    let base = match name {
+        "logf" => "ln",
+        _ => name.strip_suffix('f').expect("f32 names end in 'f'"),
     };
-    key(a).abs_diff(key(b))
+    let mut out: Vec<(f32, f32)> = inputs(base)
+        .into_iter()
+        .map(|(x, y)| (x as f32, y as f32))
+        .collect();
+    let seed = 0x00F3_2F32_0000_0000
+        ^ name
+            .bytes()
+            .fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)));
+    let mut rng = SplitMix64(seed);
+    for _ in 0..100 {
+        let pair = match base {
+            "exp" => (rng.uniform(-104.0, 89.0), 0.0),
+            "ln" | "log2" | "log10" | "sqrt" => (rng.random_binade(-126, 127), 0.0),
+            "pow" => (rng.uniform(0.0, 10.0), rng.uniform(-30.0, 30.0)),
+            "asin" | "acos" => (rng.uniform(-1.0, 1.0), 0.0),
+            "atan2" | "hypot" => (rng.uniform(-1e3, 1e3), rng.uniform(-1e3, 1e3)),
+            _ => (rng.uniform(-100.0, 100.0), 0.0),
+        };
+        out.push((pair.0 as f32, pair.1 as f32));
+    }
+    out
 }
 
-#[test]
-fn rust_only_fns_probe_matches_macos_table() {
+/// One probe: function name, input bits and result bits (f64 or f32 bits widened to u64).
+struct Probe {
+    name: &'static str,
+    x: u64,
+    y: u64,
+    result: u64,
+}
+
+/// A probe table: its file, bit width, and how to evaluate one row.
+struct Table {
+    file: &'static str,
+    hex_width: usize,
+    probes: fn() -> Vec<Probe>,
+    is_nan: fn(u64) -> bool,
+}
+
+fn probes_f64() -> Vec<Probe> {
+    FUNCTIONS
+        .iter()
+        .flat_map(|&name| {
+            inputs(name).into_iter().map(move |(x, y)| Probe {
+                name,
+                x: x.to_bits(),
+                y: y.to_bits(),
+                result: eval(name, x, y).to_bits(),
+            })
+        })
+        .collect()
+}
+
+fn probes_f32() -> Vec<Probe> {
+    FUNCTIONS_F32
+        .iter()
+        .flat_map(|&name| {
+            inputs_f32(name).into_iter().map(move |(x, y)| Probe {
+                name,
+                x: u64::from(x.to_bits()),
+                y: u64::from(y.to_bits()),
+                result: u64::from(eval_f32(name, x, y).to_bits()),
+            })
+        })
+        .collect()
+}
+
+const F64_TABLE: Table = Table {
+    file: "fns_probe_expected.txt",
+    hex_width: 16,
+    probes: probes_f64,
+    is_nan: |b| f64::from_bits(b).is_nan(),
+};
+
+const F32_TABLE: Table = Table {
+    file: "fns_probe_expected_f32.txt",
+    hex_width: 8,
+    probes: probes_f32,
+    is_nan: |b| f32::from_bits(b as u32).is_nan(),
+};
+
+fn table_path(table: &Table) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/data")
+        .join(table.file)
+}
+
+fn render(table: &Table, probes: &[Probe]) -> String {
+    let w = table.hex_width;
+    let mut text = format!(
+        "# math::fns probe ({} bits): <fn> <x bits> <y bits> <result bits> in hex.\n\
+         # Backend: the libm crate. Generated by tests/math/fns_probe.rs.\n",
+        w * 4
+    );
+    for p in probes {
+        writeln!(
+            text,
+            "{} {:0w$x} {:0w$x} {:0w$x}",
+            p.name, p.x, p.y, p.result
+        )
+        .expect("writing to a String cannot fail");
+    }
+    text
+}
+
+/// Rows of a table file, comments skipped.
+fn read_rows(table: &Table) -> Vec<Vec<String>> {
+    let text = std::fs::read_to_string(table_path(table)).expect("read probe table");
+    text.lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+        .map(|l| l.split(' ').map(str::to_string).collect())
+        .collect()
+}
+
+fn check_table(table: &Table) {
+    let current = (table.probes)();
     if std::env::var_os("COLMAP_REGENERATE_FNS_PROBE").is_some() {
-        std::fs::write(table_path(), generate_table()).expect("write probe table");
+        std::fs::write(table_path(table), render(table, &current)).expect("write table");
         return;
     }
-    let expected = std::fs::read_to_string(table_path()).expect("read probe table");
-    let mut total = 0usize;
-    let mut mismatches: Vec<String> = Vec::new();
+    let rows = read_rows(table);
+    assert!(rows.len() > 2000, "{}: too few probes", table.file);
+    assert_eq!(
+        rows.len(),
+        current.len(),
+        "{}: the input set changed; regenerate the table",
+        table.file
+    );
+    let hex = |s: &str| u64::from_str_radix(s, 16).expect("hex bits");
+    let mut mismatches = Vec::new();
     let mut per_function = std::collections::BTreeMap::<&str, usize>::new();
-    for line in expected
-        .lines()
-        .filter(|l| !l.starts_with('#') && !l.is_empty())
-    {
-        let fields: Vec<&str> = line.split(' ').collect();
-        assert_eq!(fields.len(), 4, "malformed probe line: {line}");
-        let bits = |s: &str| u64::from_str_radix(s, 16).expect("hex bits");
-        let name = FUNCTIONS
-            .iter()
-            .copied()
-            .find(|f| *f == fields[0])
-            .expect("known function");
-        let (x, y) = (
-            f64::from_bits(bits(fields[1])),
-            f64::from_bits(bits(fields[2])),
+    for (row, probe) in rows.iter().zip(&current) {
+        assert_eq!(row.len(), 4, "{}: malformed row {row:?}", table.file);
+        assert!(
+            row[0] == probe.name && hex(&row[1]) == probe.x && hex(&row[2]) == probe.y,
+            "{}: the input set changed at {row:?}; regenerate the table",
+            table.file
         );
-        let want = f64::from_bits(bits(fields[3]));
-        let got = eval(name, x, y);
-        total += 1;
+        let want = hex(&row[3]);
         // NaN payloads and signs are not part of any contract we port; any NaN matches.
-        let same = got.to_bits() == want.to_bits() || (got.is_nan() && want.is_nan());
+        let same = want == probe.result || ((table.is_nan)(want) && (table.is_nan)(probe.result));
         if !same {
-            *per_function.entry(name).or_default() += 1;
+            *per_function.entry(probe.name).or_default() += 1;
             mismatches.push(format!(
-                "  {name}({x:e}, {y:e}): got {got:e} ({:016x}), macOS {want:e} ({:016x}), {} ulp",
-                got.to_bits(),
-                want.to_bits(),
-                ulps(got, want)
+                "  {}(x={:x}, y={:x}): got {:x}, table {want:x} ({} ulp)",
+                probe.name,
+                probe.x,
+                probe.y,
+                probe.result,
+                probe.result.abs_diff(want)
             ));
         }
     }
-    assert!(total > 3000, "probe table too small: {total} lines");
     assert!(
         mismatches.is_empty(),
-        "math::fns differs from the macOS table on {} of {total} probes on {}-{}.\n\
+        "math::fns differs from {} on {} of {} probes on {}-{}.\n\
          Per function: {per_function:?}\nFirst mismatches:\n{}",
+        table.file,
         mismatches.len(),
+        rows.len(),
         std::env::consts::OS,
         std::env::consts::ARCH,
         mismatches[..mismatches.len().min(40)].join("\n")
@@ -263,21 +374,11 @@ fn rust_only_fns_probe_matches_macos_table() {
 }
 
 #[test]
-fn rust_only_fns_probe_table_covers_current_inputs() {
-    // The table must be regenerated when the input set changes; this catches forgetting to.
-    let expected = std::fs::read_to_string(table_path()).expect("read probe table");
-    let inputs_in_table: Vec<String> = expected
-        .lines()
-        .filter(|l| !l.starts_with('#') && !l.is_empty())
-        .map(|l| l.rsplit_once(' ').expect("4 fields").0.to_string())
-        .collect();
-    let current: Vec<String> = FUNCTIONS
-        .iter()
-        .flat_map(|&name| {
-            inputs(name)
-                .into_iter()
-                .map(move |(x, y)| format!("{name} {:016x} {:016x}", x.to_bits(), y.to_bits()))
-        })
-        .collect();
-    assert_eq!(inputs_in_table, current);
+fn rust_only_fns_probe_f64_matches_table() {
+    check_table(&F64_TABLE);
+}
+
+#[test]
+fn rust_only_fns_probe_f32_matches_table() {
+    check_table(&F32_TABLE);
 }
