@@ -7,7 +7,7 @@
 //   the Move* cases are ported with the same checks on both bitmaps.
 // - Copy construction/assignment is `Clone`.
 // - Not ported (OpenImageIO file I/O; the host decodes and encodes images, see
-//   PORTING_PLAN.md "Skipped tests"): ReadWriteAsRGB, ReadWriteUnicodePath, ReadWriteAsGrey,
+//   PORTING_PLAN.md "Skipped tests" -> sensor/): ReadWriteAsRGB, ReadWriteUnicodePath, ReadWriteAsGrey,
 //   ReadWriteAsGreyNonLinear, ReadWriteLinearColorspace, WriteJpegWithQuality,
 //   WriteInvalidFormat, ReadNonImageFile, ReadNonExistentFile, ReadUnsupportedChannels, all
 //   ParameterizedBitmapFormatTests, and the PNG round-trip tails of CloneAsRGB / CloneAsGrey.

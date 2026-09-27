@@ -836,8 +836,9 @@ OpenImageIO; the port has neither: the host decodes pixels into `row_major_data_
 the file's bytes to `sensor::exif_reader` for the EXIF metadata. COLMAP's metadata is an OIIO
 `ImageSpec` behind a pointer that is null for a default-constructed bitmap or a copy of an
 empty one, and is addressed by OIIO type strings (`SetMetaData(name, "float", &value)`). Here it
-is a `MetaDataValue` enum with typed getters (int, float, point, string; an int reads as float
-and as its decimal string, every other mismatch as absent, as OIIO converts), names compared
+is a `MetaDataValue` enum with typed getters (int, float, point, string). Only the conversions
+the EXIF getters use are implemented (an int reads as float and as its decimal string); other
+conversions read as absent, where OIIO may convert more. Names are compared
 ASCII case-insensitively like OIIO's default `getattribute`, and the store always exists: where
 COLMAP dereferences the null pointer (metadata access, `Rescale`, `Rot90` or `CloneMetadata` on
 a bitmap without metadata), the port reads absent values and writes create entries. A copy of an

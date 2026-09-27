@@ -5,7 +5,8 @@
 //! - [`color`]: the pixel value type [`BitmapColor`];
 //! - `exif.rs`: the metadata store and the EXIF getters (focal length, GPS);
 //! - `resize.rs`: `Rescale` / `Thumbnail`'s resampling filters;
-//! - [`jet_colormap`]: the `JetColormap` declared in `bitmap.h`.
+//! - [`jet_colormap`]: the `JetColormap` declared in `bitmap.h`;
+//! - `tests.rs`: unit tests of the resampler against a full-intermediate reference.
 //!
 //! Tests: `tests/sensor/bitmap.rs` (`bitmap_test.cc`; the file I/O cases are skipped, see
 //! `PORTING_PLAN.md`).
@@ -30,6 +31,8 @@ pub mod color;
 mod exif;
 pub mod jet_colormap;
 mod resize;
+#[cfg(test)]
+mod tests;
 
 use std::fmt;
 
@@ -40,6 +43,7 @@ pub use resize::RescaleFilter;
 
 use exif::BitmapMetaData;
 
+use crate::util::check::{ColmapError, ErrorKind};
 use crate::{check_eq, Result};
 
 /// Port of `colmap::Bitmap`: an 8-bit grey (1 channel) or RGB (3 channels) image, stored
@@ -73,11 +77,32 @@ impl Clone for Bitmap {
     }
 }
 
-/// `width * height * channels` as a buffer length. COLMAP resizes its vector with the `int`
-/// product; negative dimensions are a caller bug there (a huge allocation) and panic here.
+/// `width * height * channels` as a buffer length, or an error for negative dimensions, a
+/// product that overflows `usize`, or a scan line (`Pitch`, a C++ `int`) beyond `i32`. COLMAP
+/// resizes its vector with the `int` product, where such sizes are undefined behavior or a
+/// huge allocation.
+fn checked_buffer_len(width: i32, height: i32, channels: i32) -> Result<usize> {
+    let invalid = || {
+        ColmapError::new(
+            ErrorKind::InvalidArgument,
+            format!("Invalid bitmap dimensions: {width}x{height}x{channels}"),
+        )
+    };
+    let dim = |v: i32| usize::try_from(v).map_err(|_| invalid());
+    width.checked_mul(channels).ok_or_else(invalid)?;
+    dim(width)?
+        .checked_mul(dim(height)?)
+        .and_then(|n| n.checked_mul(channels as usize))
+        .filter(|&n| n <= isize::MAX as usize)
+        .ok_or_else(invalid)
+}
+
+/// [`checked_buffer_len`] for sizes the caller guarantees; panics on invalid ones.
 fn buffer_len(width: i32, height: i32, channels: i32) -> usize {
-    let dim = |v: i32| usize::try_from(v).expect("Bitmap dimensions must be non-negative");
-    dim(width) * dim(height) * dim(channels)
+    match checked_buffer_len(width, height, channels) {
+        Ok(len) => len,
+        Err(error) => panic!("{}", error.message()),
+    }
 }
 
 impl Bitmap {
@@ -87,26 +112,56 @@ impl Bitmap {
     }
 
     /// `Bitmap(width, height, as_rgb)`: a zero-filled bitmap in the sRGB colorspace.
+    ///
+    /// # Panics
+    ///
+    /// On negative or overflowing dimensions. Use [`Bitmap::try_new`] for sizes from
+    /// untrusted input (e.g. a decoder's image header).
     pub fn new(width: i32, height: i32, as_rgb: bool) -> Self {
         Self::with_colorspace(width, height, as_rgb, false)
     }
 
+    /// [`Bitmap::new`] for untrusted sizes: an error (`InvalidArgument`) for negative
+    /// dimensions or a buffer size that overflows.
+    pub fn try_new(width: i32, height: i32, as_rgb: bool) -> Result<Self> {
+        Self::try_with_colorspace(width, height, as_rgb, false)
+    }
+
     /// `Bitmap(width, height, as_rgb, linear_colorspace)`.
+    ///
+    /// # Panics
+    ///
+    /// On negative or overflowing dimensions; see [`Bitmap::try_with_colorspace`].
     pub fn with_colorspace(width: i32, height: i32, as_rgb: bool, linear_colorspace: bool) -> Self {
+        match Self::try_with_colorspace(width, height, as_rgb, linear_colorspace) {
+            Ok(bitmap) => bitmap,
+            Err(error) => panic!("{}", error.message()),
+        }
+    }
+
+    /// [`Bitmap::with_colorspace`] for untrusted sizes: an error for negative dimensions or
+    /// a buffer size that overflows.
+    pub fn try_with_colorspace(
+        width: i32,
+        height: i32,
+        as_rgb: bool,
+        linear_colorspace: bool,
+    ) -> Result<Self> {
         let channels = if as_rgb { 3 } else { 1 };
+        let len = checked_buffer_len(width, height, channels)?;
         let mut meta_data = BitmapMetaData::default();
         meta_data.set(
             "oiio:ColorSpace",
             MetaDataValue::String(if linear_colorspace { "linear" } else { "sRGB" }.to_string()),
         );
-        Bitmap {
+        Ok(Bitmap {
             width,
             height,
             channels,
             linear_colorspace,
-            data: vec![0; buffer_len(width, height, channels)],
+            data: vec![0; len],
             meta_data,
-        }
+        })
     }
 
     /// `Width`.

@@ -4,7 +4,9 @@
 // - case-insensitive metadata names (OIIO's getattribute default) and the metadata store of
 //   a copied empty bitmap (entry 124);
 // - BitmapColor::cast's NaN and float-limit behavior (BitmapColorCast verbatim);
-// - JetColormap, which bitmap_test.cc does not cover.
+// - JetColormap, which bitmap_test.cc does not cover;
+// - try_new's rejection of invalid dimensions, and printf's non-finite spelling in
+//   exif_camera_model.
 
 use colmap_rust::sensor::bitmap::{Bitmap, BitmapColor, JetColormap, MetaDataValue};
 
@@ -121,4 +123,42 @@ fn rust_only_jet_colormap() {
     assert_eq!(JetColormap::red(1.0), 0.5);
     assert_eq!(JetColormap::green(1.0), 0.0);
     assert_eq!(JetColormap::blue(1.0), 0.0);
+}
+
+#[test]
+fn rust_only_try_new_rejects_invalid_dimensions() {
+    let ok = Bitmap::try_new(4, 3, true).unwrap();
+    assert_eq!(ok.num_bytes(), 36);
+    assert!(Bitmap::try_new(0, 0, false).unwrap().is_empty());
+    assert!(Bitmap::try_new(-1, 3, true).is_err());
+    assert!(Bitmap::try_new(3, -1, false).is_err());
+    // The scan line (Pitch, a C++ int) overflows i32.
+    assert!(Bitmap::try_new(i32::MAX / 2, 1, true).is_err());
+    assert!(Bitmap::try_with_colorspace(i32::MAX, i32::MAX, true, true).is_err());
+}
+
+#[test]
+#[should_panic(expected = "Invalid bitmap dimensions")]
+fn rust_only_new_panics_on_negative_dimensions() {
+    let _ = Bitmap::new(-2, 2, false);
+}
+
+#[test]
+fn rust_only_exif_camera_model_non_finite_focal_uses_printf_spelling() {
+    let mut bitmap = Bitmap::new(10, 8, true);
+    bitmap.set_meta_data("Make", MetaDataValue::String("m".to_string()));
+    bitmap.set_meta_data("Model", MetaDataValue::String("x".to_string()));
+    for (focal, text) in [
+        (f32::NAN, "nan"),
+        (-f32::NAN, "nan"),
+        (f32::INFINITY, "inf"),
+        (f32::NEG_INFINITY, "-inf"),
+        (1.0 / 3.0, "0.333333"),
+    ] {
+        bitmap.set_meta_data("Exif:FocalLength", MetaDataValue::Float(focal));
+        assert_eq!(
+            bitmap.exif_camera_model().as_deref(),
+            Some(format!("m-x-{text}-10x8").as_str())
+        );
+    }
 }

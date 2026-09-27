@@ -8,11 +8,12 @@
 //! [`BitmapMetaData`] is a stand-in for that list with the same names and the value types
 //! COLMAP asks for: int, float, point (3 floats) and string. `sensor/exif_reader.rs` fills it
 //! from a JPEG's EXIF block. COLMAP's type-string API (`SetMetaData(name, "float", &value)`)
-//! becomes the [`MetaDataValue`] enum and typed getters. Type conversion on read follows the
-//! subset of OIIO's `convert_type` the getters rely on: an int reads as float (EXIF SHORTs such
-//! as FocalLengthIn35mmFilm are queried as float) and as its decimal string (GPS:AltitudeRef is
-//! a BYTE queried as "0"/"1"); every other type mismatch reads as absent. Names are
-//! case-insensitive, like OIIO's `getattribute` by default.
+//! becomes the [`MetaDataValue`] enum and typed getters. Type conversion on read covers only
+//! the subset the EXIF getters use: an int reads as float (EXIF SHORTs such as
+//! FocalLengthIn35mmFilm are queried as float) and as its decimal string (GPS:AltitudeRef is a
+//! BYTE queried as "0"/"1"). Other conversions read as absent; OIIO may convert more, which no
+//! ported caller relies on. Names are compared ASCII case-insensitively, like OIIO's
+//! `getattribute` by default.
 //!
 //! Metadata access on a bitmap without a metadata store (default-constructed, or a copy of an
 //! empty bitmap) dereferences a null pointer in COLMAP; here it reads as absent and writes
@@ -140,10 +141,11 @@ impl Bitmap {
             .get_meta_data_float("Exif:FocalLengthIn35mmFilm")
             .or_else(|| self.get_meta_data_float("Exif:FocalLength"))?;
         // StringPrintf("%s-%s-%.6f-%dx%d", ...). Rust's {:.6} rounds the exact decimal
-        // expansion like printf for finite values.
+        // expansion like printf for finite values; non-finite values (reachable through
+        // set_meta_data, not the EXIF reader) get printf's spelling.
         Some(format!(
-            "{make}-{model}-{:.6}-{}x{}",
-            f64::from(focal_length),
+            "{make}-{model}-{}-{}x{}",
+            printf_fixed6(f64::from(focal_length)),
             self.width,
             self.height
         ))
@@ -247,5 +249,17 @@ impl Bitmap {
             altitude *= sign;
         }
         Some(altitude)
+    }
+}
+
+/// printf's `%.6f`: Rust's `{:.6}` for finite values, and "nan" / "inf" / "-inf" otherwise
+/// (Rust would print "NaN"; Apple's printf, the oracle's, prints "nan" whatever the sign bit).
+fn printf_fixed6(value: f64) -> String {
+    if value.is_nan() {
+        "nan".to_string()
+    } else if value.is_infinite() {
+        if value < 0.0 { "-inf" } else { "inf" }.to_string()
+    } else {
+        format!("{value:.6}")
     }
 }

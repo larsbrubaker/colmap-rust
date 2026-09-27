@@ -20,6 +20,8 @@
 //! `bitmap_test.cc` pins only the output dimensions and that the two filters differ.
 //! `Thumbnail`'s size arithmetic is exact.
 
+use std::collections::VecDeque;
+
 use super::{buffer_len, Bitmap};
 use crate::{check_gt, Result};
 
@@ -35,13 +37,24 @@ pub enum RescaleFilter {
 
 /// Normalized filter weights of one destination index along an axis: the first contributing
 /// source index and the weights of the consecutive source indices from it.
-struct AxisWeights {
-    first: usize,
-    weights: Vec<f64>,
+pub(super) struct AxisWeights {
+    pub(super) first: usize,
+    pub(super) weights: Vec<f64>,
 }
 
 impl Bitmap {
     /// Port of `Bitmap::Rescale`: resample the image to the new dimensions in place.
+    ///
+    /// Two separable passes. The horizontal pass is done one source row at a time and only
+    /// for the rows the vertical filter of the current output row needs: rows are kept in a
+    /// window that slides down the image (the filters' first rows never decrease), so the
+    /// double-precision intermediate is a few rows, not `height x new_width`. The arithmetic
+    /// is the same as a full intermediate's (`src/sensor/bitmap/tests.rs` pins it bit for bit
+    /// and `tests/sensor_alloc.rs` bounds the memory).
+    ///
+    /// # Panics
+    ///
+    /// On negative or overflowing new dimensions (as [`Bitmap::new`]).
     pub fn rescale(&mut self, new_width: i32, new_height: i32, filter: RescaleFilter) {
         let channels = self.channels as usize;
         let mut new_data = vec![0u8; buffer_len(new_width, new_height, self.channels)];
@@ -50,30 +63,49 @@ impl Bitmap {
             let new_width_u = new_width as usize;
             let column_weights = compute_resample_weights(width, new_width_u, filter);
             let row_weights = compute_resample_weights(height, new_height as usize, filter);
+            let row_len = new_width_u * channels;
 
-            // Horizontal pass: height x new_width intermediate, kept in double.
-            let mut horizontal = vec![0.0f64; height * new_width_u * channels];
-            for y in 0..height {
-                for (x, column) in column_weights.iter().enumerate() {
-                    for c in 0..channels {
-                        let mut sum = 0.0;
-                        for (i, &weight) in column.weights.iter().enumerate() {
-                            let source = (y * width + column.first + i) * channels + c;
-                            sum += weight * f64::from(self.data[source]);
-                        }
-                        horizontal[(y * new_width_u + x) * channels + c] = sum;
-                    }
-                }
-            }
+            // Horizontally filtered source rows [window_first, window_first + window.len()).
+            let mut window: VecDeque<Vec<f64>> = VecDeque::new();
+            let mut window_first = 0usize;
+            // Row buffers dropped from the front, reused for new rows.
+            let mut spare: Vec<Vec<f64>> = Vec::new();
 
-            // Vertical pass.
             for (y, row) in row_weights.iter().enumerate() {
+                // Drop rows above this output row's filter.
+                while window_first < row.first && !window.is_empty() {
+                    spare.extend(window.pop_front());
+                    window_first += 1;
+                }
+                if window.is_empty() {
+                    window_first = row.first;
+                }
+                // Horizontal pass for the rows below the window that the filter reaches.
+                while window_first + window.len() < row.first + row.weights.len() {
+                    let source_y = window_first + window.len();
+                    let mut buffer = spare.pop().unwrap_or_default();
+                    buffer.resize(row_len, 0.0);
+                    let source_row = &self.data[source_y * width * channels..];
+                    for (x, column) in column_weights.iter().enumerate() {
+                        for c in 0..channels {
+                            let mut sum = 0.0;
+                            for (i, &weight) in column.weights.iter().enumerate() {
+                                let source = (column.first + i) * channels + c;
+                                sum += weight * f64::from(source_row[source]);
+                            }
+                            buffer[x * channels + c] = sum;
+                        }
+                    }
+                    window.push_back(buffer);
+                }
+
+                // Vertical pass.
+                let offset = row.first - window_first;
                 for x in 0..new_width_u {
                     for c in 0..channels {
                         let mut sum = 0.0;
                         for (i, &weight) in row.weights.iter().enumerate() {
-                            let source = ((row.first + i) * new_width_u + x) * channels + c;
-                            sum += weight * horizontal[source];
+                            sum += weight * window[offset + i][x * channels + c];
                         }
                         // f64::round is half away from zero; the clamp keeps the byte range.
                         new_data[(y * new_width_u + x) * channels + c] =
@@ -107,7 +139,7 @@ impl Bitmap {
     }
 }
 
-fn compute_resample_weights(
+pub(super) fn compute_resample_weights(
     source_size: usize,
     dest_size: usize,
     filter: RescaleFilter,
