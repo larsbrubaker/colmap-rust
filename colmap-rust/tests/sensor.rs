@@ -4,6 +4,9 @@
 // - `sensor/rust_only_models.rs`: invalid-id errors and `cam_ray_from_img_jacobian`;
 // - `sensor/rust_only_camera_model_oracle.rs`: every camera model against the pycolmap
 //   oracle (fixture `tests/data/oracle/camera_models.json` from `oracle/camera_models.py`).
+// colmap/sensor/models_jacobian_test.cc is ported as unit tests in the library,
+// `src/sensor/models/jacobian_tests.rs`, because it differentiates with the crate-private Jet
+// (run: `cargo test -p colmap-rust --lib jacobian_tests`).
 //
 // Run: `cargo test -p colmap-rust --test sensor`.
 

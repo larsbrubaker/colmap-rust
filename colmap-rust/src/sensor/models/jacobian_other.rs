@@ -74,8 +74,8 @@ impl CameraModelWithJac for FOVCameraModel {
             // denom_arg divides both derivative numerators; hoist its reciprocal.
             let inv_denom_arg = 1.0 / denom_arg;
             factor = atan_arg / (radius * omega);
-            factor_r = (2.0 * t * radius * inv_denom_arg - atan_arg)
-                / (2.0 * radius2 * radius * omega);
+            factor_r =
+                (2.0 * t * radius * inv_denom_arg - atan_arg) / (2.0 * radius2 * radius * omega);
             factor_omega =
                 (radius * omega * (1.0 + t * t) * inv_denom_arg - atan_arg) / (radius * omega2);
         }
@@ -367,9 +367,9 @@ impl CameraModelWithJac for EquirectangularCameraModel {
         if let Some(j_uvw) = j_uvw {
             let r2 = horizontal * horizontal; // horizontal^2
             let n2 = r2 + v * v; // full squared norm
-            // Hoist the shared reciprocals: R2 and N2*horizontal each divide more than
-            // one derivative, and without -ffast-math the compiler cannot factor the
-            // repeated runtime division out on its own.
+                                 // Hoist the shared reciprocals: R2 and N2*horizontal each divide more than
+                                 // one derivative, and without -ffast-math the compiler cannot factor the
+                                 // repeated runtime division out on its own.
             let inv_r2 = 1.0 / r2;
             let inv_n2 = 1.0 / n2;
             let inv_n2_horizontal = inv_n2 / horizontal;

@@ -172,16 +172,7 @@ impl CameraModelWithJac for SimpleRadialCameraModel {
             //
             // dx/df = alpha * uu, dx/dcx = 1, dx/dcy = 0, dx/dk = f * uu * r2
             // dy/df = alpha * vv, dy/dcx = 0, dy/dcy = 1, dy/dk = f * vv * r2
-            j_params[..8].copy_from_slice(&[
-                xd,
-                1.0,
-                0.0,
-                f * uu * r2,
-                yd,
-                0.0,
-                1.0,
-                f * vv * r2,
-            ]);
+            j_params[..8].copy_from_slice(&[xd, 1.0, 0.0, f * uu * r2, yd, 0.0, 1.0, f * vv * r2]);
         }
 
         true

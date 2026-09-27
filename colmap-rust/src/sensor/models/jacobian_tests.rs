@@ -9,7 +9,7 @@
 //! they agree to COLMAP's 1e-10, not bitwise. Failed expectations are collected and reported
 //! together, like gtest's non-fatal `EXPECT_*`; an `ASSERT_*` failure ends the helper call.
 
-use crate::linalg::{Matrix2d, Matrix2x3d, Vector2d, Vector3d};
+use crate::linalg::{Matrix2d, Matrix2x3d, Vector3d};
 
 use super::jet::Jet;
 use super::*;
@@ -94,7 +94,15 @@ fn test_img_from_cam_with_jac<M: CameraModelWithJac, const N: usize>(
     let mut x_jet = Jet::<N>::constant(0.0);
     let mut y_jet = Jet::<N>::constant(0.0);
     if !log.check(
-        M::img_from_cam(&params_jet, u_jet, v_jet, w_jet, &mut x_jet, &mut y_jet, true),
+        M::img_from_cam(
+            &params_jet,
+            u_jet,
+            v_jet,
+            w_jet,
+            &mut x_jet,
+            &mut y_jet,
+            true,
+        ),
         || format!("ImgFromCam<Jet> {}", at()),
     ) {
         return;
@@ -175,7 +183,9 @@ fn test_cam_ray_jacobian<M: CameraModelWithJac>(
     // Passing nullptr must skip the Jacobian but still project.
     let xy_no_jac = camera_model_img_from_cam_with_jac(M::MODEL_ID, params, uvw, None, true);
     let Some(xy_no_jac) = xy_no_jac else {
-        log.check(false, || format!("dispatch without Jacobian has value {}", at()));
+        log.check(false, || {
+            format!("dispatch without Jacobian has value {}", at())
+        });
         return;
     };
     log.check(xy_no_jac.is_approx_with(xy, 1e-12), || {
@@ -194,14 +204,17 @@ fn test_cam_ray_jacobian<M: CameraModelWithJac>(
     // The closed-form pseudo-inverse is only valid at a unit bearing.
     let cam_ray = uvw.normalized();
     let Some(j_ray) = cam_ray_from_img_jacobian(cam_ray, j_uvw) else {
-        log.check(false, || format!("CamRayFromImgJacobian has value {}", at()));
+        log.check(false, || {
+            format!("CamRayFromImgJacobian has value {}", at())
+        });
         return;
     };
 
     // 3. Pseudo-inverse round trip: J_uvw is surjective onto image space.
-    log.check((j_uvw * j_ray - Matrix2d::identity()).norm() <= 1e-10, || {
-        format!("J_uvw * J_ray == I {}", at())
-    });
+    log.check(
+        (j_uvw * j_ray - Matrix2d::identity()).norm() <= 1e-10,
+        || format!("J_uvw * J_ray == I {}", at()),
+    );
 
     // 4. The recovered Jacobian maps into the tangent plane at the ray.
     log.check(
@@ -282,8 +295,7 @@ fn open_cv_img_from_cam_with_jac() {
 #[test]
 fn full_open_cv_img_from_cam_with_jac() {
     test_model_img_from_cam_with_jac::<FullOpenCVCameraModel, 15>(&[
-        651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001, 0.001, 0.02, -0.02,
-        0.001,
+        651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001, 0.001, 0.02, -0.02, 0.001,
     ]);
 }
 
@@ -333,8 +345,7 @@ fn thin_prism_fisheye_img_from_cam_with_jac() {
         651.123, 655.123, 386.123, 511.123, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     ]);
     test_model_img_from_cam_with_jac::<ThinPrismFisheyeCameraModel, 15>(&[
-        651.123, 655.123, 386.123, 511.123, -0.05, 0.02, -0.001, 0.001, 0.001, 0.002, 0.001,
-        -0.001,
+        651.123, 655.123, 386.123, 511.123, -0.05, 0.02, -0.001, 0.001, 0.001, 0.002, 0.001, -0.001,
     ]);
 }
 

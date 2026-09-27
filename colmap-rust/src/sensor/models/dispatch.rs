@@ -25,12 +25,12 @@ use crate::linalg::{Matrix2x3d, Matrix3x2d, Vector2d, Vector3d};
 use crate::util::check::{ColmapError, ErrorKind, Result};
 
 use super::{
-    CameraModel, CameraModelId, CameraModelWithJac, CameraModelKind, DivisionCameraModel, EUCMCameraModel,
-    EquirectangularCameraModel, FOVCameraModel, FisheyeCameraModel, FullOpenCVCameraModel,
-    OpenCVCameraModel, OpenCVFisheyeCameraModel, PinholeCameraModel, RadTanThinPrismFisheyeModel,
-    RadialCameraModel, RadialFisheyeCameraModel, SimpleDivisionCameraModel,
-    SimpleFisheyeCameraModel, SimplePinholeCameraModel, SimpleRadialCameraModel,
-    SimpleRadialFisheyeCameraModel, ThinPrismFisheyeCameraModel,
+    CameraModel, CameraModelId, CameraModelKind, CameraModelWithJac, DivisionCameraModel,
+    EUCMCameraModel, EquirectangularCameraModel, FOVCameraModel, FisheyeCameraModel,
+    FullOpenCVCameraModel, OpenCVCameraModel, OpenCVFisheyeCameraModel, PinholeCameraModel,
+    RadTanThinPrismFisheyeModel, RadialCameraModel, RadialFisheyeCameraModel,
+    SimpleDivisionCameraModel, SimpleFisheyeCameraModel, SimplePinholeCameraModel,
+    SimpleRadialCameraModel, SimpleRadialFisheyeCameraModel, ThinPrismFisheyeCameraModel,
 };
 
 /// `CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION`.
@@ -323,6 +323,11 @@ pub fn camera_model_img_from_cam(
 /// `d(x, y) / d(u, v, w)` into `j_uvw` when it is given (`None` skips it, COLMAP's
 /// `nullptr`). `None` on failure, with `j_uvw` untouched. COLMAP's default for
 /// `check_cheirality` is true.
+///
+/// # Panics
+///
+/// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
+/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
 pub fn camera_model_img_from_cam_with_jac(
     model_id: CameraModelId,
     params: &[f64],

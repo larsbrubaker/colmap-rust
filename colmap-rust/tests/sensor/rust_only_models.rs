@@ -3,7 +3,8 @@
 //   `CameraModelId::Invalid`, and the per-point functions panic with the same message
 //   (docs/CPP_DIVERGENCES.md, entry 101);
 // - `cam_ray_from_img_jacobian` against a hand-derived PINHOLE Jacobian. COLMAP tests it
-//   only through models_jacobian_test.cc, which arrives with the Jacobian kernels.
+//   through models_jacobian_test.cc, ported as the unit tests in
+//   `src/sensor/models/jacobian_tests.rs` (they need the crate-private Jet).
 
 use colmap_rust::linalg::{Matrix2x3d, Vector2d, Vector3d};
 use colmap_rust::sensor::models::*;

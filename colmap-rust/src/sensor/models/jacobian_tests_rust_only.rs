@@ -11,13 +11,27 @@ use super::super::*;
 /// One parameter set per model (COLMAP's test values), for the all-models sweeps.
 fn all_models() -> Vec<(CameraModelId, Vec<f64>)> {
     vec![
-        (CameraModelId::SimplePinhole, vec![655.123, 386.123, 511.123]),
-        (CameraModelId::Pinhole, vec![651.123, 655.123, 386.123, 511.123]),
-        (CameraModelId::SimpleRadial, vec![651.123, 386.123, 511.123, 0.1]),
-        (CameraModelId::Radial, vec![651.123, 386.123, 511.123, 0.05, 0.03]),
+        (
+            CameraModelId::SimplePinhole,
+            vec![655.123, 386.123, 511.123],
+        ),
+        (
+            CameraModelId::Pinhole,
+            vec![651.123, 655.123, 386.123, 511.123],
+        ),
+        (
+            CameraModelId::SimpleRadial,
+            vec![651.123, 386.123, 511.123, 0.1],
+        ),
+        (
+            CameraModelId::Radial,
+            vec![651.123, 386.123, 511.123, 0.05, 0.03],
+        ),
         (
             CameraModelId::OpenCV,
-            vec![651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001],
+            vec![
+                651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001,
+            ],
         ),
         (
             CameraModelId::FullOpenCV,
@@ -26,12 +40,23 @@ fn all_models() -> Vec<(CameraModelId, Vec<f64>)> {
                 -0.02, 0.001,
             ],
         ),
-        (CameraModelId::FOV, vec![651.123, 655.123, 386.123, 511.123, 0.9]),
-        (CameraModelId::SimpleRadialFisheye, vec![651.123, 386.123, 511.123, 0.1]),
-        (CameraModelId::RadialFisheye, vec![651.123, 386.123, 511.123, 0.1, 0.02]),
+        (
+            CameraModelId::FOV,
+            vec![651.123, 655.123, 386.123, 511.123, 0.9],
+        ),
+        (
+            CameraModelId::SimpleRadialFisheye,
+            vec![651.123, 386.123, 511.123, 0.1],
+        ),
+        (
+            CameraModelId::RadialFisheye,
+            vec![651.123, 386.123, 511.123, 0.1, 0.02],
+        ),
         (
             CameraModelId::OpenCVFisheye,
-            vec![651.123, 655.123, 386.123, 511.123, -0.05, 0.02, -0.001, 0.001],
+            vec![
+                651.123, 655.123, 386.123, 511.123, -0.05, 0.02, -0.001, 0.001,
+            ],
         ),
         (
             CameraModelId::ThinPrismFisheye,
@@ -47,11 +72,26 @@ fn all_models() -> Vec<(CameraModelId, Vec<f64>)> {
                 -0.001, 0.001, 0.001, -0.001, 0.0005, -0.0005,
             ],
         ),
-        (CameraModelId::SimpleDivision, vec![651.123, 386.123, 511.123, 0.1]),
-        (CameraModelId::Division, vec![651.123, 655.123, 386.123, 511.123, -0.1]),
-        (CameraModelId::SimpleFisheye, vec![651.123, 386.123, 511.123]),
-        (CameraModelId::Fisheye, vec![651.123, 655.123, 386.123, 511.123]),
-        (CameraModelId::EUCM, vec![651.123, 655.123, 386.123, 511.123, 0.6, 1.2]),
+        (
+            CameraModelId::SimpleDivision,
+            vec![651.123, 386.123, 511.123, 0.1],
+        ),
+        (
+            CameraModelId::Division,
+            vec![651.123, 655.123, 386.123, 511.123, -0.1],
+        ),
+        (
+            CameraModelId::SimpleFisheye,
+            vec![651.123, 386.123, 511.123],
+        ),
+        (
+            CameraModelId::Fisheye,
+            vec![651.123, 655.123, 386.123, 511.123],
+        ),
+        (
+            CameraModelId::EUCM,
+            vec![651.123, 655.123, 386.123, 511.123, 0.6, 1.2],
+        ),
         (CameraModelId::Equirectangular, vec![1000.0, 500.0]),
     ]
 }
@@ -70,23 +110,27 @@ fn rust_only_img_from_cam_with_jac_value_path_matches_jacobian_path() {
             Vector3d::new(1e-20, -1e-20, 1.0),
         ] {
             let mut j_uvw = Matrix2x3d::zeros();
-            let with = camera_model_img_from_cam_with_jac(
-                model_id,
-                &params,
-                uvw,
-                Some(&mut j_uvw),
-                true,
-            )
-            .unwrap_or_else(|| panic!("{model_id} projects {uvw:?}"));
+            let with =
+                camera_model_img_from_cam_with_jac(model_id, &params, uvw, Some(&mut j_uvw), true)
+                    .unwrap_or_else(|| panic!("{model_id} projects {uvw:?}"));
             let without = camera_model_img_from_cam_with_jac(model_id, &params, uvw, None, true)
                 .unwrap_or_else(|| panic!("{model_id} projects {uvw:?} without J"));
-            assert_eq!(with.x.to_bits(), without.x.to_bits(), "{model_id} x at {uvw:?}");
-            assert_eq!(with.y.to_bits(), without.y.to_bits(), "{model_id} y at {uvw:?}");
+            assert_eq!(
+                with.x.to_bits(),
+                without.x.to_bits(),
+                "{model_id} x at {uvw:?}"
+            );
+            assert_eq!(
+                with.y.to_bits(),
+                without.y.to_bits(),
+                "{model_id} y at {uvw:?}"
+            );
 
             // J_params alone must not change the pixel either.
             let mut x = 0.0;
             let mut y = 0.0;
-            let mut j_params = vec![f64::NAN; 2 * camera_model_num_params(model_id)];
+            let num_params = camera_model_num_params(model_id).expect("a real model");
+            let mut j_params = vec![f64::NAN; 2 * num_params];
             let ok = typed_with_params_only(model_id, &params, uvw, &mut x, &mut y, &mut j_params);
             assert!(ok, "{model_id} projects {uvw:?} with J_params");
             assert_eq!(x.to_bits(), with.x.to_bits(), "{model_id} x with J_params");
@@ -115,10 +159,22 @@ fn typed_with_params_only(
         y: &mut f64,
         j_params: &mut [f64],
     ) -> bool {
-        M::img_from_cam_with_jac(params, uvw.x, uvw.y, uvw.z, x, y, Some(j_params), None, true)
+        M::img_from_cam_with_jac(
+            params,
+            uvw.x,
+            uvw.y,
+            uvw.z,
+            x,
+            y,
+            Some(j_params),
+            None,
+            true,
+        )
     }
     match model_id {
-        CameraModelId::SimplePinhole => run::<SimplePinholeCameraModel>(params, uvw, x, y, j_params),
+        CameraModelId::SimplePinhole => {
+            run::<SimplePinholeCameraModel>(params, uvw, x, y, j_params)
+        }
         CameraModelId::Pinhole => run::<PinholeCameraModel>(params, uvw, x, y, j_params),
         CameraModelId::SimpleRadial => run::<SimpleRadialCameraModel>(params, uvw, x, y, j_params),
         CameraModelId::Radial => run::<RadialCameraModel>(params, uvw, x, y, j_params),
@@ -128,8 +184,12 @@ fn typed_with_params_only(
         CameraModelId::SimpleRadialFisheye => {
             run::<SimpleRadialFisheyeCameraModel>(params, uvw, x, y, j_params)
         }
-        CameraModelId::RadialFisheye => run::<RadialFisheyeCameraModel>(params, uvw, x, y, j_params),
-        CameraModelId::OpenCVFisheye => run::<OpenCVFisheyeCameraModel>(params, uvw, x, y, j_params),
+        CameraModelId::RadialFisheye => {
+            run::<RadialFisheyeCameraModel>(params, uvw, x, y, j_params)
+        }
+        CameraModelId::OpenCVFisheye => {
+            run::<OpenCVFisheyeCameraModel>(params, uvw, x, y, j_params)
+        }
         CameraModelId::ThinPrismFisheye => {
             run::<ThinPrismFisheyeCameraModel>(params, uvw, x, y, j_params)
         }
@@ -140,7 +200,9 @@ fn typed_with_params_only(
             run::<SimpleDivisionCameraModel>(params, uvw, x, y, j_params)
         }
         CameraModelId::Division => run::<DivisionCameraModel>(params, uvw, x, y, j_params),
-        CameraModelId::SimpleFisheye => run::<SimpleFisheyeCameraModel>(params, uvw, x, y, j_params),
+        CameraModelId::SimpleFisheye => {
+            run::<SimpleFisheyeCameraModel>(params, uvw, x, y, j_params)
+        }
         CameraModelId::Fisheye => run::<FisheyeCameraModel>(params, uvw, x, y, j_params),
         CameraModelId::EUCM => run::<EUCMCameraModel>(params, uvw, x, y, j_params),
         CameraModelId::Equirectangular => {
@@ -156,9 +218,24 @@ fn typed_with_params_only(
 fn rust_only_img_from_cam_with_jac_failures_match_img_from_cam() {
     let cases: Vec<(CameraModelId, Vec<f64>, Vector3d, bool)> = vec![
         // Behind or on the camera plane, with and without the cheirality check.
-        (CameraModelId::Pinhole, vec![1.0, 1.0, 0.0, 0.0], Vector3d::new(0.1, 0.2, -1.0), true),
-        (CameraModelId::Pinhole, vec![1.0, 1.0, 0.0, 0.0], Vector3d::new(0.1, 0.2, -1.0), false),
-        (CameraModelId::Pinhole, vec![1.0, 1.0, 0.0, 0.0], Vector3d::new(0.1, 0.2, 0.0), false),
+        (
+            CameraModelId::Pinhole,
+            vec![1.0, 1.0, 0.0, 0.0],
+            Vector3d::new(0.1, 0.2, -1.0),
+            true,
+        ),
+        (
+            CameraModelId::Pinhole,
+            vec![1.0, 1.0, 0.0, 0.0],
+            Vector3d::new(0.1, 0.2, -1.0),
+            false,
+        ),
+        (
+            CameraModelId::Pinhole,
+            vec![1.0, 1.0, 0.0, 0.0],
+            Vector3d::new(0.1, 0.2, 0.0),
+            false,
+        ),
         (
             CameraModelId::OpenCVFisheye,
             vec![1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -166,7 +243,12 @@ fn rust_only_img_from_cam_with_jac_failures_match_img_from_cam() {
             true,
         ),
         // The division model's negative discriminant (w^2 < 4 k rho2).
-        (CameraModelId::SimpleDivision, vec![1.0, 0.0, 0.0, 1.0], Vector3d::new(1.0, 1.0, 1.0), true),
+        (
+            CameraModelId::SimpleDivision,
+            vec![1.0, 0.0, 0.0, 1.0],
+            Vector3d::new(1.0, 1.0, 1.0),
+            true,
+        ),
         // EUCM: beta * q + w^2 < 0, and a denominator at the camera plane.
         (
             CameraModelId::EUCM,
@@ -181,8 +263,18 @@ fn rust_only_img_from_cam_with_jac_failures_match_img_from_cam() {
             false,
         ),
         // EQUIRECTANGULAR: only the zero vector has no direction.
-        (CameraModelId::Equirectangular, vec![100.0, 50.0], Vector3d::zeros(), true),
-        (CameraModelId::Equirectangular, vec![100.0, 50.0], Vector3d::new(0.0, 0.0, -1.0), true),
+        (
+            CameraModelId::Equirectangular,
+            vec![100.0, 50.0],
+            Vector3d::zeros(),
+            true,
+        ),
+        (
+            CameraModelId::Equirectangular,
+            vec![100.0, 50.0],
+            Vector3d::new(0.0, 0.0, -1.0),
+            true,
+        ),
     ];
     for (model_id, params, uvw, check_cheirality) in cases {
         let expected = camera_model_img_from_cam(model_id, &params, uvw, check_cheirality);
@@ -201,7 +293,10 @@ fn rust_only_img_from_cam_with_jac_failures_match_img_from_cam() {
             "{model_id} at {uvw:?} (check_cheirality {check_cheirality})"
         );
         if let (Some(got), Some(expected)) = (got, expected) {
-            assert!(got.is_approx_with(expected, 1e-12), "{model_id}: {got:?} vs {expected:?}");
+            assert!(
+                got.is_approx_with(expected, 1e-12),
+                "{model_id}: {got:?} vs {expected:?}"
+            );
         } else {
             assert_eq!(j_uvw, sentinel, "{model_id}: J_uvw written on failure");
         }
@@ -228,18 +323,30 @@ fn rust_only_camera_model_img_from_cam_with_jac_invalid_id_panics() {
 #[test]
 fn rust_only_cam_ray_from_img_jacobian_is_the_derivative_of_cam_ray_from_img() {
     let cases: Vec<(CameraModelId, Vec<f64>, Vector2d)> = vec![
-        (CameraModelId::Pinhole, vec![651.123, 655.123, 386.123, 511.123], Vector2d::new(500.0, 300.0)),
+        (
+            CameraModelId::Pinhole,
+            vec![651.123, 655.123, 386.123, 511.123],
+            Vector2d::new(500.0, 300.0),
+        ),
         (
             CameraModelId::OpenCV,
-            vec![651.123, 655.123, 386.123, 511.123, -0.1, 0.02, -0.001, 0.001],
+            vec![
+                651.123, 655.123, 386.123, 511.123, -0.1, 0.02, -0.001, 0.001,
+            ],
             Vector2d::new(250.0, 600.0),
         ),
         (
             CameraModelId::OpenCVFisheye,
-            vec![651.123, 655.123, 386.123, 511.123, -0.05, 0.02, -0.001, 0.001],
+            vec![
+                651.123, 655.123, 386.123, 511.123, -0.05, 0.02, -0.001, 0.001,
+            ],
             Vector2d::new(100.0, 150.0),
         ),
-        (CameraModelId::Equirectangular, vec![1000.0, 500.0], Vector2d::new(730.0, 120.0)),
+        (
+            CameraModelId::Equirectangular,
+            vec![1000.0, 500.0],
+            Vector2d::new(730.0, 120.0),
+        ),
     ];
     let h = 1e-3;
     for (model_id, params, xy) in cases {
@@ -248,9 +355,15 @@ fn rust_only_cam_ray_from_img_jacobian_is_the_derivative_of_cam_ray_from_img() {
         let reprojected =
             camera_model_img_from_cam_with_jac(model_id, &params, ray, Some(&mut j_uvw), true)
                 .expect("projects");
-        assert!(reprojected.is_approx_with(xy, 1e-9), "{model_id}: round trip");
+        assert!(
+            reprojected.is_approx_with(xy, 1e-9),
+            "{model_id}: round trip"
+        );
         let j_ray = cam_ray_from_img_jacobian(ray, j_uvw).expect("full rank");
-        for (col, step) in [Vector2d::new(h, 0.0), Vector2d::new(0.0, h)].into_iter().enumerate() {
+        for (col, step) in [Vector2d::new(h, 0.0), Vector2d::new(0.0, h)]
+            .into_iter()
+            .enumerate()
+        {
             let plus = camera_model_cam_ray_from_img(model_id, &params, xy + step).unwrap();
             let minus = camera_model_cam_ray_from_img(model_id, &params, xy - step).unwrap();
             let numeric = (plus - minus) / (2.0 * h);

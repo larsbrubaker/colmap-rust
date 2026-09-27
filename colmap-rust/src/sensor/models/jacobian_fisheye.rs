@@ -297,18 +297,12 @@ impl CameraModelWithJac for ThinPrismFisheyeCameraModel {
         if let Some(j_uvw) = j_uvw {
             let d_radial = k1 + 2.0 * k2 * r2 + 3.0 * k3 * r4 + 4.0 * k4 * r6;
             let cross = 2.0 * uv * d_radial;
-            let du_duu = radial
-                + 2.0 * uu2 * d_radial
-                + 2.0 * p1 * vv
-                + 6.0 * p2 * uu
-                + 2.0 * sx1 * uu;
+            let du_duu =
+                radial + 2.0 * uu2 * d_radial + 2.0 * p1 * vv + 6.0 * p2 * uu + 2.0 * sx1 * uu;
             let du_dvv = cross + 2.0 * p1 * uu + 2.0 * p2 * vv + 2.0 * sx1 * vv;
             let dv_duu = cross + 2.0 * p2 * vv + 2.0 * p1 * uu + 2.0 * sy1 * uu;
-            let dv_dvv = radial
-                + 2.0 * vv2 * d_radial
-                + 2.0 * p2 * uu
-                + 6.0 * p1 * vv
-                + 2.0 * sy1 * vv;
+            let dv_dvv =
+                radial + 2.0 * vv2 * d_radial + 2.0 * p2 * uu + 6.0 * p1 * vv + 2.0 * sy1 * vv;
             let ipjd = [1.0 + du_duu, du_dvv, dv_duu, 1.0 + dv_dvv];
             let m = mat_mul_2x2(&ipjd, &j_fisheye);
             let j_ab = [f1 * m[0], f1 * m[1], f2 * m[2], f2 * m[3]];

@@ -132,7 +132,13 @@ pub(super) fn mat_mul_2x2(lhs: &[f64; 4], rhs: &[f64; 4]) -> [f64; 4] {
 /// with `a = u/w` and `b = v/w`, computes the 2x3 Jacobian `j_uvw = d(x, y) / d(u, v, w)`
 /// via the chain rule through `(a, b) = (u/w, v/w)`. The pinhole models' kernels spell the
 /// same six expressions out inline with `(a, b) = (uu, vv)`, so they call this too.
-pub(super) fn uvw_jac_from_ab_jac(j_ab: &[f64; 4], a: f64, b: f64, inv_w: f64, j_uvw: &mut [f64; 6]) {
+pub(super) fn uvw_jac_from_ab_jac(
+    j_ab: &[f64; 4],
+    a: f64,
+    b: f64,
+    inv_w: f64,
+    j_uvw: &mut [f64; 6],
+) {
     j_uvw[0] = j_ab[0] * inv_w;
     j_uvw[1] = j_ab[1] * inv_w;
     j_uvw[2] = -(j_ab[0] * a + j_ab[1] * b) * inv_w;
