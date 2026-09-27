@@ -8,8 +8,12 @@
 //
 // No exemption list, ever: a file over the limit is split by responsibility (the
 // `file-size-refactoring` skill), never squeezed. Skipped trees are build output, VCS data
-// and third-party material that is not ours: target/, .git/, cpp-reference/, oracle/.venv/,
+// and third-party material that is not ours: target/ (only next to a Cargo.toml, i.e. Cargo's
+// build output at a crate or workspace root), .git/, cpp-reference/, oracle/.venv/,
 // node_modules/, web/pkg/, web/dist/, .claude/worktrees/.
+//
+// A file with a checked source extension that cannot be read or is not UTF-8 fails the scan
+// rather than being skipped; other non-UTF-8 files (images, fonts) are binary and ignored.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -27,9 +31,13 @@ fn workspace_root() -> PathBuf {
 }
 
 /// True for a directory (relative to the root, `/`-separated) that the walk skips.
-fn is_skipped_dir(relative: &str) -> bool {
+/// `beside_cargo_toml` says whether its parent directory holds a `Cargo.toml`: only then is a
+/// `target` directory Cargo's build output rather than a source directory that happens to be
+/// called `target`.
+fn is_skipped_dir(relative: &str, beside_cargo_toml: bool) -> bool {
     let name = relative.rsplit('/').next().unwrap_or(relative);
-    matches!(name, "target" | ".git" | "node_modules")
+    (name == "target" && beside_cargo_toml)
+        || matches!(name, ".git" | "node_modules")
         || matches!(
             relative,
             "cpp-reference" | "oracle/.venv" | "web/pkg" | "web/dist" | ".claude/worktrees"
@@ -42,7 +50,8 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
         let path = entry.expect("directory entry").path();
         let file_type = fs::symlink_metadata(&path).expect("metadata").file_type();
         if file_type.is_dir() {
-            if !is_skipped_dir(&relative(root, &path)) {
+            let beside_cargo_toml = dir.join("Cargo.toml").is_file();
+            if !is_skipped_dir(&relative(root, &path), beside_cargo_toml) {
                 collect_files(root, &path, out);
             }
         } else if file_type.is_file() {
@@ -87,19 +96,46 @@ struct Scan {
     files: Vec<(String, String)>,
 }
 
+/// Decides what the scan does with one file's contents: `Ok(Some(text))` to check it,
+/// `Ok(None)` to ignore it (a binary file without a checked source extension), or `Err` when a
+/// file with a checked source extension cannot be read or is not UTF-8 — those must fail the
+/// gate, never slip past it. Other unreadable or binary files are ignored.
+fn load_text(ext: &str, bytes: std::io::Result<Vec<u8>>) -> Result<Option<String>, String> {
+    let is_source = SOURCE_EXTENSIONS.contains(&ext);
+    match bytes {
+        Err(e) if is_source => Err(format!("unreadable: {e}")),
+        // Not a checked source file: nothing to hold it to beyond conflict markers.
+        Err(_) => Ok(None),
+        Ok(bytes) => match String::from_utf8(bytes) {
+            Ok(text) => Ok(Some(text)),
+            Err(_) if is_source => Err("not valid UTF-8".to_string()),
+            // Binary files (images, fonts) have no lines to check.
+            Err(_) => Ok(None),
+        },
+    }
+}
+
 fn scan() -> Scan {
     let root = workspace_root();
     let mut paths = Vec::new();
     collect_files(&root, &root, &mut paths);
     paths.sort();
-    let files = paths
-        .into_iter()
-        .filter_map(|p| {
-            // Binary files (not UTF-8) have no lines to check.
-            let text = String::from_utf8(fs::read(&p).ok()?).ok()?;
-            Some((relative(&root, &p), text))
-        })
-        .collect();
+    let mut files = Vec::new();
+    let mut failures = Vec::new();
+    for p in paths {
+        let path = relative(&root, &p);
+        match load_text(extension(&p), fs::read(&p)) {
+            Ok(Some(text)) => files.push((path, text)),
+            Ok(None) => {}
+            Err(why) => failures.push(format!("  {path}: {why}")),
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} file(s) could not be checked:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
     Scan { files }
 }
 
@@ -196,8 +232,31 @@ fn rust_only_compliance_rules_classify_examples() {
     assert!(is_conflict_marker(">>>>>>> branch\r"));
     assert!(!is_conflict_marker("========"));
     assert!(!is_conflict_marker("a <<<<<<< b"));
-    assert!(is_skipped_dir("colmap-app/target"));
-    assert!(is_skipped_dir("web/node_modules"));
-    assert!(is_skipped_dir("oracle/.venv"));
-    assert!(!is_skipped_dir("colmap-rust/src"));
+    assert!(is_skipped_dir("colmap-app/target", true));
+    assert!(is_skipped_dir("target", true));
+    assert!(is_skipped_dir("web/node_modules", false));
+    assert!(is_skipped_dir("oracle/.venv", false));
+    assert!(!is_skipped_dir("colmap-rust/src", true));
+}
+
+#[test]
+fn rust_only_compliance_only_skips_target_beside_cargo_toml() {
+    // A `target` directory that is not Cargo's build output is source and must be checked.
+    assert!(!is_skipped_dir("colmap-rust/src/target", false));
+    assert!(!is_skipped_dir("web/tests/target", false));
+}
+
+#[test]
+fn rust_only_compliance_fails_on_unreadable_or_non_utf8_sources() {
+    let invalid = vec![0x2f, 0x2f, 0xff, 0xfe];
+    let denied = || Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+    assert!(load_text("rs", Ok(invalid.clone())).is_err());
+    assert!(load_text("py", denied()).is_err());
+    assert_eq!(load_text("png", denied()), Ok(None));
+    // Binary files without a checked extension are ignored, text files are checked.
+    assert_eq!(load_text("png", Ok(invalid)), Ok(None));
+    assert_eq!(
+        load_text("rs", Ok(b"// header\n".to_vec())),
+        Ok(Some("// header\n".to_string()))
+    );
 }

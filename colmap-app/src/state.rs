@@ -46,7 +46,8 @@ pub struct AppState {
     pub scene: Rc<RefCell<Scene>>,
     /// Whether the About / diagnostics sheet is showing.
     pub about_open: Rc<Cell<bool>>,
-    /// Filled by the viewport the first time it paints on a wgpu backend; `None` headless.
+    /// The viewport renderer's current adapter, republished whenever it rebuilds its GPU
+    /// objects on a new device (device loss, backend switch); `None` headless.
     pub backend: Rc<RefCell<Option<BackendInfo>>>,
     /// Set by the host after the first presented frame; the app's ready signal.
     pub first_paint: Rc<FirstPaintGate>,

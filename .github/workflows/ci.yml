@@ -1,4 +1,5 @@
-# CI: format, lint and test on Linux/macOS/Windows, plus the wasm32 core build.
+# CI: format, lint and test on Linux/macOS/Windows, plus the wasm32 core build and the
+# math::fns probe on wasm32-wasip1 (wasmtime), which enforces native == wasm transcendentals.
 name: CI
 
 on:
@@ -29,12 +30,19 @@ jobs:
       - run: cargo test --workspace
 
   wasm:
-    name: wasm32 core build
+    name: wasm32 core build + math probe
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown, wasm32-wasip1
       - uses: Swatinem/rust-cache@v2
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
       - run: cargo build -p colmap-rust --target wasm32-unknown-unknown
+      # The same bit tables the native jobs check (tests/data/fns_probe_expected*.txt, embedded
+      # with include_str!), so any native/wasm drift in math::fns fails CI.
+      - name: math::fns probe on wasm32-wasip1
+        env:
+          CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime --dir=${{ github.workspace }}
+        run: cargo test -p colmap-rust --target wasm32-wasip1 --test math

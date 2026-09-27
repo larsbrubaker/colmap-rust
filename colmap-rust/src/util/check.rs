@@ -121,9 +121,30 @@ macro_rules! impl_check_op_value_display {
     )*};
 }
 
-impl_check_op_value_display!(
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, str, String
-);
+impl_check_op_value_display!(i16, i32, i64, i128, isize, u16, u32, u64, u128, usize, str, String);
+
+/// glog's `MakeCheckOpValueString` for the byte types (`unsigned char` / `signed char`, which
+/// `u8` / `i8` port): a printable byte (32..=126) is written as a quoted character, anything
+/// else as `"<type> value <n>"`.
+fn byte_check_op_string(value: i16, type_name: &str) -> String {
+    if (32..=126).contains(&value) {
+        format!("'{}'", value as u8 as char)
+    } else {
+        format!("{type_name} value {value}")
+    }
+}
+
+impl CheckOpValue for u8 {
+    fn check_op_string(&self) -> String {
+        byte_check_op_string(i16::from(*self), "unsigned char")
+    }
+}
+
+impl CheckOpValue for i8 {
+    fn check_op_string(&self) -> String {
+        byte_check_op_string(i16::from(*self), "signed char")
+    }
+}
 
 impl CheckOpValue for f64 {
     fn check_op_string(&self) -> String {

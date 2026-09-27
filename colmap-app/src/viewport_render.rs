@@ -2,10 +2,15 @@
 // `OrbitCamera`, injected into agg-gui's frame through agg-gui-wgpu's custom-render hook
 // (`WgpuCustomRender`, see agg-gui-wgpu/src/custom_render.rs). `viewport.rs` owns the widget
 // and pushes this renderer each paint; GPU objects are created lazily on the first render and
-// rebuilt when the device or surface format changes (device loss, backend switch).
+// rebuilt when the device or surface format changes (device loss, backend switch). Each rebuild
+// republishes the adapter into `AppState::backend`, so the About sheet names the GPU in use.
 //
-// Draws straight into the active target (surface or layer) with a viewport and scissor set to
-// the widget's rect and `LoadOp::Load`, so the widget's 2D background shows underneath. No depth
+// Draws straight into the active target (surface or layer) with `LoadOp::Load`, so the widget's
+// 2D background shows underneath. The projection always covers the widget's full (unclipped)
+// rect, so a widget partly outside the target or its parent clip is cut off, never squashed:
+// the wgpu viewport is the rect clipped to the target (WebGPU rejects viewports that leave the
+// attachment), a clip-space correction maps the full rect's projection onto it, and parent
+// clipping only narrows the scissor (`ViewportLayout`). No depth
 // buffer: the scene is lines only, drawn in layer order. Same approach as agg-gui's demo bar
 // grid, minus its offscreen SSAA framebuffer.
 
@@ -18,6 +23,7 @@ use wgpu::util::DeviceExt;
 
 use crate::camera::OrbitCamera;
 use crate::scene::{LineVertex, Scene};
+use crate::state::BackendInfo;
 
 const LINE_WGSL: &str = "
 struct Uniforms { view_proj: mat4x4<f32> }
@@ -179,6 +185,72 @@ impl LineGpu {
     }
 }
 
+/// The widget's full rect as `[x, y, w, h]` in top-down pixels, unclipped (it may extend past
+/// the target on any side).
+pub fn full_top_down_rect(rect: Rect, target_h: u32) -> [f64; 4] {
+    [
+        rect.x,
+        target_h as f64 - (rect.y + rect.height),
+        rect.width,
+        rect.height,
+    ]
+}
+
+/// Where and how the viewport draws in one frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ViewportLayout {
+    /// wgpu viewport: the widget rect clipped to the target, top-down pixels.
+    pub viewport: [u32; 4],
+    /// Scissor: the viewport further clipped by the parent clip.
+    pub scissor: [u32; 4],
+    /// Projection aspect: the full widget rect's width / height.
+    pub aspect: f32,
+    /// Clip-space correction `(sx, sy, tx, ty)`: `x' = sx*x + tx*w`, `y' = sy*y + ty*w`. It
+    /// maps NDC over the full widget rect onto NDC over `viewport`, so the picture is the one a
+    /// viewport covering the whole widget would give. Identity when nothing is clipped.
+    pub correction: [f32; 4],
+}
+
+impl ViewportLayout {
+    /// Layout for a Y-up widget `rect` on a `target`-sized attachment with agg-gui-wgpu's
+    /// Y-up `parent_clip`. `None` when nothing is visible.
+    pub fn new(rect: Rect, target: (u32, u32), parent_clip: Option<[i32; 4]>) -> Option<Self> {
+        let viewport = top_down_pixel_rect(rect, target)?;
+        let scissor = match parent_clip {
+            Some(clip) => intersect(viewport, clip_to_top_down(clip, target.1))?,
+            None => viewport,
+        };
+        let [fx, fy, fw, fh] = full_top_down_rect(rect, target.1);
+        if fw <= 0.0 || fh <= 0.0 {
+            return None;
+        }
+        let [vx, vy, vw, vh] = viewport.map(f64::from);
+        // pixel_x = fx + (ndc_f + 1)/2 * fw = vx + (ndc_v + 1)/2 * vw, solved for ndc_v; same for
+        // y with NDC pointing up and pixels pointing down.
+        let sx = fw / vw;
+        let tx = (2.0 * (fx - vx) + fw) / vw - 1.0;
+        let sy = fh / vh;
+        let ty = 1.0 - (2.0 * (fy - vy) + fh) / vh;
+        Some(Self {
+            viewport,
+            scissor,
+            aspect: (fw / fh) as f32,
+            correction: [sx as f32, sy as f32, tx as f32, ty as f32],
+        })
+    }
+
+    /// The correction as a matrix to left-multiply onto the view-projection.
+    pub fn correction_matrix(&self) -> glam::Mat4 {
+        let [sx, sy, tx, ty] = self.correction;
+        glam::Mat4::from_cols(
+            glam::Vec4::new(sx, 0.0, 0.0, 0.0),
+            glam::Vec4::new(0.0, sy, 0.0, 0.0),
+            glam::Vec4::new(0.0, 0.0, 1.0, 0.0),
+            glam::Vec4::new(tx, ty, 0.0, 1.0),
+        )
+    }
+}
+
 /// Integer `[x, y, w, h]` in wgpu top-down pixels for a Y-up `rect` on a target `target_h`
 /// pixels tall, clipped to the target. `None` when nothing is left.
 pub fn top_down_pixel_rect(rect: Rect, target: (u32, u32)) -> Option<[u32; 4]> {
@@ -215,53 +287,75 @@ fn intersect(a: [u32; 4], b: [i32; 4]) -> Option<[u32; 4]> {
     (x1 > x0 && y1 > y0).then(|| [x0, y0, x1 - x0, y1 - y0])
 }
 
+/// The About sheet's view of a wgpu adapter.
+pub fn backend_info(info: &wgpu::AdapterInfo) -> BackendInfo {
+    BackendInfo {
+        adapter_name: info.name.clone(),
+        backend: format!("{:?}", info.backend),
+        device_type: format!("{:?}", info.device_type),
+    }
+}
+
 /// The viewport's custom renderer. Holds the shared scene and camera so the frame drawn is the
-/// state as of `end_frame`.
+/// state as of `end_frame`, and the shared backend cell it republishes on every GPU rebuild.
 pub struct ViewportRenderer {
     scene: Rc<RefCell<Scene>>,
     camera: Rc<RefCell<OrbitCamera>>,
+    backend: Rc<RefCell<Option<BackendInfo>>>,
     gpu: Option<LineGpu>,
 }
 
 impl ViewportRenderer {
-    pub fn new(scene: Rc<RefCell<Scene>>, camera: Rc<RefCell<OrbitCamera>>) -> Self {
+    pub fn new(
+        scene: Rc<RefCell<Scene>>,
+        camera: Rc<RefCell<OrbitCamera>>,
+        backend: Rc<RefCell<Option<BackendInfo>>>,
+    ) -> Self {
         Self {
             scene,
             camera,
+            backend,
             gpu: None,
         }
+    }
+
+    /// (Re)build the GPU objects when the device or target format changed, publishing the
+    /// device's adapter to the backend cell each time it does. Runs every frame, visible or
+    /// not, so the About sheet is right even while the viewport is clipped away.
+    ///
+    /// Caveat: `wgpu::Device`'s `==` compares only the wgpu-core device id, which restarts per
+    /// `wgpu::Instance`, so a device from a freshly created instance can compare equal to the
+    /// old one and skip the rebuild.
+    fn ensure_gpu(&mut self, device: &wgpu::Device, format: wgpu::TextureFormat) -> &mut LineGpu {
+        let stale = self
+            .gpu
+            .as_ref()
+            .is_none_or(|g| g.device != *device || g.format != format);
+        if stale {
+            *self.backend.borrow_mut() = Some(backend_info(&device.adapter_info()));
+            self.gpu = None;
+        }
+        self.gpu.get_or_insert_with(|| LineGpu::new(device, format))
     }
 }
 
 impl WgpuCustomRender for ViewportRenderer {
     fn render(&mut self, ctx: WgpuCustomRenderCtx<'_>) {
-        let Some(vp) = top_down_pixel_rect(ctx.screen_rect, ctx.target_size) else {
+        let (scene, camera) = (self.scene.clone(), self.camera.clone());
+        let gpu = self.ensure_gpu(ctx.device, ctx.surface_format);
+        let Some(layout) = ViewportLayout::new(ctx.screen_rect, ctx.target_size, ctx.parent_clip)
+        else {
             return;
         };
-        let scissor = match ctx.parent_clip {
-            Some(clip) => match intersect(vp, clip_to_top_down(clip, ctx.target_size.1)) {
-                Some(s) => s,
-                None => return,
-            },
-            None => vp,
-        };
-        let stale = self
-            .gpu
-            .as_ref()
-            .is_none_or(|g| g.device != *ctx.device || g.format != ctx.surface_format);
-        if stale {
-            self.gpu = Some(LineGpu::new(ctx.device, ctx.surface_format));
-        }
-        let Some(gpu) = self.gpu.as_mut() else {
-            return;
-        };
-        gpu.sync_scene(&self.scene.borrow());
+        let (vp, scissor) = (layout.viewport, layout.scissor);
+        gpu.sync_scene(&scene.borrow());
         let Some(vertices) = gpu.vertices.as_ref() else {
             return;
         };
 
-        let aspect = vp[2] as f32 / vp[3].max(1) as f32;
-        let view_proj = self.camera.borrow().view_projection(aspect).to_cols_array();
+        let view_proj = (layout.correction_matrix()
+            * camera.borrow().view_projection(layout.aspect))
+        .to_cols_array();
         ctx.queue
             .write_buffer(&gpu.uniforms, 0, bytemuck::cast_slice(&view_proj));
 
@@ -325,6 +419,117 @@ mod tests {
             clip_to_top_down([0, 0, 1280, 700], 800),
             [0, 100, 1280, 700]
         );
+    }
+
+    /// Top-down pixel where clip-space `(x, y, w)` lands under `layout`'s viewport.
+    fn to_pixel(layout: &ViewportLayout, x: f32, y: f32, w: f32) -> (f32, f32) {
+        let clip = layout.correction_matrix() * glam::Vec4::new(x, y, 0.0, w);
+        let (nx, ny) = (clip.x / clip.w, clip.y / clip.w);
+        let [vx, vy, vw, vh] = layout.viewport.map(|v| v as f32);
+        (vx + (nx + 1.0) / 2.0 * vw, vy + (1.0 - ny) / 2.0 * vh)
+    }
+
+    #[test]
+    fn unclipped_layout_is_identity() {
+        let layout =
+            ViewportLayout::new(Rect::new(20.0, 10.0, 100.0, 50.0), (400, 200), None).unwrap();
+        assert_eq!(layout.viewport, [20, 140, 100, 50]);
+        assert_eq!(layout.scissor, layout.viewport);
+        assert_eq!(layout.aspect, 2.0);
+        assert_eq!(layout.correction, [1.0, 1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn partly_offscreen_widget_keeps_full_rect_projection() {
+        // 200x100 widget hanging 50 px off the left and 40 px off the top of a 300x300 target.
+        let rect = Rect::new(-50.0, 240.0, 200.0, 100.0);
+        let layout = ViewportLayout::new(rect, (300, 300), None).unwrap();
+        assert_eq!(layout.viewport, [0, 0, 150, 60]);
+        assert_eq!(layout.aspect, 2.0);
+        // The full rect's NDC corners land on the full rect's pixel corners, at any w.
+        // (f32 clip math: within 1e-3 px.)
+        let near =
+            |a: (f32, f32), b: (f32, f32)| (a.0 - b.0).abs() < 1e-3 && (a.1 - b.1).abs() < 1e-3;
+        for w in [1.0, 3.5] {
+            assert!(near(to_pixel(&layout, -w, w, w), (-50.0, -40.0)));
+            assert!(near(to_pixel(&layout, w, -w, w), (150.0, 60.0)));
+            assert!(near(to_pixel(&layout, 0.0, 0.0, w), (50.0, 10.0)));
+        }
+    }
+
+    #[test]
+    fn parent_clip_narrows_only_the_scissor() {
+        // A clip covering only the bottom 100 px of a 400x400 target.
+        let rect = Rect::new(0.0, 0.0, 400.0, 200.0);
+        let layout = ViewportLayout::new(rect, (400, 400), Some([0, 0, 400, 100])).unwrap();
+        assert_eq!(layout.viewport, [0, 200, 400, 200]);
+        assert_eq!(layout.scissor, [0, 300, 400, 100]);
+        assert_eq!(layout.aspect, 2.0);
+        assert_eq!(layout.correction, [1.0, 1.0, 0.0, 0.0]);
+        assert_eq!(
+            ViewportLayout::new(rect, (400, 400), Some([0, 300, 400, 100])),
+            None
+        );
+    }
+
+    /// Resolve a future that is already complete (the no-op backend's are).
+    fn ready<F: std::future::Future>(f: F) -> F::Output {
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        match std::pin::pin!(f).poll(&mut cx) {
+            std::task::Poll::Ready(v) => v,
+            std::task::Poll::Pending => panic!("noop backend future pending"),
+        }
+    }
+
+    /// `n` devices on one adapter of wgpu's no-op backend (no GPU needed). One instance on
+    /// purpose: `wgpu::Device`'s `==` compares only wgpu-core ids, which restart per instance,
+    /// so devices from two instances can compare equal.
+    fn noop_devices(n: usize) -> Vec<wgpu::Device> {
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+        desc.backends = wgpu::Backends::NOOP;
+        desc.backend_options.noop.enable = true;
+        let instance = wgpu::Instance::new(desc);
+        let adapter = ready(instance.request_adapter(&Default::default())).expect("noop adapter");
+        (0..n)
+            .map(|_| {
+                ready(adapter.request_device(&Default::default()))
+                    .expect("noop device")
+                    .0
+            })
+            .collect()
+    }
+
+    #[test]
+    fn gpu_rebuild_republishes_the_backend() {
+        let backend = Rc::new(RefCell::new(None));
+        let mut renderer =
+            ViewportRenderer::new(Default::default(), Default::default(), backend.clone());
+        let format = wgpu::TextureFormat::Bgra8Unorm;
+        let devices = noop_devices(2);
+        let (first, second) = (&devices[0], &devices[1]);
+        assert!(first != second);
+        renderer.ensure_gpu(first, format);
+        let published = backend.borrow().clone().expect("published on first build");
+        assert_eq!(published, backend_info(&first.adapter_info()));
+        assert_eq!(published.backend, "Noop");
+
+        // Same device and format: no rebuild, the cell is left alone.
+        let sentinel = BackendInfo {
+            adapter_name: "sentinel".into(),
+            backend: "-".into(),
+            device_type: "-".into(),
+        };
+        *backend.borrow_mut() = Some(sentinel.clone());
+        renderer.ensure_gpu(first, format);
+        assert_eq!(backend.borrow().as_ref(), Some(&sentinel));
+
+        // A new device (device loss / backend switch) rebuilds and republishes.
+        renderer.ensure_gpu(second, format);
+        assert_eq!(backend.borrow().as_ref(), Some(&published));
+        // So does a new target format.
+        *backend.borrow_mut() = Some(sentinel);
+        renderer.ensure_gpu(second, wgpu::TextureFormat::Rgba8Unorm);
+        assert_eq!(backend.borrow().as_ref(), Some(&published));
     }
 
     #[test]

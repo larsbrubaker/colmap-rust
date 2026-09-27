@@ -13,7 +13,7 @@ use agg_gui::{
 };
 use agg_gui_wgpu::{SharedCustomRenderer, WgpuGfxCtx};
 
-use crate::state::{AppState, BackendInfo};
+use crate::state::AppState;
 use crate::viewport_render::ViewportRenderer;
 
 /// Widget id of the viewport.
@@ -39,7 +39,11 @@ pub struct Viewport3d {
 
 impl Viewport3d {
     pub fn new(state: &AppState) -> Self {
-        let renderer = ViewportRenderer::new(state.scene.clone(), state.camera.clone());
+        let renderer = ViewportRenderer::new(
+            state.scene.clone(),
+            state.camera.clone(),
+            state.backend.clone(),
+        );
         Self {
             bounds: Rect::default(),
             children: Vec::new(),
@@ -104,14 +108,6 @@ impl Widget for Viewport3d {
         else {
             return;
         };
-        if self.state.backend.borrow().is_none() {
-            let info = wgpu_ctx.device().adapter_info();
-            *self.state.backend.borrow_mut() = Some(BackendInfo {
-                adapter_name: info.name,
-                backend: format!("{:?}", info.backend),
-                device_type: format!("{:?}", info.device_type),
-            });
-        }
         // Annotated so the `Rc<RefCell<ViewportRenderer>>` unsizes to the trait object.
         let shared: SharedCustomRenderer = self.renderer.clone();
         wgpu_ctx.push_custom_render(shared, screen_rect);

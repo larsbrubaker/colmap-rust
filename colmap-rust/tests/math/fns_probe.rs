@@ -2,9 +2,9 @@
 // `colmap_rust::math::fns`. It pins the exact bits of every f64 and f32 function over a
 // fixed, broad input set against checked-in tables (`tests/data/fns_probe_expected.txt` and
 // `fns_probe_expected_f32.txt`), so any target whose results differ fails here with a
-// per-function count and examples. CI runs it on Linux, macOS and Windows, which enforces
-// native == native across platforms; wasm32 was checked against the same tables by running
-// a `wasm32-unknown-unknown` build of these functions under node when they were generated.
+// per-function count and examples. CI runs it natively on Linux, macOS and Windows and as a
+// `wasm32-wasip1` build under wasmtime, which enforces native == wasm on every push. The
+// tables are embedded with `include_str!` so the wasm run needs no filesystem access.
 //
 // Why it exists: std's transcendentals call the platform C libm natively (Apple libm, glibc,
 // UCRT) and compiler-builtins' musl port on wasm32, and differed (490 of 7154 f64 probes,
@@ -238,9 +238,12 @@ struct Probe {
     result: u64,
 }
 
-/// A probe table: its file, bit width, and how to evaluate one row.
+/// A probe table: its file, its embedded contents, bit width, and how to evaluate one row.
 struct Table {
     file: &'static str,
+    /// The checked-in table, embedded at compile time so the check also runs on wasm32-wasip1
+    /// without a preopened directory.
+    text: &'static str,
     hex_width: usize,
     probes: fn() -> Vec<Probe>,
     is_nan: fn(u64) -> bool,
@@ -276,6 +279,7 @@ fn probes_f32() -> Vec<Probe> {
 
 const F64_TABLE: Table = Table {
     file: "fns_probe_expected.txt",
+    text: include_str!("../data/fns_probe_expected.txt"),
     hex_width: 16,
     probes: probes_f64,
     is_nan: |b| f64::from_bits(b).is_nan(),
@@ -283,11 +287,13 @@ const F64_TABLE: Table = Table {
 
 const F32_TABLE: Table = Table {
     file: "fns_probe_expected_f32.txt",
+    text: include_str!("../data/fns_probe_expected_f32.txt"),
     hex_width: 8,
     probes: probes_f32,
     is_nan: |b| f32::from_bits(b as u32).is_nan(),
 };
 
+/// Where regeneration writes the table (native only; the check itself reads `Table::text`).
 fn table_path(table: &Table) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/data")
@@ -314,8 +320,9 @@ fn render(table: &Table, probes: &[Probe]) -> String {
 
 /// Rows of a table file, comments skipped.
 fn read_rows(table: &Table) -> Vec<Vec<String>> {
-    let text = std::fs::read_to_string(table_path(table)).expect("read probe table");
-    text.lines()
+    table
+        .text
+        .lines()
         .filter(|l| !l.starts_with('#') && !l.is_empty())
         .map(|l| l.split(' ').map(str::to_string).collect())
         .collect()

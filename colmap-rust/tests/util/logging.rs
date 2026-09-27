@@ -235,6 +235,28 @@ fn rust_only_check_op_values_print_like_an_ostream() {
 }
 
 #[test]
+fn rust_only_check_op_byte_values_print_like_glog() {
+    // glog's MakeCheckOpValueString specializations for `unsigned char` / `signed char`:
+    // printable bytes are quoted characters, anything else is spelled out with its value.
+    let unsigned = |a: u8, b: u8| -> Result<()> {
+        check_eq!(a, b);
+        Ok(())
+    };
+    assert!(message_of(unsigned(b'A', b'~')).ends_with("('A' vs. '~') "));
+    assert!(message_of(unsigned(1, 200))
+        .ends_with("(unsigned char value 1 vs. unsigned char value 200) "));
+    assert!(message_of(unsigned(b' ', 127)).ends_with("(' ' vs. unsigned char value 127) "));
+    let signed = |a: i8, b: i8| -> Result<()> {
+        check_eq!(a, b);
+        Ok(())
+    };
+    assert!(message_of(signed(65, 126)).ends_with("('A' vs. '~') "));
+    assert!(
+        message_of(signed(-1, 31)).ends_with("(signed char value -1 vs. signed char value 31) ")
+    );
+}
+
+#[test]
 fn rust_only_check_notnull_returns_value_or_errs() {
     let present = Some(3);
     assert_eq!(throw_check_notnull(present.as_ref()).ok(), Some(3));

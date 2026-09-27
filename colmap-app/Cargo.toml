@@ -22,3 +22,8 @@ wgpu = { version = "29", default-features = false, features = ["wgsl"] }
 # 3-D camera math for the viewport only (MIT/Apache-2.0); the core library keeps its own linalg.
 glam = { version = "0.30", default-features = false, features = ["std"] }
 bytemuck = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+# wgpu's no-op backend, test builds only: a real Device with no GPU, so the renderer's
+# rebuild logic is unit-tested on CI runners.
+wgpu = { version = "29", default-features = false, features = ["wgsl", "noop"] }

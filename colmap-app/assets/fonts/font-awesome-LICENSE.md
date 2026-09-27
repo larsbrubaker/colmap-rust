@@ -1,16 +1,15 @@
 # Font Awesome 4.7.0
 
-`font-awesome.ttf` is the Font Awesome 4.7.0 icon face
-(family "FontAwesome", by Fort Awesome / Dave Gandy) used throughout
-AtomArtist's chrome. Icons are rendered as their Unicode Private Use Area
-code points via the system font's fallback chain (see
-`atomartist-ui/src/fa.rs` and `atomartist-ui/src/shell_init.rs`).
+`font-awesome.ttf` is the Font Awesome 4.7.0 icon font (family "FontAwesome", by Dave Gandy /
+Fort Awesome). colmap-rust embeds it in `colmap-app` for the UI's icons: `colmap-app/src/fonts.rs`
+installs it as a fallback face and the `fa` module there names each icon's Unicode Private Use
+Area code point (e.g. the top bar's info button and the About sheet's Close button), which
+widgets render as ordinary text.
 
-## Licenses
+## License
 
-- **Font files** (the `.ttf` in this directory, including the glyph
-  designs shipped inside the font): SIL Open Font License 1.1
-  — <https://opensource.org/licenses/OFL-1.1>
-- **Font Awesome CSS/LESS/SASS code** (not vendored here): MIT
+- **Font file** (`font-awesome.ttf`, including the glyph designs inside it): SIL Open Font
+  License 1.1 — <https://opensource.org/licenses/OFL-1.1>
+- Font Awesome's CSS/LESS/SASS code is MIT licensed; none of it is used or vendored here.
 
-Font Awesome by Dave Gandy / Fort Awesome — <https://fontawesome.io/license/>
+Font Awesome by Dave Gandy / Fort Awesome — <https://fontawesome.com/v4/license/>
