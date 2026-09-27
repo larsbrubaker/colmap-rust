@@ -20,10 +20,14 @@
 //!   helpers, pose priors, GPS conversions, normalization, boxes, essential and homography
 //!   matrices, and triangulation.
 //! - [`sensor`]: COLMAP's `sensor/` — so far the camera models ([`sensor::models`]).
+//! - [`optim`]: COLMAP's `optim/` robust-estimation framework — the [`optim::Estimator`] and
+//!   [`optim::Sampler`] traits, the random, PROSAC and combination samplers, support
+//!   measurement, [`optim::Ransac`], [`optim::LoRansac`] and SPRT.
 
 pub mod geometry;
 pub mod linalg;
 pub mod math;
+pub mod optim;
 pub mod sensor;
 pub mod util;
 

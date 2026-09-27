@@ -54,11 +54,15 @@ App: open a COLMAP model folder / zip (native + browser) and show cameras + spar
 bundled sample model on the web page.
 
 ### Phase 5 — Optimization primitives
-`optim/`: samplers, `ransac`, `loransac`, `support_measurement`, `sprt`,
-`least_absolute_deviations`, `tiny_solver`, `sparse_cholesky` (port colmap-sharp's simplicial
-Cholesky + AMD).
+Remaining (in progress): `least_absolute_deviations`, `tiny_solver`, `sparse_cholesky` (port of
+colmap-sharp's simplicial Cholesky + AMD).
 
 ### Phase 6 — Minimal solvers and estimators
+First: `SimilarityTransformEstimator` (Umeyama), then swap in the five deferred optim tests
+(`ransac_test.cc` SimilarityTransform, ParallelSimilarityTransform, ReproducibilityWithRandomSeed;
+`loransac_test.cc` SimilarityTransform, ParallelSimilarityTransform) and delete their rust-only
+line-estimator stand-ins. Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those
+without opt in via `EstimateAsLocal`.
 `estimators/solvers/*` (PoseLib parts, BSD-3), `two_view_geometry`, `pose`, `generalized_pose`,
 `triangulation`, `alignment`, `fundamental_matrix_degensac`, `rotation_averaging`,
 `global_positioning`, `gravity_refinement`, `view_graph_calibration`.

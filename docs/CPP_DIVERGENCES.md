@@ -716,6 +716,7 @@ normal and points agree with pycolmap within 1e-12 / 1e-11 / 1e-10 relative.
 `tests/geometry/homography_matrix.rs` (homography_matrix_test.cc 1:1) passes, including the
 noise-free `pose_from_homography_matrix_nominal`. colmap-sharp documents the same behavior in
 its `Geometry/HomographyMatrix.cs` header and fixture generator (no numbered entry there).
+
 ## 100. FMA contraction in the camera models
 
 **What differs.** Camera model projection (`camera_model_img_from_cam`) and ray unprojection
@@ -812,3 +813,46 @@ kernel matches `ImgFromCam` differentiated with the Jet to COLMAP's 1e-10, and t
 matches the typed kernel. pycolmap exposes these kernels only inside its essential-matrix
 estimators (through `Camera::CamRayFromImgWithJac`), so there is no
 oracle fixture for these kernels.
+
+## 140. PROSAC's out-of-range sample index fails a check instead of reading past the data
+
+**What differs.** COLMAP's `ProgressiveSampler` (ported faithfully in
+`optim/progressive_sampler.rs`) makes index `n` the mandatory element of a progressive sample,
+and `n` can equal `total_num_samples`: on the first sample when `num_samples ==
+total_num_samples`, and in general on the sample where the growth schedule reaches the last
+element. COLMAP's `Sampler::SampleXY` then reads `X[total_num_samples]`, past the end of the
+`std::vector` (undefined behavior: garbage or a crash). `Sampler::sample_x` / `sample_xy` in
+`optim/sampler.rs` check every sampled index against the data length and return COLMAP's
+"Check failed" error instead.
+
+**Why.** Undefined behavior has no Rust equivalent to match (an out-of-bounds index panics),
+and silently clamping or shifting the index would change the sampler's Tier A sequence that
+`progressive_sampler_test.cc` pins. COLMAP 4.2.0 instantiates `ProgressiveSampler` nowhere
+outside its own test, so no pipeline reaches this path. Same as colmap-sharp entry 16.
+
+**Evidence.** `tests/optim/progressive_sampler.rs` (1:1) and the seeded sequence in
+`tests/optim/rust_only_sampler_sequence.rs` pass unchanged;
+`tests/optim/rust_only_ransac.rs`, `rust_only_progressive_sampler_index_past_end_fails_check`
+runs RANSAC with PROSAC on exactly `MIN_NUM_SAMPLES` pairs and expects the check failure.
+
+## 141. RANSAC and LO-RANSAC always run their trial loop serially
+
+**What differs.** With `RANSACOptions::num_threads > 1` (or -1), COLMAP built with OpenMP runs
+the trial loop on several threads, each with its own sampler seeded `random_seed + thread
+index`, sharing an atomic trial counter and a mutex-guarded best model. `optim/ransac.rs` and
+`optim/loransac.rs` validate `num_threads` exactly as COLMAP does (`Check()`, and "Parallel
+RANSAC only supports RandomSampler" for any other sampler with more than one effective thread)
+and then run the loop once on the calling thread with the thread-0 seed, which is what COLMAP
+itself does when built without OpenMP ("the block runs once serially").
+
+**Why.** COLMAP's parallel result depends on thread scheduling (which thread claims which trial
+index, and which thread's model reaches the shared best first), so it is not reproducible even
+against itself; CLAUDE.md requires sequential and parallel runs to give the same result. The
+serial loop is COLMAP's own `num_threads == 1` behavior. A deterministic parallel scheme (for
+example fixed per-trial seeds) would be a different algorithm from both COLMAP builds and is
+left for when profiling shows RANSAC is a bottleneck. Same as colmap-sharp entry 17.
+
+**Evidence.** `tests/optim/rust_only_ransac.rs`: `rust_only_ransac_parallel_line_fit` and
+`rust_only_loransac_parallel_line_fit` (`num_threads = 4`) pass the same checks as the serial
+runs, and `rust_only_parallel_requires_random_sampler` pins the kept validation. The 1:1
+`ParallelSimilarityTransform` cases join them with Phase 6's `SimilarityTransformEstimator`.
