@@ -1,12 +1,16 @@
 // Integration-test binary for `colmap_rust::geometry`: one file per COLMAP `*_test.cc`
-// (rigid3, sim3, bbox, gps, normalization, pose, pose_prior), plus the Rust-only pycolmap
-// oracle comparison `rust_only_transforms_oracle.rs` (fixture
-// `tests/data/oracle/geometry_transforms.json` from `oracle/geometry_transforms.py`).
-// This file also holds `eigen_matrix_near`, the port of COLMAP's `EigenMatrixNear` matcher
-// (util/eigen_matchers.h) the ported tests share. Layout convention: see `tests/math.rs`.
+// (rigid3, sim3, bbox, gps, normalization, pose, pose_prior, essential_matrix,
+// homography_matrix, triangulation), plus the Rust-only pycolmap oracle comparisons
+// `rust_only_transforms_oracle.rs` (fixture `tests/data/oracle/geometry_transforms.json`
+// from `oracle/geometry_transforms.py`) and `rust_only_two_view_oracle.rs`
+// (`geometry_two_view.json` from `oracle/geometry_two_view.py`). This file also holds
+// `eigen_matrix_near` and `rigid3d_near`, the ports of COLMAP's `EigenMatrixNear`
+// (util/eigen_matchers.h) and `Rigid3dNear` (geometry/rigid3_matchers.h) matchers the ported
+// tests share. Layout convention: see `tests/math.rs`.
 //
 // Run: `cargo test -p colmap-rust --test geometry`.
 
+use colmap_rust::geometry::Rigid3d;
 use colmap_rust::linalg::{Matrix3d, Matrix3x4d, Matrix6d, Vector2d, Vector3d, Vector4d};
 
 #[path = "support/oracle_json.rs"]
@@ -14,8 +18,12 @@ mod oracle_json;
 
 #[path = "geometry/bbox.rs"]
 mod bbox;
+#[path = "geometry/essential_matrix.rs"]
+mod essential_matrix;
 #[path = "geometry/gps.rs"]
 mod gps;
+#[path = "geometry/homography_matrix.rs"]
+mod homography_matrix;
 #[path = "geometry/normalization.rs"]
 mod normalization;
 #[path = "geometry/pose.rs"]
@@ -26,8 +34,12 @@ mod pose_prior;
 mod rigid3;
 #[path = "geometry/rust_only_transforms_oracle.rs"]
 mod rust_only_transforms_oracle;
+#[path = "geometry/rust_only_two_view_oracle.rs"]
+mod rust_only_two_view_oracle;
 #[path = "geometry/sim3.rs"]
 mod sim3;
+#[path = "geometry/triangulation.rs"]
+mod triangulation;
 
 /// The coefficients of a fixed-size Eigen-like value, in storage order.
 pub trait Coeffs {
@@ -85,6 +97,22 @@ pub fn eigen_matrix_near<T: Coeffs>(lhs: &T, rhs: &T, tol: f64) -> bool {
 /// `EigenMatrixNear(rhs)` with Eigen's default `dummy_precision()` (1e-12).
 pub fn eigen_matrix_near_default<T: Coeffs>(lhs: &T, rhs: &T) -> bool {
     eigen_matrix_near(lhs, rhs, 1e-12)
+}
+
+/// Port of COLMAP's `Rigid3dNear(rhs, rtol, ttol)` matcher (geometry/rigid3_matchers.h):
+/// the rotations within `rtol` angular distance, and the translations within `ttol`
+/// (`norm() <= ttol` when `rhs`'s is zero, Eigen's `isApprox` otherwise).
+#[allow(clippy::neg_cmp_op_on_partial_ord)] // !(a <= b) is deliberate: NaN must fail.
+pub fn rigid3d_near(lhs: &Rigid3d, rhs: &Rigid3d, rtol: f64, ttol: f64) -> bool {
+    // Note the !(a <= b) form, as in COLMAP, to reject NaNs.
+    if !(lhs.rotation.angular_distance(rhs.rotation) <= rtol) {
+        return false;
+    }
+    if rhs.translation == Vector3d::zeros() {
+        lhs.translation.norm() <= ttol
+    } else {
+        lhs.translation.is_approx_with(rhs.translation, ttol)
+    }
 }
 
 /// gtest's `EXPECT_NEAR(a, b, tol)`.

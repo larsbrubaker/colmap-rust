@@ -589,3 +589,46 @@ When a logger lands, this entry goes away.
 
 **Evidence.** `tests/geometry/pose_prior.rs`, `pose_prior_gravity_from_exif_orientation`
 (pose_prior_test.cc 1:1) checks every `None` case.
+
+## 85. Essential-matrix candidate order and the epipole's sign follow our SVD's signs
+
+**What differs.** `geometry::essential_matrix::decompose_essential_matrix` builds its two
+rotations and the translation from the SVD of `E` (entry 30), whose singular-vector signs are
+ours, not Eigen's. After COLMAP's own determinant fix-up of U and V, the candidate *set*
+{(R1, t), (R2, t), (R1, -t), (R2, -t)} is the same for any valid SVD (Hartley and Zisserman,
+"Multiple View Geometry", 2nd ed., Result 9.19), but which rotation is called R1 and the sign
+of t can differ from COLMAP. `pose_from_essential_matrix` keeps the *last* candidate with the
+most points in front of both cameras, as COLMAP does, so its result can differ from COLMAP's
+only when two candidates tie on that count. `epipole_from_essential_matrix` returns the null
+vector as our SVD gives it, so its overall sign can differ (it is arbitrary in COLMAP too; an
+epipole is a homogeneous point).
+
+**Why.** Eigen's JacobiSVD is not ported (MPL-2.0) and its sign convention is an
+implementation detail. COLMAP's contract is the relative pose with the most cheiral points,
+and the epipole as a projective point; both are kept.
+
+**Evidence.** `tests/geometry/essential_matrix.rs` (essential_matrix_test.cc 1:1:
+`decompose_essential_matrix_nominal` accepts either rotation and either sign of t, as COLMAP's
+test does; `pose_from_essential_matrix_nominal` recovers the pose at 1e-12). The pycolmap
+fixture `geometry_two_view.json` deliberately carries no epipoles. colmap-sharp documents the
+same behavior in its `Geometry/EssentialMatrix.cs` header (no numbered entry there).
+
+## 86. PoseFromHomographyMatrix on noise-free planar data can pick the other valid candidate
+
+**What differs.** For exact correspondences of a plane, two of the four candidates of
+`geometry::homography_matrix::decompose_homography_matrix` usually both triangulate every
+point in front of both cameras, with angular reprojection sums at rounding level (~1e-16).
+`pose_from_homography_matrix` breaks that tie by the smaller sum, as COLMAP does, so which of
+the two it returns depends on last-bit rounding (our 3x3 inverse and products, our SVD's
+middle singular value, and `triangulate_mid_point`'s SVD, entries 20 and 30) and can differ
+from COLMAP. With any noise on the correspondences the sums separate and the choice matches.
+
+**Why.** Reproducing Eigen's rounding exactly is not possible without porting Eigen
+(contract rule 2); the tie is a property of the exact data, not of the algorithm.
+
+**Evidence.** `tests/geometry/rust_only_two_view_oracle.rs`,
+`rust_only_pose_from_homography_matrix_matches_pycolmap`: on 20 noisy scenes the pose,
+normal and points agree with pycolmap within 1e-12 / 1e-11 / 1e-10 relative.
+`tests/geometry/homography_matrix.rs` (homography_matrix_test.cc 1:1) passes, including the
+noise-free `pose_from_homography_matrix_nominal`. colmap-sharp documents the same behavior in
+its `Geometry/HomographyMatrix.cs` header and fixture generator (no numbered entry there).

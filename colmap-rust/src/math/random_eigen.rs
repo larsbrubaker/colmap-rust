@@ -1,8 +1,8 @@
 //! Port of COLMAP's `colmap/math/random_eigen.h`: random Eigen-type values drawn from COLMAP's
 //! seeded PRNG ([`super::random`]) instead of Eigen's `Random()` / `UnitRandom()` (which use
-//! the platform `rand()`). Only the fixed-size helpers the port needs so far are here; the
-//! dynamic-size variants (`RandomEigenMatrixXd`, `RandomEigenVectorXd`) arrive with the
-//! dynamic-size matrices.
+//! the platform `rand()`): the fixed-size shapes the port uses, the dynamic-size
+//! `RandomEigenMatrixXd` / `RandomEigenVectorXd`, and `RandomEigenQuaterniond`. The `float`
+//! variants are not needed yet.
 //!
 //! Tier A (exact): each coefficient is one `RandomUniformReal<double>(-1, 1)` draw, filled in
 //! Eigen's linear (column-major) order, and the quaternion is Shoemake's method exactly as
@@ -11,7 +11,9 @@
 
 use super::fns;
 use super::random::random_uniform_real;
-use crate::linalg::{Matrix3d, Matrix6d, Quaterniond, Vector2d, Vector3d, Vector4d};
+use crate::linalg::{
+    Matrix3d, Matrix4d, Matrix6d, MatrixXd, Quaterniond, Vector2d, Vector3d, Vector4d, VectorXd,
+};
 
 /// `EIGEN_PI` as a double.
 const EIGEN_PI: f64 = std::f64::consts::PI;
@@ -42,6 +44,30 @@ pub fn random_eigen_vector4d() -> Vector4d {
 /// `RandomEigenMatrixd<3, 3>()`: each entry uniform in [-1, 1], column-major fill order.
 pub fn random_eigen_matrix3d() -> Matrix3d {
     Matrix3d::from_column_major(random_coefficients())
+}
+
+/// `RandomEigenMatrixd<4, 4>()`: each entry uniform in [-1, 1], column-major fill order.
+pub fn random_eigen_matrix4d() -> Matrix4d {
+    Matrix4d::from_column_major(random_coefficients())
+}
+
+/// `RandomEigenMatrixXd(rows, cols)`, also `RandomEigenMatrixd<Rows, Cols>()` for the shapes
+/// without a fixed-size type here (12x12): each entry uniform in [-1, 1], column-major fill
+/// order.
+pub fn random_eigen_matrix_xd(rows: usize, cols: usize) -> MatrixXd {
+    let values: Vec<f64> = (0..rows * cols)
+        .map(|_| random_uniform_real::<f64>(-1.0, 1.0))
+        .collect();
+    MatrixXd::from_column_major_vec(rows, cols, values)
+}
+
+/// `RandomEigenVectorXd(size)`: each entry uniform in [-1, 1].
+pub fn random_eigen_vector_xd(size: usize) -> VectorXd {
+    VectorXd::from_vec(
+        (0..size)
+            .map(|_| random_uniform_real::<f64>(-1.0, 1.0))
+            .collect(),
+    )
 }
 
 /// `RandomEigenMatrixd<6, 6>()`: each entry uniform in [-1, 1], column-major fill order.

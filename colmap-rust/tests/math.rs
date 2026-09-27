@@ -21,6 +21,8 @@ mod connected_components;
 mod graph_cut;
 #[path = "math/math.rs"]
 mod math;
+#[path = "math/matrix.rs"]
+mod matrix;
 #[path = "math/random.rs"]
 mod random;
 #[path = "math/rust_only_graph_cut.rs"]

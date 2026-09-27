@@ -1,6 +1,7 @@
 //! Port of COLMAP's `colmap/geometry/rigid3.h` and `rigid3.cc`: [`Rigid3d`], the 6-DoF rigid
 //! transform `x_in_b = R * x_in_a + t`, with its inverse, composition, matrix conversions,
-//! adjoints and the single-transform covariance helper, plus [`cross_product_matrix`].
+//! adjoints and the covariance helpers (inverse, composed, relative), plus
+//! [`cross_product_matrix`].
 //! Port of colmap-sharp's `Geometry/Rigid3d.cs`. Neighbors: [`super::sim3`] (the 7-DoF
 //! similarity) and [`super::pose`] (functions on poses). Tests: `tests/geometry/rigid3.rs`
 //! (rigid3_test.cc) and `tests/geometry/rust_only_transforms_oracle.rs`.
@@ -19,13 +20,16 @@
 //! - COLMAP's default constructor is the identity, so `Default` is hand-written as
 //!   [`Rigid3d::identity`] (never a derived all-zero rotation).
 //! - COLMAP's free `Inverse(Rigid3d)` is [`Rigid3d::inverse`].
-//! - `GetCovarianceForComposedRigid3d` and `GetCovarianceForRelativeRigid3d` take a 12x12
-//!   joint covariance and arrive with the dynamic-size matrices.
+//! - `GetCovarianceForComposedRigid3d` and `GetCovarianceForRelativeRigid3d` take the 12x12
+//!   joint covariance as a [`MatrixXd`] (checked 12x12) and build their 6x12 Jacobians as
+//!   `MatrixXd`, so they are Tier B through its left-to-right products
+//!   (docs/CPP_DIVERGENCES.md entries 20 and 80), pinned by the oracle's `cov_composed` and
+//!   `cov_relative` fields.
 
 use std::fmt;
 use std::ops::Mul;
 
-use crate::linalg::{Matrix3d, Matrix3x4d, Matrix6d, Quaterniond, Vector3d};
+use crate::linalg::{Matrix3d, Matrix3x4d, Matrix6d, MatrixXd, Quaterniond, Vector3d};
 use crate::util::stream_format::{format_double, DEFAULT_PRECISION};
 
 /// Port of `colmap::CrossProductMatrix`: the skew-symmetric matrix `[v]_x` with
@@ -128,6 +132,54 @@ impl Rigid3d {
 pub fn get_covariance_for_rigid3d_inverse(rigid3: &Rigid3d, covar: &Matrix6d) -> Matrix6d {
     let adjoint_inv = rigid3.adjoint_inverse();
     adjoint_inv * *covar * adjoint_inv.transpose()
+}
+
+/// Port of `colmap::GetCovarianceForComposedRigid3d`: the 6x6 covariance of the composed
+/// `a_from_c = a_from_b * b_from_c` from the 12x12 joint covariance of
+/// `(a_from_b, b_from_c)`, `J * covar * J^T` with `J = [I, Ad(a_from_b)]`. `b_from_c` does
+/// not contribute and is not needed.
+///
+/// # Panics
+/// When `covar` is not 12x12 (a compile-time shape in COLMAP).
+pub fn get_covariance_for_composed_rigid3d(a_from_b: &Rigid3d, covar: &MatrixXd) -> Matrix6d {
+    check_joint_covariance(covar);
+    let mut j = MatrixXd::zeros(6, 12);
+    j.set_block(0, 0, &MatrixXd::identity(6));
+    j.set_block(0, 6, &MatrixXd::from(a_from_b.adjoint()));
+    (&(&j * covar) * &j.transpose()).to_matrix6d()
+}
+
+/// Port of `colmap::GetCovarianceForRelativeRigid3d`: the 6x6 covariance of the relative
+/// `b_from_a = b_from_c * inverse(a_from_c)` from the 12x12 joint covariance of
+/// `(a_from_c, b_from_c)`, `J * covar * J^T` with `J = [-Ad(b_from_c) Ad(a_from_c)^-1, I]`.
+///
+/// # Panics
+/// When `covar` is not 12x12 (a compile-time shape in COLMAP).
+pub fn get_covariance_for_relative_rigid3d(
+    a_from_c: &Rigid3d,
+    b_from_c: &Rigid3d,
+    covar: &MatrixXd,
+) -> Matrix6d {
+    check_joint_covariance(covar);
+    let mut j = MatrixXd::zeros(6, 12);
+    j.set_block(
+        0,
+        0,
+        &MatrixXd::from(-b_from_c.adjoint() * a_from_c.adjoint_inverse()),
+    );
+    j.set_block(0, 6, &MatrixXd::identity(6));
+    (&(&j * covar) * &j.transpose()).to_matrix6d()
+}
+
+// COLMAP's parameter is a fixed Eigen::Matrix<double, 12, 12>; the shape is part of the type
+// there and a runtime check here.
+fn check_joint_covariance(covar: &MatrixXd) {
+    assert!(
+        covar.rows() == 12 && covar.cols() == 12,
+        "Expected a 12x12 covariance, got {}x{}.",
+        covar.rows(),
+        covar.cols()
+    );
 }
 
 /// `x_in_b = b_from_a * x_in_a`: `R * x + t`.

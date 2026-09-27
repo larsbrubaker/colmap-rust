@@ -12,20 +12,19 @@
 // - Tier B (`tolerance_fields`), each for an FMA contraction in the macOS arm64 wheel that
 //   this port deliberately does not reproduce (docs/CPP_DIVERGENCES.md entries 2 and 80):
 //   everything that rotates a vector with q * v, adjoint_inverse and
-//   get_covariance_for_rigid3d_inverse (3x3 and 6x6 products), and the GPS conversions
+//   get_covariance_for_rigid3d_inverse (3x3 and 6x6 products), the composed and relative
+//   covariances (6x12 dynamic products, also entry 20), and the GPS conversions
 //   (transcendentals through `fns` as well, entry 1). utm_to_ellipsoid also has a 1-ulp
 //   latitude difference on 2/80 points (entry 83).
 // Tolerances: |expected - actual| <= relative * max(1, |expected|), and for GPS coordinates
 // in meters additionally within 1e-8 m (their last-bit differences at ~6.4e6 m ECEF carry
 // through subtractions to small results).
-//
-// Not checked yet: cov_composed and cov_relative (the 12x12 covariance helpers arrive with
-// the dynamic-size matrices).
 
 use colmap_rust::geometry::{
+    get_covariance_for_composed_rigid3d, get_covariance_for_relative_rigid3d,
     get_covariance_for_rigid3d_inverse, Ellipsoid, GpsTransform, Rigid3d, Sim3d,
 };
-use colmap_rust::linalg::{Matrix3x4d, Matrix6d, Quaterniond, Vector3d, Vector4d};
+use colmap_rust::linalg::{Matrix3x4d, Matrix6d, MatrixXd, Quaterniond, Vector3d, Vector4d};
 
 use crate::oracle_json::Json;
 
@@ -60,6 +59,10 @@ fn matrix6_row_major(c: &Json, name: &str) -> Matrix6d {
     // Row-major values read as column-major give the transpose; transpose back.
     let m = c.get(name).as_f64s();
     Matrix6d::from_column_major(m.try_into().unwrap()).transpose()
+}
+
+fn cov12(c: &Json) -> MatrixXd {
+    MatrixXd::from_row_major(12, 12, &c.get("cov12").as_f64s())
 }
 
 fn flat_q(q: Quaterniond) -> Vec<f64> {
@@ -102,6 +105,16 @@ fn compute_rigid(c: &Json, field: &str) -> Vec<f64> {
         "adjoint_inverse" => flat_rows(r.adjoint_inverse().as_slice(), 6, 6),
         "cov_inverse" => flat_rows(
             get_covariance_for_rigid3d_inverse(&r, &matrix6_row_major(c, "cov")).as_slice(),
+            6,
+            6,
+        ),
+        "cov_composed" => flat_rows(
+            get_covariance_for_composed_rigid3d(&r, &cov12(c)).as_slice(),
+            6,
+            6,
+        ),
+        "cov_relative" => flat_rows(
+            get_covariance_for_relative_rigid3d(&r, &other, &cov12(c)).as_slice(),
             6,
             6,
         ),
@@ -244,6 +257,8 @@ fn rust_only_transforms_oracle_tolerance_fields() {
         ("rigid", "tgt_origin_in_src", 1e-14),
         ("rigid", "adjoint_inverse", 1e-14),
         ("rigid", "cov_inverse", 1e-13),
+        ("rigid", "cov_composed", 1e-13),
+        ("rigid", "cov_relative", 1e-13),
         ("sim", "apply", 1e-14),
         ("sim", "compose_t", 1e-14),
         ("sim", "inverse_t", 1e-14),
