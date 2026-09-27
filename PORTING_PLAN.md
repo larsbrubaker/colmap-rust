@@ -14,7 +14,7 @@ visible in the app so the web build is the integration test.
 ## Resume here (paused 2026-09-27)
 
 **On `main` and reviewed:** Phase 0 (scaffold, app shells, CI), Phase 1 (util, math, linalg), Phase 2
-(geometry), Phase 3 camera models + Jacobians, Phase 5 RANSAC family (`optim/`).
+(geometry), Phase 3 (all of sensor/), Phase 5 RANSAC family (`optim/`).
 
 **Setting up on another machine:** clone `rust-apps` with submodules (colmap-rust needs `../agg-gui`
 as a sibling); in colmap-rust run `scripts/fetch-reference.sh` (and `oracle/setup.sh` only if you
@@ -23,31 +23,18 @@ regenerate fixtures). Agent worktrees live in `.claude/worktrees/`, so create th
 Divergence-log merges: keep both sides' entries in numeric order (entries are independent sections).
 After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balanced.
 
-**Paused work on pushed `wip/*` branches** (each started from an older `main`; merge `main` in
-first):
-- `wip/phase3c-sensor-rest` — sensor `rig`, `specs` (generated table), `database`, `bitmap`,
-  EXIF reader; reviewed, and the review fixes are committed (`802aa49`: row-window Rescale,
-  `Bitmap::try_new`, EXIF doc wording, printf `nan`/`inf`) but **not yet verified or re-reviewed**.
-  To finish: run the core-crate checks, quick re-review of `802aa49`, merge, and
-  on merge add a `### sensor/` list under "Skipped tests": `bitmap_test.cc` ReadWriteAsRGB,
-     ReadWriteUnicodePath, ReadWriteAsGrey, ReadWriteAsGreyNonLinear, ReadWriteLinearColorspace,
-     WriteJpegWithQuality, WriteInvalidFormat, ReadNonImageFile, ReadNonExistentFile,
-     ReadUnsupportedChannels, all ParameterizedBitmapFormatTests, and the PNG round-trip tails of
-     CloneAsRGB/CloneAsGrey (the host decodes images; no file I/O in the core).
-- `wip/phase4a-scene-types` — Phase 4a scene data types (point2d, point3d, track, camera, frame,
-  image, projection, visibility_pyramid, two_view_geometry) with their tests; **unverified WIP**
-  (paused while writing image/camera/projection tests). Finish, run the core-crate checks, review.
-  `Camera::verify_params` must return `Err` for an invalid model id (divergence 101).
-- `wip/phase5b-sparse-lad` — sparse CSC matrix, simplicial Cholesky, `optim` sparse_cholesky,
-  least_absolute_deviations, tiny_solver with tests; **unverified WIP** (paused starting
-  TinySolver). AMD ordering may still be missing. Merge `main` (it now has `optim/`), finish, review.
+**Next slices** (start each from `main`; earlier in-progress attempts were discarded):
+- Phase 4a — scene data types: point2d, point3d, track, camera, frame, image, projection,
+  visibility_pyramid, two_view_geometry, with their `*_test.cc`. `Camera::verify_params` must
+  return `Err` for an invalid model id (divergence 101).
+- Phase 5b — sparse CSC matrix, AMD ordering, simplicial Cholesky (port colmap-sharp's), then
+  `optim` sparse_cholesky, least_absolute_deviations, tiny_solver.
+- Phase 6a — `SimilarityTransformEstimator`, then the five deferred optim tests (Phase 6 below).
+- Phase 6b — PoseLib minimal solvers (port colmap-sharp's `Estimators/Solvers/PoseLib/`).
 
-**Not started (were just launched):** Phase 6a (`SimilarityTransformEstimator`, then the five
-deferred optim tests below), Phase 6b (PoseLib minimal solvers).
-
-**Other open items:** PR larsbrubaker/colmap-rust#1 (CI smoke test via GPU readback; green) is
-waiting for Lars to merge — it turns on the Pages deploy. colmap-rust is a rust-apps submodule
-(pushed); after cloning rust-apps, `git -C colmap-rust checkout main && git -C colmap-rust pull`.
+**Other open items:** colmap-rust is a rust-apps submodule (pushed); after cloning rust-apps,
+`git -C colmap-rust checkout main && git -C colmap-rust pull`. Only `main` exists on origin; agents
+work on local worktree branches that are merged to `main` and then deleted.
 
 ## Out of scope (do not re-litigate)
 
@@ -76,8 +63,6 @@ Remaining: `rigid3_matchers`/`sim3_matchers` (test helpers).
 App: camera-frustum rendering in the 3D viewport.
 
 ### Phase 3 — Sensor
-Remaining (in progress): `rig`, `specs`,
-`bitmap` (pixel buffer; the app decodes images), EXIF focal-length reader.
 App: image loading (native file dialog / browser file picker + drag-drop), an image browser,
 and a camera-model undistortion preview.
 
@@ -147,6 +132,13 @@ runs on Metal/DX12/Vulkan natively and WebGPU in the browser.
 Mirror colmap-sharp's "Skipped tests" list as each module is ported (bitmap file I/O,
 SQLite files, Ceres internals not ported, CUDA/GPU, SiftGPU, ONNX, vocabulary tree), adapting
 reasons to Rust. Every skipped COLMAP test is listed here by name when its file is ported.
+
+### sensor/
+- `bitmap_test.cc` ReadWriteAsRGB, ReadWriteUnicodePath, ReadWriteAsGrey,
+  ReadWriteAsGreyNonLinear, ReadWriteLinearColorspace, WriteJpegWithQuality, WriteInvalidFormat,
+  ReadNonImageFile, ReadNonExistentFile, ReadUnsupportedChannels, all
+  ParameterizedBitmapFormatTests, and the PNG round-trip tails of CloneAsRGB/CloneAsGrey: the host
+  decodes and encodes images; the core has no file I/O.
 
 ### util/
 - `types_test.cc` Span.SizeAndEmpty, FilterView.{Empty,All,None,Nominal,RangeExpression}:

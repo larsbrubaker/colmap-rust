@@ -262,7 +262,9 @@ oracle/setup.sh && oracle/.venv/bin/python oracle/<script>.py   # regenerate fix
 
 ## Git
 
-Commit on `main`; push to `origin` (github.com/larsbrubaker/colmap-rust). Pushing `main`
+Commit on `main`; push only `main` to `origin` (github.com/larsbrubaker/colmap-rust). Never push
+any other branch and never open PRs. Agent worktree branches stay local: the orchestrator merges
+each into `main` and then deletes the branch and its worktree, so none are left over. Pushing `main`
 deploys the web app to GitHub Pages once the smoke test passes.
 
 ## Orchestration pattern
