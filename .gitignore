@@ -1,0 +1,13 @@
+/target
+**/target
+cpp-reference/
+oracle/.venv/
+__pycache__/
+web/node_modules/
+web/dist/
+web/pkg/
+web/test-results/
+web/playwright-report/
+.DS_Store
+.claude/worktrees/
+.claude/settings.local.json
