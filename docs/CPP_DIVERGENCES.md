@@ -133,6 +133,110 @@ there is no fixture to pin them; `tests/linalg/rust_only_matrix.rs` checks them 
 values and algebraic identities. Where a binding does reach Eigen's order (quaternion norm,
 product, matrix conversions), `tests/linalg/rust_only_rotation_oracle.rs` pins it bit for bit.
 
+## 20. Dynamic-size products and norms are left-to-right sums, not Eigen's blocked kernels
+
+**What differs.** Eigen evaluates `MatrixXd` / `VectorXd` products, dot products and norms with
+blocked, vectorized kernels (packet lanes reduced horizontally, cache-blocked GEMM). The
+dynamic-size types in `colmap-rust/src/linalg/` (`matrix_x.rs`, `matrix_x_ops.rs`,
+`vector_x.rs`) compute every product coefficient, dot product and squared norm as a plain
+left-to-right sum seeded with the first term, no FMA (`linalg::dot`, `linalg::product`). The
+transposed products `transpose_times`, `transpose_times_vector` and `transpose_times_self`
+use the same order as the explicit `transpose() * b`, so they are bit-identical to it. Results
+can differ from COLMAP in the last bits wherever a dynamic product is formed. Tier B.
+
+**Why.** Eigen is MPL-2.0 and not ported (contract rule 2), and its blocking and packet order
+depend on the matrix size, the target's SIMD width and the compiler, so there is no single
+order to match. A sequential order gives the same bits on every target, native and wasm.
+Same as colmap-sharp entry 115 (its dynamic-size part).
+
+**Evidence.** No pycolmap 4.2.0 binding exposes a dynamic product directly.
+`tests/linalg/rust_only_dynamic_matrix.rs` checks products against hand-computed values and
+the transposed products bit for bit against the explicit transpose; the decomposition oracle
+tests (`rust_only_decomposition_oracle.rs`, `rust_only_spectral_oracle.rs`) compare the
+decompositions built on these products against numpy within their stated tolerances.
+
+## 30. SVDs are two-sided Jacobi; singular-vector signs are ours, not Eigen's
+
+**What differs.** COLMAP decomposes with `Eigen::JacobiSVD` (dynamic and fixed 3x3/4x4).
+`colmap-rust/src/linalg/jacobi_svd.rs`, `svd_fixed.rs` and `jacobi_svd_kernel.rs` run a
+two-sided (Kogbetliantz) cyclic Jacobi SVD written from Golub & Van Loan §8.6.3 and
+Brent-Luk-Van Loan (1985), with Demmel-Veselić's relative stopping test plus an absolute floor
+eps*||A||_F, preceded for rows > cols by a column-pivoted Householder QR (Eigen's documented
+default preconditioner). Eigen's documented contract is kept: singular values non-negative and
+decreasing, thin/full U and V on request, `rank()`/`solve()` with the threshold
+max(1, min(rows, cols)) * eps * s_max. What can differ: the sign of each singular vector pair
+(arbitrary in both), the basis chosen inside a repeated singular value's subspace or a null
+space, and the last bits of every value. Ties keep their diagonal order (stable insertion
+sort); a negative diagonal entry flips its U column. A 2x2 block with an exactly zero column or
+row is rotated from one side only, so an exact null vector (a zero column of A) comes out
+exact, which COLMAP's `TriangulatePoint` parallel-ray test (`V(3,3) == 0`) relies on.
+`Svd3d`/`Svd4d` are bit-identical to `JacobiSvd` on the same matrix. Tier B.
+
+**Why.** Eigen is MPL-2.0 and not ported (contract rule 2); its JacobiSVD's 2x2 step and sweep
+order are implementation details with no published convention precise enough to reproduce its
+signs or bits. COLMAP uses singular vectors only up to sign and null spaces only as spaces.
+Port of colmap-sharp's `LinearAlgebra/JacobiSVD.cs`, `JacobiSvdKernel.cs` and `SvdFixed.cs`;
+colmap-sharp documents this in those file headers and has no separate entry.
+
+**Evidence.** `tests/linalg/rust_only_spectral_oracle.rs` checks 18 numpy (LAPACK dgesdd) cases
+in COLMAP's shapes (3x3 to 20x9, 4x30, rank-deficient, repeated values, zero): singular values
+within 1e-12 * s_max, rank exact, U/V orthogonal and U S V^T == A within 1e-12, simple singular
+vectors within 1e-9 up to sign, null columns ||A v|| <= 1e-12, minimum-norm solve within 1e-10
+of numpy's pinv, and Svd3d/Svd4d bit-identical to JacobiSvd. `rust_only_spectral_svd.rs` pins
+sorting and signs on a diagonal, shapes, non-finite input, underflow at 1e-170, convergence in
+<= 8 sweeps on exactly rank-deficient inputs, and the exact zero-column null vector.
+
+## 31. SelfAdjointEigenSolver is cyclic Jacobi; eigenvector signs are ours
+
+**What differs.** COLMAP's `Eigen::SelfAdjointEigenSolver` (the 4x4 normal matrix in
+`geometry/triangulation.cc`) uses tridiagonalization + QL.
+`colmap-rust/src/linalg/self_adjoint_eigen_solver.rs` runs cyclic Jacobi (Golub & Van Loan
+Algorithms 8.5.1/8.5.3) on the input divided by its largest |entry|. Eigen's documented
+contract is kept: only the lower triangle is read, eigenvalues increase (ties keep diagonal
+order), eigenvectors are normalized columns. Eigenvector signs, the basis inside a repeated
+eigenvalue's eigenspace and the last bits can differ. Tier B.
+
+**Why.** Eigen is MPL-2.0 and not ported; Jacobi is simple, accurate to high relative precision
+on the small matrices COLMAP decomposes, and has no Eigen-specific convention to match. COLMAP
+reads the smallest eigenvalue's eigenvector up to scale. Port of colmap-sharp's
+`LinearAlgebra/SelfAdjointEigenSolver.cs` (documented in its header; no separate colmap-sharp
+entry).
+
+**Evidence.** `rust_only_spectral_oracle.rs`: 4 numpy (dsyevd) cases including repeated and
+zero eigenvalues: eigenvalues within 4e-12, simple eigenvectors within 1e-9 up to sign, V
+orthonormal and V D V^T == A within 1e-12. `rust_only_spectral_eigen.rs` pins the lower-triangle
+read, ascending order and scales 1e-170 / 1e160.
+
+## 32. EigenSolver: eigenvalues in our Schur-block order, complex eigenvectors in our phase
+
+**What differs.** COLMAP's `Eigen::EigenSolver` (polynomial roots via the companion matrix; the
+4x4 in generalized_relative_pose.cc) is replaced by `colmap-rust/src/linalg/eigen_solver.rs` +
+`eigen_solver_vectors.rs`: Householder Hessenberg reduction and Francis double-shift QR (Golub &
+Van Loan 7.4.2 / 7.5.1, Wilkinson's exceptional shift at 10 and 20 iterations), real 2x2 blocks
+split by a rotation, eigenvectors by quasi-triangular back-substitution with EISPACK hqr2's
+eps*||T|| zero-pivot perturbation. Eigen's documented contract is kept: eigenvalues in the
+order of T's diagonal blocks (not sorted), a complex pair as (re + i im, re - i im) with im > 0
+first, eigenvectors unit-norm columns, real for a real eigenvalue. What can differ: the order of
+the eigenvalues (our deflation order vs Eigen's), each eigenvector's sign and, for complex
+vectors, its phase (the block eigenvector starts as (b, lambda - a) and is scaled to unit norm
+without rotation), and last bits. The eigenvalues-only solve is bit-identical to the full
+solve. Complex arithmetic (`linalg::Complex`) follows .NET's `System.Numerics.Complex`
+operators (Smith division), so results match colmap-sharp. Tier B.
+
+**Why.** Eigen is MPL-2.0 and not ported; its Schur deflation order and eigenvector
+normalization are not a documented convention. No COLMAP caller depends on them: the
+polynomial-root callers treat the roots as a set, GR8P's G is symmetric (real eigenvectors,
+`hnormalized()` removes scale and sign), GR6P uses eigenvalues only. Port of colmap-sharp's
+`LinearAlgebra/EigenSolver.cs` / `EigenSolver.Vectors.cs` (documented in their headers;
+colmap-sharp entry 30 notes the Schur order only as it affects the six-point solvers).
+
+**Evidence.** `rust_only_spectral_oracle.rs`: 10 numpy (dgeev) cases (random 3x3..8x8, four
+companion matrices, a defective Jordan-block matrix): eigenvalues matched as a multiset within
+1e-9 (1e-7 defective), ||A v - lambda v|| within the same, unit norm within 1e-12, real vectors
+exactly real. `rust_only_spectral_eigen.rs` pins pair order, eigenvalues-only == full solve
+bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion matrix, and
+1e200-scaled input.
+
 ## 40. Real-valued random draws are not fused (no FMA), unlike the macOS pycolmap wheel
 
 **What differs.** `math::random::random_uniform_real` (for `min != 0`), `random_gaussian` and
