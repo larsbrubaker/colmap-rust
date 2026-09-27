@@ -356,8 +356,8 @@ impl CameraModelWithJac for EquirectangularCameraModel {
         let theta = fns::atan2(u, w);
         let phi = fns::atan2(-v, horizontal);
 
-        // COLMAP divides by `EIGEN_PI`, a `long double` literal; `f64` pi is the same value
-        // where long double is double (docs/CPP_DIVERGENCES.md, entry 100).
+        // COLMAP's `1.0 / (2.0 * EIGEN_PI)` and `1.0 / EIGEN_PI` round to these same doubles
+        // (docs/CPP_DIVERGENCES.md, entry 102).
         const INV_2_PI: f64 = 1.0 / (2.0 * PI);
         const INV_PI: f64 = 1.0 / PI;
 
@@ -367,9 +367,10 @@ impl CameraModelWithJac for EquirectangularCameraModel {
         if let Some(j_uvw) = j_uvw {
             let r2 = horizontal * horizontal; // horizontal^2
             let n2 = r2 + v * v; // full squared norm
-                                 // Hoist the shared reciprocals: R2 and N2*horizontal each divide more than
-                                 // one derivative, and without -ffast-math the compiler cannot factor the
-                                 // repeated runtime division out on its own.
+
+            // Hoist the shared reciprocals: R2 and N2*horizontal each divide more than
+            // one derivative, and without -ffast-math the compiler cannot factor the
+            // repeated runtime division out on its own.
             let inv_r2 = 1.0 / r2;
             let inv_n2 = 1.0 / n2;
             let inv_n2_horizontal = inv_n2 / horizontal;

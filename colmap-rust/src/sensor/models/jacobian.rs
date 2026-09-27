@@ -8,7 +8,7 @@
 //! Jacobians are row-major 2xN arrays, as COLMAP's `double*` outputs are; C++'s `nullptr`
 //! ("skip this Jacobian") is `None`. Every expression keeps COLMAP's operation order, so a
 //! kernel rounds like the C++ up to libm and FMA contraction (docs/CPP_DIVERGENCES.md, entry
-//! 100). Against `ImgFromCam` on a Jet (automatic differentiation) the analytic Jacobians
+//! 102). Against `ImgFromCam` on a Jet (automatic differentiation) the analytic Jacobians
 //! agree to COLMAP's 1e-10 (Tier B): they are different formulas for the same derivative.
 //! Tests: `src/sensor/models/jacobian_tests.rs` (`models_jacobian_test.cc` 1:1).
 

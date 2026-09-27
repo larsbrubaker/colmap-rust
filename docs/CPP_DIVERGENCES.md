@@ -593,8 +593,9 @@ but evaluate every multiply-add unfused, and the fisheye, FOV and EQUIRECTANGULA
 `atan`/`tan`/`atan2` through the `libm` crate. A clang build with contraction on (the pycolmap
 macOS wheel) can therefore differ in the last bits of the pixel and of the Jacobian entries.
 EQUIRECTANGULAR's `kInv2Pi = 1.0 / (2.0 * EIGEN_PI)` and `kInvPi` are `long double`
-expressions in C++; here they are computed from `f64` pi, which is the same value wherever
-long double is double (macOS arm64), not on x86-64 Linux.
+expressions in C++; computed from `f64` pi here, they round to the same doubles on every
+platform (checked at 64-bit and 113-bit long double mantissas), so they are not a source of
+difference.
 
 **Why.** Same causes as entries 1 and 100: colmap-rust never uses FMA in math paths and routes
 transcendentals through `math::fns` so native and wasm agree bit for bit.
