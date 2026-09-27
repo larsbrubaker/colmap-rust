@@ -125,7 +125,7 @@ Found while building colmap-app (Phase 0b). Fix in agg-gui, then remove the work
   custom renderer can't reliably tell that the device was replaced (device loss / backend switch)
   and would reuse old pipelines. Expose a device generation/identity on `WgpuCustomRenderCtx`.
   Caveat noted on `colmap-app/src/viewport_render.rs::ensure_gpu`.
-- agg-gui isn't `cargo fmt` clean on `main` (e.g. `agg-gui/src/text.rs`, `agg-gui-shell/src/shell_loop.rs`); run fmt there and add a fmt check to its CI.
+- agg-gui is `cargo fmt` clean as of `d99318e`, but its CI has no fmt check; add one.
 - `agg-gui-web-shell` 0.5.0 is done (agg-gui `ba08a72`, `ee8f813`, reviewed; colmap-web uses it; not
   yet published). Follow-ups: move agg-gui's own `demo-wasm` (JS-driven loop in `demo/src/app.ts`)
   onto it; migrate AtomArtist, AstroRock, KeyInSight, instant-astronomer (deprecation warnings from
