@@ -814,6 +814,109 @@ matches the typed kernel. pycolmap exposes these kernels only inside its essenti
 estimators (through `Camera::CamRayFromImgWithJac`), so there is no
 oracle fixture for these kernels.
 
+## 120. CameraDatabase iterates the sensor-width table in specs.cc order, not hash order
+
+Same as colmap-sharp entry 8.
+
+**What differs.** COLMAP's `camera_specs_t` is a `NodeHashMap`, and
+`CameraDatabase::QuerySensorWidth` iterates it, writing the output width on every match and
+stopping after the second non-exact match per make. `sensor::specs::initialize_camera_specs`
+returns the makes in `specs.cc` source order, so when a cleaned EXIF make matches more than one
+table make (a substring match either way round; an empty make matches all of them), which
+widths are seen, and so the width left behind and whether a unique match is found, can differ
+from a given COLMAP build.
+
+**Why.** Hash iteration order is unspecified and differs between standard libraries and Boost,
+so there is no single COLMAP behavior to match; CLAUDE.md asks for deterministic order.
+
+**Evidence.** `tests/sensor/database.rs` ports `database_test.cc` 1:1; its cases match a
+single make and pass. Queries whose make matches one table make are unaffected.
+
+## 121. Bitmap::rescale is a resampler written here, not OpenImageIO's resize
+
+Same as colmap-sharp entry 9.
+
+**What differs.** COLMAP's `Bitmap::Rescale` calls `OIIO::ImageBufAlgo::resize` with a
+"triangle" (kBilinear) or "box" (kBox) filter. `src/sensor/bitmap/resize.rs` (a port of
+colmap-sharp's `BitmapResize.cs`) reimplements the model OIIO's output follows (filter widened
+by the downsampling ratio, clamp-to-edge samples, separable, round half away from zero,
+accumulation in double). Bilinear results are within one gray level of pycolmap's; box results
+agree except where a source pixel center lies exactly on the box edge at a non-integer ratio,
+where OIIO's inclusion rule is not reproduced and a destination pixel can average one source
+pixel more or fewer.
+
+**Why.** OpenImageIO is native (`docs/LICENSE_AUDIT.md`). Its resize accumulates in float with
+its own filter evaluation, so bit-exact output would need a port of OIIO's resampling code
+(Apache-2.0, allowed but not done).
+
+**Evidence.** `oracle/fixture_bitmap_rescale.py` (copied from colmap-sharp) records pycolmap
+4.2.0's bilinear output on seeded grey and RGB images, up and down;
+`tests/sensor/rust_only_bitmap_rescale_oracle.rs` checks every pixel within one gray level.
+colmap-sharp's impulse probes matched pycolmap exactly for both filters at ratios 4, 8, 3, 1.5,
+5/3, 2/3 and 3/5; the box tie case is 23 -> 10 pixels, destination pixel 5.
+
+## 122. The EXIF reader leaves rationals with a zero denominator unset
+
+Same as colmap-sharp entry 10.
+
+**What differs.** An EXIF RATIONAL with denominator 0 (FocalLength, FocalPlaneXResolution,
+GPSLatitude/Longitude, GPSAltitude) is not stored in the Bitmap's metadata by
+`src/sensor/exif_reader.rs`. OpenImageIO, through which COLMAP reads EXIF, most likely stores
+the float quotient (inf, or NaN for 0/0), which COLMAP's getters would see.
+
+**Why.** An inf/NaN focal length or GPS coordinate carries no information, and cameras write
+0/0 to mean "unknown", so "absent" is the faithful reading. It is visible only through the
+getters: `exif_latitude` / `exif_longitude` / `exif_altitude` return `None` where COLMAP could
+return NaN or inf, and `exif_focal_length` returns `None` (or a later fallback's value) where
+COLMAP could return inf or NaN from a zero-denominator FocalLength.
+
+**Evidence.** Not verified against OIIO: no oracle fixture carries a zero-denominator tag. The
+reader's behavior is stated in its file header.
+
+## 123. Bitmap interpolation treats points beyond int range and NaN as outside the image
+
+Same as colmap-sharp entry 117.
+
+**What differs.** `Bitmap::InterpolateBilinear` computes `x0 = static_cast<int>(std::floor(x))`,
+`x1 = x0 + 1` and rejects the point when `x0 < 0 || x1 >= width_` (likewise for y);
+`InterpolateNearestNeighbor` casts `std::round(x)`. For a point beyond int range or NaN the
+cast is undefined behavior in C++. The port tests the doubles first (`x >= 0 && x < width - 1`,
+the same check for every finite x) and returns `None` for NaN in both methods, so such points
+are outside the image.
+
+**Why.** Rust's `as i32` saturates and maps NaN to 0, so the literal translation would sample
+pixel (0, 0) for NaN, and `floor(x) = i32::MAX` would make `x1` overflow. On x86 COLMAP's cast
+yields `INT_MIN`, which its check rejects, so `None` is what COLMAP does there; on arm64 COLMAP
+reads out of bounds. colmap-sharp found this through intermittent stereo-rectification failures
+(source points beyond int range for about 2.5% of PRNG seeds).
+
+**Evidence.** `tests/sensor/rust_only_bitmap.rs`,
+`rust_only_interpolate_far_outside_or_nan_returns_none`.
+
+## 124. Bitmap has no file I/O, and its metadata is a typed store that always exists
+
+**What differs.** COLMAP's `Bitmap::Read` / `Write` decode and encode image files through
+OpenImageIO; the port has neither: the host decodes pixels into `row_major_data_mut()` and passes
+the file's bytes to `sensor::exif_reader` for the EXIF metadata. COLMAP's metadata is an OIIO
+`ImageSpec` behind a pointer that is null for a default-constructed bitmap or a copy of an
+empty one, and is addressed by OIIO type strings (`SetMetaData(name, "float", &value)`). Here it
+is a `MetaDataValue` enum with typed getters (int, float, point, string). Only the conversions
+the EXIF getters use are implemented (an int reads as float and as its decimal string); other
+conversions read as absent, where OIIO may convert more. Names are compared
+ASCII case-insensitively like OIIO's default `getattribute`, and the store always exists: where
+COLMAP dereferences the null pointer (metadata access, `Rescale`, `Rot90` or `CloneMetadata` on
+a bitmap without metadata), the port reads absent values and writes create entries. A copy of an
+empty bitmap still drops the metadata, as in COLMAP.
+
+**Why.** OpenImageIO is native and not ported (`docs/LICENSE_AUDIT.md`); the app hosts decode
+images (the browser through its own decoders), so the core takes pixel buffers. The null
+dereference is a crash in COLMAP, not a contract, and a defined result is the safe reading.
+
+**Evidence.** The file I/O cases of `bitmap_test.cc` are listed as skipped in
+`PORTING_PLAN.md`; the metadata cases (`SetGetMetaData`, `CloneMetaData`, the EXIF getters) are
+ported in `tests/sensor/bitmap_exif.rs`, and `tests/sensor/rust_only_bitmap.rs` pins the type
+conversions, case-insensitivity and the copy-of-empty behavior.
+
 ## 140. PROSAC's out-of-range sample index fails a check instead of reading past the data
 
 **What differs.** COLMAP's `ProgressiveSampler` (ported faithfully in

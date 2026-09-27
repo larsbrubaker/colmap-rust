@@ -19,7 +19,8 @@
 //! - [`geometry`]: COLMAP's `geometry/` — [`geometry::Rigid3d`], [`geometry::Sim3d`], pose
 //!   helpers, pose priors, GPS conversions, normalization, boxes, essential and homography
 //!   matrices, and triangulation.
-//! - [`sensor`]: COLMAP's `sensor/` — so far the camera models ([`sensor::models`]).
+//! - [`sensor`]: COLMAP's `sensor/` — camera models and their Jacobians, rigs, the bitmap pixel
+//!   buffer with EXIF, and the camera sensor-width database.
 //! - [`optim`]: COLMAP's `optim/` robust-estimation framework — the [`optim::Estimator`] and
 //!   [`optim::Sampler`] traits, the random, PROSAC and combination samplers, support
 //!   measurement, [`optim::Ransac`], [`optim::LoRansac`] and SPRT.
