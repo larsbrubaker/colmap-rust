@@ -43,6 +43,9 @@ pub enum ErrorKind {
     RuntimeError,
     /// `std::out_of_range`, e.g. from `std::stoi` in `CSVToVector<int>` (`util/misc.h`).
     OutOfRange,
+    /// `std::domain_error`, e.g. `CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION`
+    /// (`sensor/models.h`).
+    DomainError,
     /// The operation stopped because its [`crate::util::cancellation::CancelToken`] was
     /// cancelled. COLMAP has no exception for this (its controllers poll and return); the
     /// Rust port surfaces it as an error so a cancelled pipeline unwinds with `?`.

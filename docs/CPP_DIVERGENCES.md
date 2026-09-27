@@ -705,25 +705,47 @@ and pins everything else at 2e-14 relative to max(1, |value|).
 long double) its results may differ from both the macOS wheel (where long double is double)
 and colmap-rust, which uses `std::f64::consts::PI`.
 
-## 101. An unknown camera model id panics instead of throwing std::domain_error
+## 101. An unknown camera model id: an error at the boundary functions, a panic on the per-point path
 
-**What differs.** COLMAP's dispatch functions (`CameraModelInitializeParams`,
-`CameraModelImgFromCam`, `CameraModelNumParams`, ...) throw
+**What differs.** COLMAP's camera model dispatch functions all throw
 `std::domain_error("Camera model does not exist")` for an id outside `CAMERA_MODEL_CASES`.
-colmap-rust's `sensor::models` dispatch functions panic with the same message. The functions
-COLMAP answers without throwing (`ExistsCameraModelWithId`, `CameraModelIdToName`,
-`CameraModelIsPerspectiveFisheye`) answer the same way here. Separately, a C++ enum class can
-hold any integer (`static_cast<CameraModelId>(123456789)`); a Rust `CameraModelId` can only
-hold a named enumerator, so a raw value is checked once, at `CameraModelId::from_i32`, which
-returns `None` for an unnamed value.
+colmap-rust splits them:
+- The metadata and validation functions that COLMAP calls at input boundaries
+  (`camera_model_initialize_params`, `camera_model_params_info`, the four index-group getters,
+  `camera_model_num_params`, `camera_model_verify_params`, `camera_model_has_bogus_params`)
+  return `Err` with `ErrorKind::DomainError` and COLMAP's message, the Rust form of the throw.
+- The per-point functions (`camera_model_img_from_cam`, `camera_model_cam_from_img`,
+  `camera_model_cam_ray_from_img`, `camera_model_cam_from_img_threshold`,
+  `camera_model_rescale`, `camera_model_is_perspective`, `..._is_perspective_pinhole`,
+  `..._is_spherical`) stay infallible and panic with the same message.
+- The functions COLMAP answers without throwing (`CameraModelNameToId` returns `kInvalid`,
+  `CameraModelIdToName` returns "", `ExistsCameraModelWithId`,
+  `CameraModelIsPerspectiveFisheye`) answer the same way here.
+Separately, a C++ enum class can hold any integer (`static_cast<CameraModelId>(123456789)`); a
+Rust `CameraModelId` holds only named enumerators, so a raw value is checked once, at
+`CameraModelId::from_i32`, which returns `None` for an unnamed value. The only unknown id that
+reaches a dispatch function is therefore `CameraModelId::Invalid`.
 
-**Why.** With a closed Rust enum the only unknown id that can reach a dispatch function is
-`CameraModelId::Invalid`, which callers must never pass (COLMAP's `Camera` checks
-`ExistsCameraModelWithId` / `VerifyParams` at its boundaries). That makes it an internal
-invariant, where CLAUDE.md's error rule allows a panic, and it keeps every camera call on the
-hot projection path free of a `Result`. Same design choice as colmap-sharp's
-`CameraModels.Get`, which throws an exception.
+**Why.** COLMAP does pass `kInvalid` into dispatch at its input boundaries: the text reader
+(`scene/reconstruction_io_text.cc`, around line 140) looks a model name up with
+`CameraModelNameToId` and calls `CameraModelNumParams` / `CameraModelVerifyParams` on the
+result without an existence check, and `camera_test.cc` expects `VerifyParams` on a default
+(`kInvalid`) `Camera` to throw `domain_error`. A misspelled model in a user's `cameras.txt`
+must be a recoverable error (in the web app a panic would abort the app), so those functions
+return `Result`. The per-point functions run once per point in every projection, residual and
+undistortion loop, where a `Result` would cost every caller for a condition that cannot occur
+once the camera is validated, so they keep a panic: an internal invariant, where CLAUDE.md's
+error rule allows one.
+
+**Obligation on later phases.** Every path that creates a camera from outside data must
+validate the id through the fallible functions before any per-point call: Phase 4's
+`Camera::verify_params` (returning the error, as `camera_test.cc` expects), the camera
+readers (text, binary, database) and `Camera::create_from_model_name` /
+`create_from_model_id` propagate the `DomainError`; nothing may call a per-point function on
+an unverified `Camera`.
 
 **Evidence.** `tests/sensor/models.rs` ports `models_test.cc` 1:1, including the
-`ExistsCameraModelWithId(static_cast<CameraModelId>(123456789))` check through
-`from_i32`.
+`ExistsCameraModelWithId(static_cast<CameraModelId>(123456789))` check through `from_i32`.
+`tests/sensor/rust_only_models.rs` checks that every boundary function returns
+`Err(DomainError, "Camera model does not exist")` for `Invalid` and that projection and
+unprojection panic with that message.
