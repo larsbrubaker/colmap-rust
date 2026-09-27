@@ -1,0 +1,119 @@
+# Deploy the web app to GitHub Pages: build the wasm site (web/build.sh), gate it on the
+# Playwright browser smoke test (web/tests/smoke.spec.ts, testing net 4), then publish. A broken
+# web build (panic on start-up, no first frame, blank canvas, console errors) never ships.
+#
+# Like ci.yml, colmap-rust is checked out into `colmap-rust/` and larsbrubaker/agg-gui into
+# `agg-gui/` side by side, because the app crates depend on agg-gui by path (CLAUDE.md
+# "agg-gui is ours"). Modeled on agg-gui's deploy-demo.yml.
+name: Deploy web app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      agg_gui_ref:
+        description: "agg-gui ref (branch, tag or SHA) to build against"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # agg-gui ref to build against; a workflow_dispatch run may override it.
+  AGG_GUI_REF: main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: colmap-rust
+    steps:
+      - name: Checkout colmap-rust
+        uses: actions/checkout@v4
+        with:
+          path: colmap-rust
+      - name: Checkout agg-gui
+        uses: actions/checkout@v4
+        with:
+          repository: larsbrubaker/agg-gui
+          ref: ${{ inputs.agg_gui_ref || env.AGG_GUI_REF }}
+          path: agg-gui
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: colmap-rust
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build web app
+        run: web/build.sh
+      - name: Upload built site
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: colmap-rust/web/dist
+          include-hidden-files: true
+          retention-days: 1
+
+  # Browser smoke test in real Google Chrome (preinstalled on ubuntu-latest), with WebGPU on
+  # SwiftShader (flags in web/playwright.config.ts). Deploy is gated on it.
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install test dependencies
+        run: bun install --frozen-lockfile
+      # `channel: "chrome"` uses the runner's Google Chrome; only Playwright's OS deps are needed.
+      - name: Install Playwright dependencies
+        run: bunx playwright install-deps chrome
+      - name: Download built site
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+      - name: Run browser smoke test
+        run: bunx playwright test
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            web/test-results/
+            web/playwright-report/
+
+  deploy:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download built site
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

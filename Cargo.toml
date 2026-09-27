@@ -1,8 +1,8 @@
 # colmap-rust workspace: a pure-Rust port of COLMAP 4.2.0 (see CLAUDE.md, PORTING_PLAN.md).
 #
 # Members: the core library, the agg-gui app (colmap-app), its headless UI tests
-# (colmap-app-test) and the desktop shell (colmap-native). Still to come in Phase 0: colmap-web
-# (wasm shell); colmap-gpu (wgpu compute) arrives with Phase 13.
+# (colmap-app-test), the desktop shell (colmap-native) and the browser shell (colmap-web, a wasm
+# cdylib that compiles to an empty rlib natively). colmap-gpu (wgpu compute) arrives with Phase 13.
 [workspace]
 resolver = "2"
 members = [
@@ -11,7 +11,7 @@ members = [
     "colmap-app",
     "colmap-app-test",
     "colmap-native",
-    # "colmap-web",
+    "colmap-web",
 ]
 
 [workspace.package]
@@ -54,6 +54,6 @@ opt-level = 2
 # ---------------------------------------------------------------------------
 # agg-gui
 # ---------------------------------------------------------------------------
-# agg-gui, agg-gui-wgpu and agg-gui-shell are path dependencies on the sibling
+# agg-gui, agg-gui-wgpu, agg-gui-shell and agg-gui-web-shell are path dependencies on the sibling
 # checkout (../agg-gui, github.com/larsbrubaker/agg-gui), not crates.io, so an
 # upstream fix is usable as soon as it lands there. See CLAUDE.md "agg-gui is ours".

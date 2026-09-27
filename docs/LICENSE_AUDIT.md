@@ -72,13 +72,24 @@ determinism-preserving parallel loops.
 its stack (MIT), `wasm-bindgen`/`web-sys`/`js-sys` (MIT/Apache-2.0), and permissive image
 decoders (`image`, `png`, `jpeg-decoder`/`zune-jpeg`; MIT/Apache-2.0/zlib).
 
-App crates in use today (`colmap-app`, `colmap-app-test`, `colmap-native`):
+App crates in use today (`colmap-app`, `colmap-app-test`, `colmap-native`, `colmap-web`):
 
 | Crate / asset | License | Why |
 |---|---|---|
 | `agg-gui` 0.5, `agg-gui-wgpu` 0.5.2, `agg-gui-shell` 0.5.1 | MIT | The GUI, its wgpu renderer (custom-render hook for the 3D viewport) and the native winit shell. |
+| `agg-gui-web-shell` 0.5 | MIT | The browser shell under `colmap-web`: canvas, WebGPU surface, requestAnimationFrame loop, DOM input, fatal panel. |
+| `wasm-bindgen` 0.2, `js-sys` 0.3, `web-sys` 0.3 | MIT/Apache-2.0 | `colmap-web`'s wasm entry point and the page ready flag (wasm32 only). |
+| `console_error_panic_hook` 0.1 | MIT/Apache-2.0 | Via agg-gui-web-shell: Rust panics reach the browser console (wasm32 only). |
 | `wgpu` 29 | MIT/Apache-2.0 | Viewport line pipeline; native backends (Metal/Vulkan/DX12) enabled in `colmap-native` only. |
 | `glam` 0.30 | MIT/Apache-2.0 | Orbit-camera math in `colmap-app` only. The core library never uses it; it gets its own `linalg`. |
 | `bytemuck` 1 | MIT/Apache-2.0/Zlib | Casting viewport vertex / uniform data to bytes for wgpu. |
 | Noto Sans Regular (font, `colmap-app/assets/fonts/`) | SIL OFL 1.1 | UI text. Bundled font file, not code; OFL allows embedding in commercial software. |
 | Font Awesome 4.7 (font, `colmap-app/assets/fonts/`) | SIL OFL 1.1 (font) | Icons, drawn as code points through the UI font's fallback chain. |
+
+Web tooling (`web/`, build and test time only; nothing here ships in the site):
+
+| Tool | License | Why |
+|---|---|---|
+| `wasm-pack` (and the `wasm-bindgen` CLI and `wasm-opt`/binaryen it runs) | MIT/Apache-2.0 (binaryen: Apache-2.0) | Builds `colmap-web` into `web/pkg`. |
+| Bun + `@types/bun` | MIT | Static server (`web/serve.ts`) and package runner. |
+| `@playwright/test` 1.59 | Apache-2.0 | Browser smoke test (`web/tests/`); drives the runner's Google Chrome. |

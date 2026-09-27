@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  COLMAP Rust web page: a full-window canvas for the colmap-web wasm module (agg-gui-web-shell,
+  WebGPU). No JS UI: this only loads the module and shows a loading line until the first frame
+  is presented (window.__colmapReady, set by colmap-web). Assembled into web/dist by build.sh.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>COLMAP Rust</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1b1d; color: #d8d8dc;
+        font: 15px/1.5 system-ui, sans-serif; }
+      #canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+      #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        pointer-events: none; }
+      #loading.hidden { display: none; }
+      #nogpu { max-width: 36em; margin: 4em auto; padding: 1.5em 2em; background: #2a2226;
+        border: 1px solid #6b4a50; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas" tabindex="0"></canvas>
+    <div id="loading">Loading COLMAP Rust…</div>
+    <script type="module">
+      // Load the wasm module; hide the loading line once the first frame is on screen.
+      const loading = document.getElementById("loading");
+      if (!navigator.gpu) {
+        // Most browsers without WebGPU land here; the shell's own panel covers the rest
+        // (navigator.gpu present but no adapter).
+        loading.remove();
+        const panel = document.createElement("div");
+        panel.id = "nogpu";
+        panel.setAttribute("role", "alert");
+        panel.textContent =
+          "COLMAP Rust needs a WebGPU browser: a recent Chrome or Edge, Firefox 141+, or Safari 26+.";
+        document.getElementById("canvas").replaceWith(panel);
+      } else {
+        const { default: init } = await import("./pkg/colmap_web.js");
+        await init();
+        const poll = () => {
+          if (window.__colmapReady || !document.getElementById("canvas")) {
+            loading.classList.add("hidden");
+          } else {
+            requestAnimationFrame(poll);
+          }
+        };
+        poll();
+      }
+    </script>
+  </body>
+</html>
