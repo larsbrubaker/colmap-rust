@@ -24,19 +24,9 @@ support, `retrieval/` vocabulary-tree matching.
 Each phase ends with its ported tests green, `file_compliance` green, the core building for
 wasm32, and its app view covered by a headless UI test.
 
-### Phase 0 — Scaffold, testing framework, app shell, deploy
-- Cargo workspace (`colmap-rust`, `colmap-gpu`, `colmap-app`, `colmap-app-test`,
-  `colmap-native`, `colmap-web`), dev-profile opt-levels as in agg-gui/AtomArtist, agg-gui
-  by path (`../agg-gui`).
-- `file_compliance` test (800 non-empty lines, header comment, no conflict markers).
-- `colmap-app-test` headless harness with a first test.
-- An app that opens natively and in the browser: title bar, a placeholder-free "About /
-  pipeline stages" panel listing the phases and their status, and a 3D viewport widget
-  (agg-gui-wgpu custom render) drawing an axis gizmo — the canvas later phases fill.
-- `web/`: index.html, build script (wasm-pack, WebGPU backend, release), bun + Playwright
-  smoke test (non-blank canvas, ready flag).
-- GitHub Actions: `ci.yml` (fmt check, clippy, test, wasm32 core build on Linux/macOS/Windows)
-  and `deploy.yml` (build → Playwright → Pages).
+### Phase 0 — Scaffold (done except CI confirmation)
+- First CI and Pages runs on GitHub: confirm the Linux SwiftShader WebGPU flags in
+  `web/playwright.config.ts` get an adapter, and that `colmap-native` builds on Linux and Windows.
 
 ### Phase 1 — Math and linear algebra foundation
 Port colmap-sharp's `LinearAlgebra/` (fixed-size vectors/matrices, quaternion, angle-axis,
@@ -136,10 +126,12 @@ Found while building colmap-app (Phase 0b). Fix in agg-gui, then remove the work
   and would reuse old pipelines. Expose a device generation/identity on `WgpuCustomRenderCtx`.
   Caveat noted on `colmap-app/src/viewport_render.rs::ensure_gpu`.
 - agg-gui isn't `cargo fmt` clean on `main` (e.g. `agg-gui/src/text.rs`, `agg-gui-shell/src/shell_loop.rs`); run fmt there and add a fmt check to its CI.
-- `agg-gui-web-shell` 0.5.0 exists (agg-gui `ba08a72`, under review, unpushed). Follow-ups:
-  move agg-gui's own `demo-wasm` (JS-driven loop in `demo/src/app.ts`) onto it where Playwright
-  can run; migrate AtomArtist, AstroRock, KeyInSight, instant-astronomer (deprecation warnings
-  from the old `demo_wgpu::web_shell` wrapper) and Solitaire (its own hand-rolled shell).
+- `agg-gui-web-shell` 0.5.0 is done (agg-gui `ba08a72`, `ee8f813`, reviewed; colmap-web uses it; not
+  yet published). Follow-ups: move agg-gui's own `demo-wasm` (JS-driven loop in `demo/src/app.ts`)
+  onto it; migrate AtomArtist, AstroRock, KeyInSight, instant-astronomer (deprecation warnings from
+  the old `demo_wgpu::web_shell` wrapper) and Solitaire (its own hand-rolled shell).
+- agg-gui-shell has no `after_present` hook (the web shell does); colmap-native marks readiness in
+  `after_paint`, just before present.
 - Two agg-gui tests fail on clean `main`: `widgets::menu::widget::tests_2::unconsumed_shortcut_fires_top_menu_action`
   and demo-ui `app_builder_tests::each_demo_window_quiesces_after_close`.
 
