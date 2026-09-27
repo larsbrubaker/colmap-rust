@@ -37,8 +37,6 @@ wasm32, and its app view covered by a headless UI test.
   smoke test (non-blank canvas, ready flag).
 - GitHub Actions: `ci.yml` (fmt check, clippy, test, wasm32 core build on Linux/macOS/Windows)
   and `deploy.yml` (build → Playwright → Pages).
-- Probe (Rust-only test): std vs. `libm` transcendentals native vs. wasm, and decide the
-  `math::fns` backend.
 
 ### Phase 1 — Math and linear algebra foundation
 Port colmap-sharp's `LinearAlgebra/` (fixed-size vectors/matrices, quaternion, angle-axis,
@@ -122,9 +120,13 @@ Mirror colmap-sharp's "Skipped tests" list as each module is ported (bitmap file
 SQLite files, Ceres internals not ported, CUDA/GPU, SiftGPU, ONNX, vocabulary tree), adapting
 reasons to Rust. Every skipped COLMAP test is listed here by name when its file is ported.
 
-## Open questions
-- Web threading: rayon on wasm needs SharedArrayBuffer + cross-origin isolation, which GitHub
-  Pages can't set headers for (a service-worker shim can). Decide when Phase 10 makes CPU time
-  matter in the browser; until then web runs sequential, chunked across frames.
-- agg-gui has no published web shell (AtomArtist and agg-gui's demo each carry their own).
-  If colmap-web's shell ends up as a copy, extract an `agg-gui-web-shell` crate into agg-gui.
+## Decisions
+- **Web runs single-threaded.** GitHub Pages can't send the COOP/COEP headers that
+  SharedArrayBuffer (and so wasm threads / rayon) needs, and we accept that cost: on the web,
+  long work is chunked across frames (or moved to a plain Web Worker without shared memory).
+  Native uses rayon. A `coi-serviceworker` shim could enable isolation on Pages later; not now.
+- **Web shell comes from agg-gui.** A published `agg-gui-web-shell` crate (canvas,
+  requestAnimationFrame loop, DOM input, WebGPU surface) lives in the agg-gui repo; colmap-web
+  uses it rather than carrying its own copy.
+- **colmap-rust will be published to crates.io** once the core is usable (crate `colmap-rust`,
+  lib `colmap_rust`); keep its package metadata publish-ready.
