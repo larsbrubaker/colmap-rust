@@ -42,7 +42,7 @@ tests in `rigid3_test.cc`/`pose_test.cc`. Also `rigid3_matchers`/`sim3_matchers`
 App: camera-frustum rendering in the 3D viewport.
 
 ### Phase 3 — Sensor
-Remaining (in progress): `models_jacobian.h` (analytic `ImgFromCamWithJac`); `rig`, `specs`,
+Remaining (in progress): `rig`, `specs`,
 `bitmap` (pixel buffer; the app decodes images), EXIF focal-length reader.
 App: image loading (native file dialog / browser file picker + drag-drop), an image browser,
 and a camera-model undistortion preview.
