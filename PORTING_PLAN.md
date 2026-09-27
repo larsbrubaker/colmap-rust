@@ -46,8 +46,8 @@ first):
 deferred optim tests below), Phase 6b (PoseLib minimal solvers).
 
 **Other open items:** PR larsbrubaker/colmap-rust#1 (CI smoke test via GPU readback; green) is
-waiting for Lars to merge — it turns on the Pages deploy. The rust-apps commit adding the
-colmap-rust submodule + README entry is local on the original machine only.
+waiting for Lars to merge — it turns on the Pages deploy. colmap-rust is a rust-apps submodule
+(pushed); after cloning rust-apps, `git -C colmap-rust checkout main && git -C colmap-rust pull`.
 
 ## Out of scope (do not re-litigate)
 
