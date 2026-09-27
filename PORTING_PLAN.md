@@ -136,7 +136,12 @@ Found while building colmap-app (Phase 0b). Fix in agg-gui, then remove the work
   and would reuse old pipelines. Expose a device generation/identity on `WgpuCustomRenderCtx`.
   Caveat noted on `colmap-app/src/viewport_render.rs::ensure_gpu`.
 - agg-gui isn't `cargo fmt` clean on `main` (e.g. `agg-gui/src/text.rs`, `agg-gui-shell/src/shell_loop.rs`); run fmt there and add a fmt check to its CI.
-- (In progress) `agg-gui-web-shell`: a published web shell crate.
+- `agg-gui-web-shell` 0.5.0 exists (agg-gui `ba08a72`, under review, unpushed). Follow-ups:
+  move agg-gui's own `demo-wasm` (JS-driven loop in `demo/src/app.ts`) onto it where Playwright
+  can run; migrate AtomArtist, AstroRock, KeyInSight, instant-astronomer (deprecation warnings
+  from the old `demo_wgpu::web_shell` wrapper) and Solitaire (its own hand-rolled shell).
+- Two agg-gui tests fail on clean `main`: `widgets::menu::widget::tests_2::unconsumed_shortcut_fires_top_menu_action`
+  and demo-ui `app_builder_tests::each_demo_window_quiesces_after_close`.
 
 ## Decisions
 - **Web runs single-threaded.** GitHub Pages can't send the COOP/COEP headers that
