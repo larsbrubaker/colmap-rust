@@ -17,10 +17,14 @@
 //!   colmap-sharp's `LinearAlgebra/`.
 //! - [`geometry`]: COLMAP's `geometry/` without the decomposition-based parts — [`geometry::Rigid3d`],
 //!   [`geometry::Sim3d`], pose helpers, pose priors, GPS conversions, normalization and boxes.
+//! - [`optim`]: COLMAP's `optim/` robust-estimation framework — the [`optim::Estimator`] and
+//!   [`optim::Sampler`] traits, the random, PROSAC and combination samplers, support
+//!   measurement, [`optim::Ransac`], [`optim::LoRansac`] and SPRT.
 
 pub mod geometry;
 pub mod linalg;
 pub mod math;
+pub mod optim;
 pub mod util;
 
 pub use util::check::{ColmapError, ErrorKind, Result};
