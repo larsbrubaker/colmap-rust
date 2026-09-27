@@ -9,7 +9,7 @@
 //!   [`util::check::ColmapError`]) and C++ stream formatting of doubles.
 //! - [`math`]: COLMAP's `math/` without linear algebra — [`math::fns`] (the single choke point
 //!   for transcendental functions), `math.h`'s scalar helpers, the mt19937 PRNG with libc++'s
-//!   distributions ([`math::random`]), union find, connected components and spanning trees.
+//!   distributions ([`math::random`]), union find, connected components, spanning trees and graph cuts.
 
 pub mod math;
 pub mod util;

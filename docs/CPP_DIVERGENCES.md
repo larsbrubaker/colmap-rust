@@ -135,3 +135,94 @@ exactly (`tests/math/spanning_tree.rs`, spanning_tree_test.cc 1:1).
 `rust_only_spanning_tree_rejects_out_of_range_input` pin the tie rule and the checks.
 
 Same as colmap-sharp entry 3.
+
+## 44. Stoer-Wagner: which min cut, and which side is labeled 1
+
+**What differs.** `compute_min_graph_cut_stoer_wagner` (`colmap-rust/src/math/graph_cut.rs`)
+is written from Stoer & Wagner (JACM 1997) instead of calling `boost::stoer_wagner_min_cut`.
+The cut weight is the global minimum on both sides, but when several cuts share it the one
+reported can differ, and the side labeled 1 is the set of vertices merged into the last vertex
+of the best phase (Boost's parity map labels its own choice). Each phase's queue takes the
+largest key, then the lowest vertex index. The port returns `(cut_weight, cut_labels)` instead
+of filling out-parameters, and checks for at least two vertices where Boost throws `bad_graph`.
+
+**Why.** Boost is not ported (`docs/LICENSE_AUDIT.md`). COLMAP's contract is the minimum weight
+plus a 0/1 label per vertex; `graph_cut_test.cc` checks only the weight and the label range.
+
+**Evidence.** The four ported `graph_cut_compute_min_graph_cut_stoer_wagner*` cases pass
+(`tests/math/graph_cut.rs`), and `rust_only_stoer_wagner_matches_exhaustive_min_cut`
+(`tests/math/rust_only_graph_cut.rs`) compares the weight and the labeled cut against exhaustive
+search on 200 random graphs.
+
+Same as colmap-sharp entry 4.
+
+## 45. Boykov-Kolmogorov max-flow with float capacities
+
+**What differs.** `MinSTGraphCut` (`colmap-rust/src/math/graph_cut_min_st.rs`) is a port of
+colmap-sharp's implementation, written from Boykov & Kolmogorov (PAMI 2004), instead of calling
+`boost::boykov_kolmogorov_max_flow`, and it pushes each node's direct source -> node -> sink
+flow before the search starts. Both change the order in which flow is augmented. With integer
+capacities that order cannot show in the result; with float capacities (`MinSTGraphCut<f32>`,
+as Delaunay meshing uses it) the returned flow is summed in a different order, so it can differ
+from COLMAP's by rounding, and a node whose residual path to a terminal is only a rounding
+residue can be labeled on the other side of the cut. `is_connected_to_source` /
+`is_connected_to_sink` return a `Result`, failing a check for an index out of range or before
+`compute`, where COLMAP's `colors_.at()` throws `std::out_of_range`.
+
+**Why.** Boost is not ported (`docs/LICENSE_AUDIT.md`), and Kolmogorov's own maxflow library is
+GPL/research-only, so neither is transcribed. Reproducing Boost's exact float rounding would
+mean reproducing its exact augmentation order. The terminal-capacity handling is needed for
+scale: storing terminal links as ordinary terminal out-edges made each augmentation rescan
+them, which was quadratic on Delaunay-sized graphs.
+
+**Evidence.** The three ported `graph_cut_min_st_graph_cut*` cases pass. For integer
+capacities the result is Tier A: `rust_only_min_st_graph_cut_matches_exhaustive_min_cut`
+compares the flow and the labels with exhaustive search on 300 random graphs, and the sink-side
+labels equal the unique minimal sink-side min cut, which is the same for every maximum flow and
+so for Boost too. `rust_only_min_st_graph_cut_large_grid_with_terminals_on_every_node_is_not_quadratic`
+checks, for a 200k-node float grid, that the labeled cut's capacity equals the returned flow
+within 1e-3 relative and that the solver's step count stays under 10 per node and edge.
+
+Same as colmap-sharp entry 5.
+
+## 46. ComputeNormalizedMinGraphCut partitions with our own multilevel bisection, not METIS
+
+**What differs.** COLMAP's `ComputeNormalizedMinGraphCut` (math/graph_cut.cc) calls
+`METIS_PartGraphKway` with default options. The port
+(`colmap-rust/src/math/graph_cut.rs`) builds the same CSR graph (vertex indices by first
+appearance, parallel edges kept) and hands it to `colmap-rust/src/math/graph_cut_partitioner.rs`,
+a port of colmap-sharp's `MultilevelPartitioner.cs`, which was written from the published
+multilevel scheme (Hendrickson & Leland 1995; Karypis & Kumar, SIAM J. Sci. Comput. 1998;
+Fiduccia & Mattheyses 1982): heavy-edge-matching coarsening (followed, when over 10% of the
+vertices stay unmatched, by pairing unmatched vertices that share a neighbor and unmatched
+isolated vertices, so stars, hub images and many small components still coarsen), greedy graph
+growing from eight seeds on the coarsest graph (a vertex too heavy to fit is skipped), FM
+refinement at every level, and recursive bisection for k parts (floor(k/2) parts on the first
+side). METIS's k-way path instead refines all k parts at once with its own greedy k-way
+refinement and randomizes its visit orders with GKlib's RNG. So the labels, which part gets
+which number, and the exact cut can differ from COLMAP's. Each bisection allows 3% over its
+target weight (METIS's k-way `ufactor` default of 30), rounded up to a whole vertex so that
+small graphs can always be split. Every tie is broken by vertex index, so the output is
+deterministic. Self-loops are ignored (they never cross a cut). The result is a
+`BTreeMap<i32, i32>` (vertex id -> label) instead of COLMAP's `NodeHashMap<int, int>`, so
+iterating it is deterministic.
+
+**Why.** Porting the reached METIS subset (coarsening, recursive-bisection initial
+partitioning, 2-way and k-way FM refinement, balancing, GKlib's priority queues and RNG) is
+large, and a close match would also need GKlib's random stream reproduced exactly. COLMAP's
+contract, and all its callers need (scene clustering), is a balanced partition with a small
+cut; graph_cut_test.cc checks the label range, that both parts are used, and the component
+split of a disconnected graph. No METIS code was read or transcribed, so METIS's notice is not
+needed.
+
+**Evidence.** Tier C. The four ported `graph_cut_compute_normalized_min_graph_cut*` cases pass
+(`tests/math/graph_cut.rs`). `tests/math/rust_only_graph_cut.rs` checks that planted clusters
+(2-5 dense clusters in a ring of light edges, ten random draws each) come out one part per
+cluster; that random graphs of 100-400 vertices split into 1, 2, 3, 5 and 8 parts give
+non-empty parts within 10% (plus three vertices) of n/k and identical output on a second call;
+that a 100 x 40 unit grid is bisected with 43 cut edges against an optimum of 40 — exactly
+colmap-sharp's count on the same graph; and that the partitioner's step count grows less than
+6x from n = 5k to 20k on a star, a 20-hub graph and disconnected pairs (a quadratic step would
+give 16x).
+
+Same as colmap-sharp entry 77.

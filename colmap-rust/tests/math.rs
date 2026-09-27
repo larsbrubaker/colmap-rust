@@ -17,10 +17,14 @@ mod fns_probe;
 
 #[path = "math/connected_components.rs"]
 mod connected_components;
+#[path = "math/graph_cut.rs"]
+mod graph_cut;
 #[path = "math/math.rs"]
 mod math;
 #[path = "math/random.rs"]
 mod random;
+#[path = "math/rust_only_graph_cut.rs"]
+mod rust_only_graph_cut;
 #[path = "math/rust_only_random_oracle.rs"]
 mod rust_only_random_oracle;
 #[path = "math/spanning_tree.rs"]
