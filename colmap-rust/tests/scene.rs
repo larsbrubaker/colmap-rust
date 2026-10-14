@@ -14,7 +14,11 @@ mod point3d;
 mod projection;
 #[path = "scene/rust_only_scene_types.rs"]
 mod rust_only_scene_types;
+#[path = "scene/rust_only_two_view_geometry.rs"]
+mod rust_only_two_view_geometry;
 #[path = "scene/track.rs"]
 mod track;
+#[path = "scene/two_view_geometry.rs"]
+mod two_view_geometry;
 #[path = "scene/visibility_pyramid.rs"]
 mod visibility_pyramid;

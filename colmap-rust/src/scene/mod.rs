@@ -4,11 +4,14 @@
 //! - [`track`]: `track.h` / `track.cc`, the observations of a 3D point;
 //! - [`camera`]: `camera.h` / `camera.cc`, a camera model with its parameters;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
-//! - [`visibility_pyramid`]: `visibility_pyramid.h` / `.cc`, how evenly points cover an image.
+//! - [`visibility_pyramid`]: `visibility_pyramid.h` / `.cc`, how evenly points cover an image;
+//! - [`two_view_geometry`]: `two_view_geometry.h` / `.cc`, the verified geometry of an image
+//!   pair.
 
 pub mod camera;
 pub mod point2d;
 pub mod point3d;
 pub mod projection;
 pub mod track;
+pub mod two_view_geometry;
 pub mod visibility_pyramid;

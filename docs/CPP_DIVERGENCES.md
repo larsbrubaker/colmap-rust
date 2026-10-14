@@ -1042,3 +1042,38 @@ agree.
 **Evidence.** `tests/scene/visibility_pyramid.rs` (1:1, 1 to 7 levels) passes unchanged;
 `tests/scene/rust_only_scene_types.rs`: `rust_only_visibility_pyramid_eight_levels_max_score`
 and `rust_only_visibility_pyramid_out_of_range_points_clamp`.
+
+## 180. SIFT descriptors converted from float saturate to 0..255
+
+**What differs.** `FeatureDescriptors::FromFloat` casts each SIFT value with
+`static_cast<uint8_t>`, which is undefined behavior for a value outside `[0, 256)` or NaN.
+`FeatureDescriptors::from_float` (`feature/types.rs`) uses Rust's `as u8`: it truncates toward
+zero like `static_cast` for in-range values, clamps out-of-range values to 0 or 255, and maps
+NaN to 0.
+
+**Why.** Undefined behavior has no result to match. Saturation is the value a caller would
+expect from a byte descriptor, and SIFT's own descriptors are already quantized to 0..255
+before they reach this conversion, so in-range inputs (every input COLMAP produces) give
+COLMAP's bytes.
+
+**Evidence.** `tests/feature/types.rs` `feature_descriptors_sift_conversion` (1:1) passes;
+`tests/feature/rust_only_feature_types.rs`
+`rust_only_feature_descriptors_sift_cast_saturates` pins `[12.9, 255, 300, -4, NaN, 0.5]` →
+`[12, 255, 255, 0, 0, 0]`.
+
+## 181. The keypoint and match matrix conversions check their column count at run time
+
+**What differs.** COLMAP's `KeypointsFromMatrix` and `MatchesFromMatrix` take
+`Eigen::Ref<const Matrix<.., Dynamic, 4 or 2, RowMajor>>`, so the column count is part of the
+type: a fixed-size source with the wrong count does not compile, and a dynamic one trips an
+Eigen assertion (undefined behavior in a release build). `keypoints_from_matrix` and
+`matches_from_matrix` (`feature/types.rs`) take a dynamic `RowMajorMatrix` and return the
+`THROW_CHECK_EQ`-style `Err` for any other column count. `KeypointsFromMatrix` also returns the
+keypoint constructor's `Err` for a negative scale, where COLMAP throws.
+
+**Why.** The Rust matrix type has no compile-time column count; a checked error is the closest
+equivalent and never reads past a row. Same as colmap-sharp, which checks the column count
+the same way (`FeatureKeypoints.KeypointsFromMatrix` / `MatchesFromMatrix`).
+
+**Evidence.** `tests/feature/rust_only_feature_types.rs`
+`rust_only_feature_matrix_conversions_check_columns`.
