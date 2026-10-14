@@ -116,15 +116,30 @@ Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without 
 
 ### Phase 7 — Nonlinear least squares (Ceres replacement)
 Port colmap-sharp's `Solver/` (Jets, residual blocks, manifolds, losses, LM trust region,
-Schur dense/sparse/iterative, summary). Riskiest phase; Tier C against pycolmap BA.
-It also ports what waits on the general Jet and Ceres autodiff: `tiny_solver_test.cc`
-ManifoldConvergesAndStaysOnManifold (`TinySolverAutoDiffFunction`; `TinySphereManifold` is on
-main); the Jet forms of the angle-axis wrappers and of the one-sided focal functor; and two
-`tiny_sampson_error_test.cc` tests, `TinyTangentSampsonErrorCostFunctor.MatchesAutodiffCostFunctor`
-and `TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction`.
-Also the Ceres refiners of `estimators/pose` (`RefineAbsolutePose`, `RefineRelativePose`,
-`RefineEssentialMatrix`) with `pose_test.cc`'s six refinement cases, and
-`RefineGeneralizedAbsolutePose` with `generalized_pose_test.cc`'s three refinement cases.
+Schur dense/sparse/iterative, summary) into `solver/`. Riskiest phase; Tier C against pycolmap BA.
+On main: the general `Jet<N>`, `Scalar` (f64 and Jets; the camera models use it), Ceres'
+rotation conversions, `CostFunction`, `AutoDiffCostFunction`, `TinySolverAutoDiffFunction`, the
+`sampson_error.h` functors. Slices left, in dependency order:
+1. Dense and block matrices: SmallBlas, SmallBlasFixed, SparseMatrix, BlockSparseMatrix,
+   BlockRandomAccessMatrix (tests SmallBlas, SmallBlasFixed, BlockRandomAccessMatrix).
+2. Losses and manifolds: LossFunctions, Manifolds, SphereProductManifolds, CeresPolynomial
+   (tests LossFunction, Corrector, Manifold, CeresPolynomial).
+3. The problem model: ParameterBlock, ResidualBlock, Problem, Problem.Evaluate,
+   ParameterBlockOrdering, Program (tests Problem, OrderedGroups, ParameterBlockOrdering;
+   colmap-sharp entries 36, 37, 53).
+4. Evaluator and basic linear solvers: ProgramEvaluator, SolverTypes, LinearSolvers (tests
+   ConjugateGradientsSolver, the LinearLeastSquaresProblems fixtures; colmap-sharp 18, 22).
+5. Schur: SchurOrdering, SchurEliminator (+ parallel), SchurComplementSolvers,
+   ImplicitSchurComplement, IterativeSchurSolver (tests SchurEliminator, SchurEliminatorParallel,
+   SchurComplementSolver, SchurDeterminism, ImplicitSchurComplement; colmap-sharp 35).
+6. The minimizer: trust region strategy, line search, minimizer, LeastSquaresSolver (tests
+   TrustRegionMinimizer, CeresExample, CeresProblem, BundleAdjustmentProblem).
+7. Refiners: `estimators/pose`'s `RefineAbsolutePose`, `RefineRelativePose`,
+   `RefineEssentialMatrix` (pose_test.cc's six refinement cases) and
+   `RefineGeneralizedAbsolutePose` (generalized_pose_test.cc's three), GradientChecker; and the
+   shared-focal refiner back on `TinySolverAutoDiffFunction` as COLMAP has it, retiring
+   divergence 252.
+
 And the Ceres estimators of Phase 6 (each also takes `PoseGraph`):
 - `global_positioning`: `GlobalPositioner` (Solve, SetupProblem, InitializeRandomPositions,
   AddPointToCameraConstraints, AddPoint3DToProblem, AddCamerasAndPointsToParameterGroups,
@@ -217,6 +232,11 @@ reasons to Rust. Every skipped COLMAP test is listed here by name when its file 
   SphericalMixedHemispheres,UnprojectableKeypoints,SharedFocal,SharedFocalPerPairFocal},
   MatchSiftFeaturesCPUvsGPU.Nominal, MatchGuidedSiftFeaturesCPUvsGPUGuided.EssentialMatrix:
   SiftGPU, excluded by its licence.
+
+### solver/ (colmap-sharp's C#-only tests)
+- `AutoDiffCostFunctionTests.EveryGradientWidth_GivesIdenticalBits`: it tests colmap-sharp's
+  chunked Jet evaluation, which exists only because C# has no const generics; Rust runs one
+  `Jet<N>` pass as Ceres does.
 
 ### util/
 - `types_test.cc` Span.SizeAndEmpty, FilterView.{Empty,All,None,Nominal,RangeExpression}:
