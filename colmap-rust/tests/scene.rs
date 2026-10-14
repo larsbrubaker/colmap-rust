@@ -39,6 +39,8 @@ mod reconstruction_io;
 mod reconstruction_manager;
 #[path = "scene/reconstruction_ply.rs"]
 mod reconstruction_ply;
+#[path = "scene/reconstruction_pruning.rs"]
+mod reconstruction_pruning;
 #[path = "scene/reconstruction_queries.rs"]
 mod reconstruction_queries;
 #[path = "scene/reconstruction_synthetic.rs"]
@@ -63,6 +65,8 @@ mod rust_only_reconstruction_io;
 mod rust_only_reconstruction_manager;
 #[path = "scene/rust_only_reconstruction_ply.rs"]
 mod rust_only_reconstruction_ply;
+#[path = "scene/rust_only_reconstruction_pruning.rs"]
+mod rust_only_reconstruction_pruning;
 #[path = "scene/rust_only_rig.rs"]
 mod rust_only_rig;
 #[path = "scene/rust_only_scene_types.rs"]

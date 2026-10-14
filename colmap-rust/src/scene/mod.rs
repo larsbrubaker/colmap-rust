@@ -33,6 +33,8 @@
 //!   connected frame components;
 //! - [`reconstruction_manager`]: `reconstruction_manager.h` / `.cc`, the models a mapper
 //!   produces, read from and written to model folders;
+//! - [`reconstruction_pruning`]: `reconstruction_pruning.h` / `.cc`, the 3D points that add
+//!   no image coverage;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
 //! - [`rig`]: `rig.h` / `rig.cc`, rig configurations (`RigConfig`, `ReadRigConfig`), with
 //!   [`rig_apply`] `ApplyRigConfig`, which writes them into a database and reconstruction;
@@ -66,6 +68,7 @@ pub mod reconstruction_io_text_write;
 pub mod reconstruction_io_utils;
 pub mod reconstruction_manager;
 pub mod reconstruction_ply;
+pub mod reconstruction_pruning;
 pub mod reconstruction_queries;
 pub mod reconstruction_transform;
 pub mod rig;
