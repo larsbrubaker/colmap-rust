@@ -2,11 +2,8 @@
 // tolerances), testing colmap_rust::estimators::solvers::fundamental_matrix. The TEST_P suite
 // FundamentalMatrixEightPointEstimatorTests, instantiated over the point counts 8, 64 and
 // 1024, becomes one test per instantiation named after the instantiation, the suite, the
-// case and the count. Tier B (QR, SVD and a cubic).
-//
-// Not ported yet: the three RefineFundamentalMatrixSampson tests (IsFixedPointAtOptimum,
-// PreservesRankTwo, RejectsDegenerateModels); the refiner needs the tiny manifolds and the
-// Sampson cost functor of `estimators/cost_functions`.
+// case and the count. Tier B (QR, SVD and a cubic); the RefineFundamentalMatrixSampson cases
+// are Tier C (an iterative solve).
 //
 // Each test starts with set_prng_seed(0), as COLMAP's gtest_main does. Arguments COLMAP
 // draws inside one expression (the comma initializer of RandomCalibrationMatrix,
@@ -14,15 +11,16 @@
 // left-to-right order.
 
 use crate::expect_near;
+use colmap_rust::estimators::solvers::refine_fundamental_matrix_sampson;
 use colmap_rust::estimators::solvers::{
     FundamentalMatrixEightPointEstimator, FundamentalMatrixSevenPointEstimator,
 };
 use colmap_rust::geometry::essential_matrix::{
-    essential_matrix_from_pose, fundamental_from_essential_matrix,
+    compute_squared_sampson_errors, essential_matrix_from_pose, fundamental_from_essential_matrix,
 };
 use colmap_rust::geometry::Rigid3d;
-use colmap_rust::linalg::{Matrix3d, Vector2d};
-use colmap_rust::math::random::{random_uniform_real, set_prng_seed};
+use colmap_rust::linalg::{Matrix3d, Svd3d, Vector2d, Vector3d};
+use colmap_rust::math::random::{random_gaussian, random_uniform_real, set_prng_seed};
 use colmap_rust::math::random_eigen::{
     random_eigen_quaterniond, random_eigen_vector2d, random_eigen_vector3d,
 };
@@ -350,4 +348,112 @@ fn fundamental_matrix_eight_point_estimator_fundamental_matrix_eight_point_estim
 fn fundamental_matrix_eight_point_estimator_fundamental_matrix_eight_point_estimator_tests_noise_stability_1024(
 ) {
     eight_point_noise_stability(1024);
+}
+
+// Adds isotropic Gaussian pixel noise to both point sets.
+fn add_noise(stddev: f64, points1: &mut [Vector2d], points2: &mut [Vector2d]) {
+    for i in 0..points1.len() {
+        let noise1_x = random_gaussian(0.0, stddev);
+        let noise1_y = random_gaussian(0.0, stddev);
+        points1[i] += Vector2d::new(noise1_x, noise1_y);
+        let noise2_x = random_gaussian(0.0, stddev);
+        let noise2_y = random_gaussian(0.0, stddev);
+        points2[i] += Vector2d::new(noise2_x, noise2_y);
+    }
+}
+
+fn mean_squared_sampson_error(points1: &[Vector2d], points2: &[Vector2d], f: &Matrix3d) -> f64 {
+    let residuals = compute_squared_sampson_errors(points1, points2, f).unwrap();
+    residuals.iter().fold(0.0, |sum, r| sum + r) / residuals.len() as f64
+}
+
+// The exact model is a fixed point on noise-free correspondences: the Sampson error is
+// already zero there, so the refinement must not move away from it.
+#[test]
+fn refine_fundamental_matrix_sampson_is_fixed_point_at_optimum() {
+    set_prng_seed(0);
+    const K_NUM_POINTS: usize = 64;
+    for _ in 0..20 {
+        let k = random_calibration_matrix();
+        let cam2_from_cam1 = random_rigid3d();
+        let mut points1 = Vec::new();
+        let mut points2 = Vec::new();
+        random_epipolar_correspondences(
+            &cam2_from_cam1,
+            &k,
+            K_NUM_POINTS,
+            &mut points1,
+            &mut points2,
+        );
+
+        let mut f =
+            fundamental_from_essential_matrix(&k, &essential_matrix_from_pose(&cam2_from_cam1), &k);
+        assert!(refine_fundamental_matrix_sampson(&points1, &points2, &mut f).unwrap());
+        let error = mean_squared_sampson_error(&points1, &points2, &f);
+        assert!(error < 1e-15, "{error} >= 1e-15");
+    }
+}
+
+// The refined model stays rank 2 by construction, unlike an eight-point fit, which has to
+// truncate its smallest singular value.
+#[test]
+fn refine_fundamental_matrix_sampson_preserves_rank_two() {
+    set_prng_seed(0);
+    const K_NUM_POINTS: usize = 100;
+    let k = random_calibration_matrix();
+    let cam2_from_cam1 = random_rigid3d();
+    let mut points1 = Vec::new();
+    let mut points2 = Vec::new();
+    random_epipolar_correspondences(
+        &cam2_from_cam1,
+        &k,
+        K_NUM_POINTS,
+        &mut points1,
+        &mut points2,
+    );
+    add_noise(0.5, &mut points1, &mut points2);
+
+    let mut f =
+        fundamental_from_essential_matrix(&k, &essential_matrix_from_pose(&cam2_from_cam1), &k);
+    assert!(refine_fundamental_matrix_sampson(&points1, &points2, &mut f).unwrap());
+
+    // Eigen::JacobiSVD<Eigen::Matrix3d>(F).singularValues().
+    let singular_values = Svd3d::compute(&f).singular_values;
+    assert!(
+        singular_values.z < 1e-12 * singular_values.x,
+        "{} >= 1e-12 * {}",
+        singular_values.z,
+        singular_values.x
+    );
+}
+
+// Models that cannot be factorized leave the input untouched, so local optimization falls
+// back to the model RANSAC already had.
+#[test]
+fn refine_fundamental_matrix_sampson_rejects_degenerate_models() {
+    set_prng_seed(0);
+    const K_NUM_POINTS: usize = 32;
+    let k = random_calibration_matrix();
+    let cam2_from_cam1 = random_rigid3d();
+    let mut points1 = Vec::new();
+    let mut points2 = Vec::new();
+    random_epipolar_correspondences(
+        &cam2_from_cam1,
+        &k,
+        K_NUM_POINTS,
+        &mut points1,
+        &mut points2,
+    );
+
+    let mut zero_f = Matrix3d::zeros();
+    assert!(!refine_fundamental_matrix_sampson(&points1, &points2, &mut zero_f).unwrap());
+    assert_eq!(zero_f, Matrix3d::zeros());
+
+    // Rank 1: only one non-zero singular value, so the ratio is undefined.
+    // Eigen::Vector3d(1, 2, 3) * Eigen::RowVector3d(4, 5, 6).
+    let (a, b) = (Vector3d::new(1.0, 2.0, 3.0), Vector3d::new(4.0, 5.0, 6.0));
+    let mut rank1_f = Matrix3d::from_rows(b * a.x, b * a.y, b * a.z);
+    let expected_rank1_f = rank1_f;
+    assert!(!refine_fundamental_matrix_sampson(&points1, &points2, &mut rank1_f).unwrap());
+    assert_eq!(rank1_f, expected_rank1_f);
 }

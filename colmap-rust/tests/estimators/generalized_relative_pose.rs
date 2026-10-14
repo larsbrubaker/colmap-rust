@@ -3,16 +3,15 @@
 // The TEST_P suite ParameterizedGRNPEstimatorTests, instantiated over
 // (num_cams1, num_cams2, panoramic1, panoramic2), becomes one test per instantiation named
 // after the instantiation, the suite, the case and its parameters, in
-// INSTANTIATE_TEST_SUITE_P's order. Tier C (RANSAC over the Tier B gen_relpose_6pt solver).
-//
-// Not ported yet: the seven GR8P instantiations of the same suite; GR8PEstimator is not in
-// the library yet.
+// INSTANTIATE_TEST_SUITE_P's order. Tier C (RANSAC over the Tier B gen_relpose_6pt and GR8P
+// solvers).
 //
 // The test seeds with set_prng_seed(1), as COLMAP's does; random_seed stays -1, so RANSAC
 // draws from that thread PRNG. Arguments COLMAP draws inside one call or braced list are
 // drawn here in clang's left-to-right order.
 
 use crate::transform_matchers::rigid3d_near;
+use colmap_rust::estimators::solvers::GR8PEstimator;
 use colmap_rust::estimators::solvers::{GR6PEstimator, GRNPObservation};
 use colmap_rust::geometry::Rigid3d;
 use colmap_rust::linalg::Vector3d;
@@ -160,6 +159,62 @@ fn gr6p(num_cams1: usize, num_cams2: usize, panoramic1: bool, panoramic2: bool) 
     }
 }
 
+fn gr8p(num_cams1: usize, num_cams2: usize, panoramic1: bool, panoramic2: bool) {
+    set_prng_seed(1);
+
+    // Note that we can estimate the minimal problem from only 8 points but we
+    // use the additional points to choose the correct solution.
+    // The GR8P estimator is numerically much more sensitive than the GR6P
+    // estimator, so we only expect one successful estimation in all trials.
+    const K_NUM_POINTS: usize = 2 * GR8PEstimator::MIN_NUM_SAMPLES;
+    const K_NUM_TRIALS: usize = 10;
+
+    let mut success = false;
+    for _ in 0..K_NUM_TRIALS {
+        let problem = create_generalized_relative_pose_problem(
+            K_NUM_POINTS,
+            num_cams1,
+            num_cams2,
+            panoramic1,
+            panoramic2,
+        );
+
+        let options = RansacOptions {
+            max_num_trials: 1000,
+            max_error: 5.0, // pixels
+            ..RansacOptions::default()
+        };
+        let mut ransac: Ransac<GR8PEstimator> = Ransac::new(&options, GR8PEstimator).unwrap();
+        let report = ransac.estimate(&problem.points1, &problem.points2).unwrap();
+
+        if !report.success {
+            continue;
+        }
+
+        if !rigid3d_near(&report.model, &problem.rig2_from_rig1, 1e-2, 1e-2) {
+            continue;
+        }
+
+        // COLMAP computes the residuals and then loops over them with a `continue` that only
+        // advances its own inner loop, so they never gate success; kept as written.
+        let mut residuals = Vec::new();
+        GR8PEstimator
+            .residuals(
+                &problem.points1,
+                &problem.points2,
+                &report.model,
+                &mut residuals,
+            )
+            .unwrap();
+        assert_eq!(residuals.len(), problem.points1.len());
+
+        success = true;
+        break;
+    }
+
+    assert!(success);
+}
+
 // Note that only one of the cameras must be panoramic, otherwise the
 // generalized relative pose problem is ill-posed, as we cannot estimate the
 // scale between the rigs.
@@ -197,4 +252,39 @@ fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr6p_4_4_cams_panoram
 #[test]
 fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr6p_4_4_cams_panoramic1() {
     gr6p(4, 4, true, false);
+}
+
+#[test]
+fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr8p_1_2_cams() {
+    gr8p(1, 2, false, false);
+}
+
+#[test]
+fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr8p_2_1_cams() {
+    gr8p(2, 1, false, false);
+}
+
+#[test]
+fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr8p_2_2_cams() {
+    gr8p(2, 2, false, false);
+}
+
+#[test]
+fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr8p_3_3_cams() {
+    gr8p(3, 3, false, false);
+}
+
+#[test]
+fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr8p_4_4_cams() {
+    gr8p(4, 4, false, false);
+}
+
+#[test]
+fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr8p_4_4_cams_panoramic2() {
+    gr8p(4, 4, false, true);
+}
+
+#[test]
+fn grnp_estimator_tests_parameterized_grnp_estimator_tests_gr8p_4_4_cams_panoramic1() {
+    gr8p(4, 4, true, false);
 }

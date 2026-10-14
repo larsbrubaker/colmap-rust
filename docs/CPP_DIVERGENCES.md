@@ -1649,6 +1649,29 @@ as colmap-sharp entry 24.
 `fundamental_seven_point_estimator_nominal` (100 random problems, at least one model equal to
 the true F up to scale) pass 1:1.
 
+## 261. GR8P returns its four candidate poses in Schur eigenvector order
+
+**What differs.** `GR8PEstimator::Estimate` reads the translations of its four candidate poses
+from the eigenvectors of the 4 x 4 matrix G (`Eigen::EigenSolver<Matrix4d>`,
+`V.real().colwise().hnormalized()`) and returns them in Eigen's eigenvector order.
+`estimators/solvers/generalized_relative_pose_gr8p.rs` takes them from `linalg::EigenSolver`
+(colmap-sharp's Hessenberg + Francis QR port), whose eigenvalue order (Schur order) and
+last-bit rounding may differ from Eigen's, so the four candidates can come in a different
+order.
+
+**Why.** Eigen (MPL-2.0) is not ported, and its deflation order is not a documented
+convention. G is symmetric (`ComposeG` mirrors every off-diagonal entry), so every eigenvalue
+is real and so is its eigenvector, and `hnormalized()` divides out the scale and sign that are
+the only freedom left: the candidate set is the same up to rounding. RANSAC scores all four,
+so the order only matters when two candidates have exactly the same support and score, where
+the first one wins. Same choice as colmap-sharp's `GeneralizedRelativePose.GR8P.cs` (which
+records it in its file header, not as a numbered entry).
+
+**Evidence.** `tests/estimators/generalized_relative_pose.rs`: the seven
+`..._gr8p_*` instantiations of COLMAP's `ParameterizedGRNPEstimatorTests.GR8P` pass 1:1
+(RANSAC over 16 correspondences finds the true `rig2_from_rig1` within rtol and ttol 1e-2 in
+one of ten trials). Not compared against C++ Eigen.
+
 ## 265. The database is one in-memory type, not a factory over SQLite files
 
 **What differs.** COLMAP's `Database` (scene/database.h) is an abstract class whose only

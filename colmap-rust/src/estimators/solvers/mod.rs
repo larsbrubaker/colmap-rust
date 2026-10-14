@@ -5,7 +5,10 @@
 //! - [`translation_transform`]: [`TranslationTransformEstimator`] (2D).
 //! - [`fundamental_matrix`]: [`FundamentalMatrixSevenPointEstimator`] and
 //!   [`FundamentalMatrixEightPointEstimator`].
+//!   Also the LO-RANSAC refiner [`FundamentalMatrixSampsonEstimator`] and
+//!   [`refine_fundamental_matrix_sampson`].
 //! - [`generalized_relative_pose`]: [`GR6PEstimator`] and its [`GRNPObservation`].
+//!   Also the eight-point [`GR8PEstimator`].
 //! - [`homography_matrix`]: [`HomographyMatrixEstimator`] and
 //!   [`HomographyMatrixRayEstimator`] (DLT between points or bearing rays).
 //! - [`absolute_pose`]: [`P3PEstimator`], [`P4PFEstimator`], [`Point2DWithRay`],
@@ -56,10 +59,13 @@ pub use essential_matrix::{
     EssentialMatrixEightPointEstimator, EssentialMatrixFivePointEstimator,
     EssentialMatrixTangentSampsonEstimator,
 };
+pub use fundamental_matrix::refine_fundamental_matrix_sampson;
+pub use fundamental_matrix::FundamentalMatrixSampsonEstimator;
 pub use fundamental_matrix::{
     FundamentalMatrixEightPointEstimator, FundamentalMatrixSevenPointEstimator,
 };
 pub use generalized_absolute_pose::{GP3PEstimator, GP3PObservation, GP3PResidualType};
+pub use generalized_relative_pose::GR8PEstimator;
 pub use generalized_relative_pose::{GR6PEstimator, GRNPObservation};
 pub use homography_matrix::{
     CamRayWithImgPoint, HomographyMatrixEstimator, HomographyMatrixRayEstimator,

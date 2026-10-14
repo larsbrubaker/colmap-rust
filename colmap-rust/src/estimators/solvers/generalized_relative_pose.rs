@@ -1,19 +1,20 @@
-//! Port of COLMAP's `colmap/estimators/solvers/generalized_relative_pose.h` and `.cc` (the
-//! GR6P half): [`GRNPObservation`] and [`GR6PEstimator`], the minimal relative pose
-//! `rig2_from_rig1` between two generalized (multi-camera) cameras from six 2D-2D
-//! correspondences. It solves with PoseLib's [`gen_relpose_6pt`] on rays and camera origins
-//! expressed in the rig frames, and scores each correspondence with the squared tangent
-//! Sampson error (in pixels) of [`crate::geometry::essential_matrix`]. RANSAC runs it through
-//! [`crate::optim::Estimator`]. Port of colmap-sharp's
+//! Port of COLMAP's `colmap/estimators/solvers/generalized_relative_pose.h` and `.cc`:
+//! [`GRNPObservation`], [`GR6PEstimator`] and [`GR8PEstimator`], the relative pose
+//! `rig2_from_rig1` between two generalized (multi-camera) cameras from 2D-2D
+//! correspondences. GR6P solves the minimal six-point problem with PoseLib's
+//! [`gen_relpose_6pt`] on rays and camera origins expressed in the rig frames; GR8P is Kneip
+//! and Li's eight-point eigenvalue solver, in the private `gr8p` module
+//! (`generalized_relative_pose_gr8p.rs`). Both score each correspondence with the squared
+//! tangent Sampson error (in pixels) of [`crate::geometry::essential_matrix`]. RANSAC runs
+//! them through [`crate::optim::Estimator`]. Port of colmap-sharp's
 //! `Estimators/Solvers/GeneralizedRelativePose.cs`. Tests:
-//! `tests/estimators/generalized_relative_pose.rs` (generalized_relative_pose_test.cc, the
-//! GR6P cases).
+//! `tests/estimators/generalized_relative_pose.rs` (generalized_relative_pose_test.cc).
 //!
-//! Not here yet: `GR8PEstimator` (Kneip and Li's eight-point eigenvalue solver, the rest of
-//! `generalized_relative_pose.cc`), which will share [`GRNPObservation`].
-//!
-//! Tier B for the solver (an eigenvalue problem, docs/CPP_DIVERGENCES.md entry 256); the
-//! RANSAC runs of the tests are Tier C.
+//! Tier B for the solvers (eigenvalue problems, docs/CPP_DIVERGENCES.md entries 256 and
+//! 261); the RANSAC runs of the tests are Tier C.
+
+#[path = "generalized_relative_pose_gr8p.rs"]
+mod gr8p;
 
 use super::poselib::gen_relpose_6pt::gen_relpose_6pt;
 use super::poselib_utils::convert_poselib_pose_to_rigid3d;
@@ -118,5 +119,54 @@ impl Estimator for GR6PEstimator {
             );
         }
         Ok(())
+    }
+}
+
+/// Solver for the Generalized Relative Pose problem using a minimal of 8 2D-2D
+/// correspondences. This implementation is based on:
+///
+///    "Efficient Computation of Relative Pose for Multi-Camera Systems",
+///    Kneip and Li. CVPR 2014.
+///
+/// Note that the solution to this problem is degenerate in the case of pure translation and
+/// when all correspondences are observed from the same cameras.
+///
+/// The implementation is a modified and improved version of Kneip's original implementation
+/// in OpenGV licensed under the BSD license. The model is the `rig2_from_rig1` relative pose
+/// between the generalized cameras. Port of `colmap::GR8PEstimator`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GR8PEstimator;
+
+impl Estimator for GR8PEstimator {
+    type X = GRNPObservation;
+    type Y = GRNPObservation;
+    type M = Rigid3d;
+
+    /// The minimum number of samples needed to estimate a model. Note that in theory the
+    /// minimum required number of samples is 6 but Laurent Kneip showed in his paper that
+    /// using 8 samples is more stable.
+    const MIN_NUM_SAMPLES: usize = 8;
+
+    /// Estimate the most probable solution of the GR8P problem from a set of eight 2D-2D
+    /// point correspondences: four candidate poses, one per eigenvector of G.
+    fn estimate(
+        &mut self,
+        points1: &[GRNPObservation],
+        points2: &[GRNPObservation],
+        rigs2_from_rigs1: &mut Vec<Rigid3d>,
+    ) -> Result<()> {
+        gr8p::estimate(points1, points2, rigs2_from_rigs1)
+    }
+
+    /// The squared tangent Sampson error (in pixels) between corresponding points, as
+    /// [`GR6PEstimator`]'s.
+    fn residuals(
+        &mut self,
+        points1: &[GRNPObservation],
+        points2: &[GRNPObservation],
+        rig2_from_rig1: &Rigid3d,
+        residuals: &mut Vec<f64>,
+    ) -> Result<()> {
+        GR6PEstimator.residuals(points1, points2, rig2_from_rig1, residuals)
     }
 }
