@@ -301,9 +301,19 @@ access matrices (`internal/ceres/block_random_access_{matrix.h,dense_matrix.cc,
 sparse_matrix.cc,diagonal_matrix.cc}`) in `colmap-rust/src/solver/block_random_access_matrix.rs`
 and `block_random_access_sparse_matrix.rs`; the tests of `small_blas_test.cc` and
 `block_random_access_{dense,sparse,diagonal}_matrix_test.cc` in `colmap-rust/tests/solver/`;
-and COLMAP's customized copy of
+the robust losses
+(`include/ceres/loss_function.h`, `internal/ceres/loss_function.cc`) in
+`colmap-rust/src/solver/loss_function.rs`; the residual corrector (`internal/ceres/corrector.cc`)
+in `colmap-rust/src/solver/corrector.rs`; the manifolds (`include/ceres/manifold.h`,
+`internal/ceres/manifold.cc`, `sphere_manifold.h`, `internal/sphere_manifold_functions.h`,
+`internal/householder_vector.h`, `product_manifold.h`) in `colmap-rust/src/solver/manifold.rs`,
+`sphere_manifold.rs` and `product_manifold.rs`; the polynomial helpers
+(`internal/ceres/polynomial.cc`, `function_sample.h`) in
+`colmap-rust/src/solver/ceres_polynomial.rs`; and COLMAP's customized copy of
 `ceres::TinySolver` (`src/colmap/optim/tiny_solver.h`, via colmap-sharp's
-`ColmapSharp/Optim/TinySolver.cs`) in `colmap-rust/src/optim/tiny_solver.rs`.
+`ColmapSharp/Optim/TinySolver.cs`) in `colmap-rust/src/optim/tiny_solver.rs`. Ceres' tests
+`internal/ceres/loss_function_test.cc`, `corrector_test.cc` and `polynomial_test.cc` are ported
+in `colmap-rust/tests/solver/`.
 
 ```
 Ceres Solver - A fast non-linear least squares minimizer

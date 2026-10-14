@@ -2213,3 +2213,25 @@ garbage happens to be non-finite.
 gives all NaN; an SPD block with garbage below the diagonal matches `linalg::Llt` within
 1e-12, in place bit-identical to out of place). The ported
 `BlockRandomAccessDiagonalMatrixTest.Invert` checks the positive definite case at 1e-14.
+
+## 305. The Ceres manifolds and polynomial balancing sum norms left to right
+
+**What differs.** Ceres evaluates the norms in its manifolds through Eigen
+(`delta.norm()`, `x.norm()`, the Householder vector's `squaredNorm()` and dot product in
+`sphere_manifold_functions.h` / `householder_vector.h`) and the 1-norms of
+`BalanceCompanionMatrix` through `lpNorm<1>()`, all of which Eigen may vectorize and reduce in
+packet lanes. `colmap_rust::solver::{sphere_manifold, ceres_polynomial}` sum the squares and
+absolute values left to right in coefficient order. The quaternion manifolds' norms are
+`std::hypot`'s three-argument form, which the port follows exactly (`math::fns::hypot3`). Results
+can differ from COLMAP's Ceres in the last bits. Tier C for the manifolds, like the solver that
+consumes them; Tier B for the polynomial roots, which already go through `linalg::EigenSolver`.
+
+**Why.** Eigen is MPL-2.0 and not ported (contract rule 2), and its packet order depends on the
+target's SIMD width and the compiler, so there is no single order to match. A sequential order
+gives the same bits on every target, native and wasm. Same as colmap-sharp entry 115 (its
+`Solver/Manifolds.cs` part).
+
+**Evidence.** `tests/solver/rust_only_manifold.rs` (colmap-sharp's `ManifoldTests`, plus the
+sphere's poles) checks Plus/Minus round trips to 1e-12 and the Jacobians against finite
+differences to 1e-8; `tests/solver/ceres_polynomial.rs` (Ceres' `polynomial_test.cc`) passes at
+Ceres' own tolerances.

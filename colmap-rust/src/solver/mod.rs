@@ -14,6 +14,13 @@
 //!   [`AutoDiffCostFunction<F, R, N>`];
 //! - `tiny_solver_autodiff_function.rs`: [`TinySolverAutoDiffFunction<F, N>`], an autodiff
 //!   functor as a [`crate::optim::TinySolverFunction`];
+//! - `loss_function.rs`: [`LossFunction`] (`ceres::LossFunction`) and Ceres' losses;
+//!   `corrector.rs`: [`Corrector`], the robust-loss correction of a residual block;
+//! - `manifold.rs`: [`Manifold`] (`ceres::Manifold`) and the Euclidean, subset and quaternion
+//!   manifolds; `sphere_manifold.rs`: [`SphereManifold`]; `product_manifold.rs`:
+//!   [`ProductManifold`];
+//! - `ceres_polynomial.rs`: Ceres' polynomial roots, minimization and interpolation, for the
+//!   line search;
 //! - `small_blas.rs`, `small_blas_fixed.rs`: Ceres' small dense row-major kernels
 //!   ([`small_blas::Operation`]) and PSD block inversion, with const-generic unrolled kernels
 //!   for the bundle adjustment shapes that round exactly as the loops do;
@@ -30,8 +37,9 @@
 //! functors of `estimators::cost_functions`.
 //!
 //! Tests: `colmap-rust/tests/solver.rs` (Jet rules and the autodiff cost function, ported
-//! from colmap-sharp's C#-only `JetTests` and `AutoDiffCostFunctionTests`).
-//! The matrix tests there port Ceres' `small_blas_test.cc` and
+//! from colmap-sharp's C#-only `JetTests` and `AutoDiffCostFunctionTests`; Ceres' own loss,
+//! corrector and polynomial tests; colmap-sharp's C#-only `ManifoldTests`). The matrix tests
+//! there port Ceres' `small_blas_test.cc` and
 //! `block_random_access_{dense,sparse,diagonal}_matrix_test.cc` via colmap-sharp.
 
 pub mod autodiff_cost_function;
@@ -39,12 +47,18 @@ pub mod block_random_access_matrix;
 pub mod block_random_access_sparse_matrix;
 pub mod block_sparse_matrix;
 pub mod block_structure;
+pub mod ceres_polynomial;
+pub mod corrector;
 pub mod jet;
+pub mod loss_function;
+pub mod manifold;
+pub mod product_manifold;
 pub mod rotation;
 pub mod scalar;
 pub mod small_blas;
 pub mod small_blas_fixed;
 pub mod sparse_matrix;
+pub mod sphere_manifold;
 pub mod tiny_solver_autodiff_function;
 
 pub use autodiff_cost_function::{AutoDiffCostFunction, AutoDiffFunctor, CostFunction};
@@ -55,7 +69,17 @@ pub use block_random_access_matrix::{
 pub use block_random_access_sparse_matrix::BlockRandomAccessSparseMatrix;
 pub use block_sparse_matrix::BlockSparseMatrix;
 pub use block_structure::{Block, Cell, CompressedRow, CompressedRowBlockStructure};
+pub use corrector::Corrector;
 pub use jet::Jet;
+pub use loss_function::{
+    ArctanLoss, CauchyLoss, ComposedLoss, HuberLoss, LossFunction, ScaledLoss, SoftLOneLoss,
+    TolerantLoss, TrivialLoss, TukeyLoss,
+};
+pub use manifold::{
+    EigenQuaternionManifold, EuclideanManifold, Manifold, QuaternionManifold, SubsetManifold,
+};
+pub use product_manifold::ProductManifold;
 pub use scalar::{fmax, fmin, Scalar};
 pub use sparse_matrix::{DenseSparseMatrix, LinearOperator, SparseMatrix};
+pub use sphere_manifold::SphereManifold;
 pub use tiny_solver_autodiff_function::TinySolverAutoDiffFunction;
