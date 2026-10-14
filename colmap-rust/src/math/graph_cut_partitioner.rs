@@ -49,7 +49,7 @@ const UNMATCHED_FOR_TWO_HOP: f64 = 0.1;
 /// Partitions a weighted undirected graph given in CSR form (`xadj`, `adjncy`, `adjwgt`, each
 /// edge stored in both directions, unit vertex weights) into `num_parts` parts. Returns one
 /// label in `[0, num_parts)` per vertex. Parallel edges add up and self-loops are ignored.
-/// Fails a check for `num_parts == 0` or a malformed CSR graph (see [`check_csr`]).
+/// Fails a check for `num_parts == 0` or a malformed CSR graph (see `check_csr`).
 pub fn partition(
     xadj: &[usize],
     adjncy: &[usize],

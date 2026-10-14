@@ -1,7 +1,7 @@
 //! Port of `colmap/feature/index.h` / `index.cc`: [`FeatureDescriptorIndex`], the
 //! k-nearest-neighbour descriptor index the SIFT CPU matcher searches when
 //! `cpu_brute_force_matcher` is off (the default). Port of colmap-sharp's
-//! `Feature/FeatureDescriptorIndex.cs`. Neighbors: [`super::sift::match_kernels`] (the integer
+//! `Feature/FeatureDescriptorIndex.cs`. Neighbors: `super::sift::match_kernels` (the integer
 //! dot product both share), [`super::sift::cpu_matcher`] (the caller, through a
 //! [`FeatureDescriptorIndexCache`]). Tests: `tests/feature/index.rs` (`index_test.cc`).
 //!

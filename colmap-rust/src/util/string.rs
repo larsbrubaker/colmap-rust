@@ -114,7 +114,7 @@ pub fn string_contains(s: &str, sub_str: &str) -> bool {
 
 /// Port of `StringToDouble`: parses a floating-point value with the classic ("C") locale,
 /// allowing surrounding white space but nothing else, and errors with COLMAP's
-/// `THROW_CHECK` message ("Failed to parse floating-point value: <str>") otherwise.
+/// `THROW_CHECK` message (`"Failed to parse floating-point value: <str>"`) otherwise.
 ///
 /// COLMAP reads with `std::istringstream >> double`; this uses Rust's correctly rounded
 /// parser on the token, which agrees on decimal and exponent notation (the only forms

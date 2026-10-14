@@ -137,7 +137,7 @@ impl Quaterniond {
     }
 
     /// The 3x3 rotation matrix of this (unit) quaternion, Shoemake's (1985)
-    /// R = I + 2 w [v]x + 2 [v]x^2 written out per element: diagonal 1 - 2(b^2 + c^2),
+    /// R = I + 2 w \[v\]x + 2 \[v\]x^2 written out per element: diagonal 1 - 2(b^2 + c^2),
     /// off-diagonals 2(ab -/+ wc).
     pub fn to_rotation_matrix(self) -> Matrix3d {
         // Grouping (the oracle pins it bit for bit): each off-diagonal is a sum or difference

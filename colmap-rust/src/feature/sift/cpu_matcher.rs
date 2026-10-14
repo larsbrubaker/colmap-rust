@@ -1,14 +1,14 @@
 //! The CPU matching half of `colmap/feature/sift.h` / `sift.cc`: `SiftCPUFeatureMatcher`,
 //! `CreateSiftFeatureMatcher`, `ThrowCheckFeatureTypesMatch` and
 //! `FindBestMatches{OneWay}{BruteForce,Index}`. Port of colmap-sharp's
-//! `Feature/SiftMatcher.cs`. Neighbors: [`super::match_kernels`] (the fused integer distance
+//! `Feature/SiftMatcher.cs`. Neighbors: `super::match_kernels` (the fused integer distance
 //! scan), [`super::guided_matching`] (the guided filters), [`crate::feature::index`] (the k-NN
 //! index of the default, non brute-force path), [`crate::feature::matcher`] (the trait),
 //! [`super::SiftMatchingOptions`]. Tests: `tests/feature/sift_matching.rs` and
 //! `tests/feature/sift_guided_matching.rs` (`sift_test.cc`'s CPU matcher cases).
 //!
 //! Tier A (exact) given the same nearest neighbours: every distance is an integer (see
-//! [`super::match_kernels`]) and the ratio / distance tests are COLMAP's `f32` expressions
+//! `super::match_kernels`) and the ratio / distance tests are COLMAP's `f32` expressions
 //! (`acosf` / `sqrtf` on the same floats, through [`crate::math::fns`]). The guided
 //! filters evaluate COLMAP's float (F, H) and double (E) expressions in Eigen's left-to-right
 //! order without FMA; Apple clang may contract them, which can only flip a pair lying exactly
@@ -17,7 +17,7 @@
 //! Two differences in how, not what:
 //! - COLMAP's brute-force and guided paths fill an N x M float matrix, then scan rows and the
 //!   transposed matrix. Here one fused integer scan yields both directions (identical results,
-//!   [`super::match_kernels`] header).
+//!   `super::match_kernels` header).
 //! - The default path searches the [`crate::feature::index`] index, which is exact here (faiss
 //!   is approximate for 512+ descriptors; docs/CPP_DIVERGENCES.md entry 231).
 //!

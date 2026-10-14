@@ -5,7 +5,7 @@
 //! - [`cpu_extractor`]: `SiftCPUFeatureExtractor` (VLFeat's SIFT, [`super::vlfeat`], driven
 //!   octave by octave) and `TransformVLFeatToUBCFeatureDescriptors`.
 //! - [`cpu_matcher`]: `SiftCPUFeatureMatcher` and `CreateSiftFeatureMatcher`, over
-//!   [`match_kernels`] (the fused integer distance scan) and [`guided_matching`] (the guided
+//!   `match_kernels` (the fused integer distance scan) and [`guided_matching`] (the guided
 //!   filters of `MatchGuided`).
 //! - [`features_text`] ports `LoadSiftFeaturesFromTextFile`.
 //!
