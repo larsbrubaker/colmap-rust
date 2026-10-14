@@ -29,6 +29,8 @@
 //!   `reconstruction_io_binary.*`, `reconstruction_io_text.*` and `reconstruction_io_utils.*`,
 //!   COLMAP's binary and text model files;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
+//! - [`rig`]: `rig.h` / `rig.cc`, rig configurations (`RigConfig`, `ReadRigConfig`), with
+//!   [`rig_apply`] `ApplyRigConfig`, which writes them into a database and reconstruction;
 //! - [`visibility_pyramid`]: `visibility_pyramid.h` / `.cc`, how evenly points cover an image;
 //! - [`synthetic`]: `synthetic.h` / `.cc`, synthetic datasets for tests, with
 //!   [`synthetic_matches`] the matches it writes to a database and [`synthetic_noise`]
@@ -56,6 +58,8 @@ pub mod reconstruction_io_text_write;
 pub mod reconstruction_io_utils;
 pub mod reconstruction_queries;
 pub mod reconstruction_transform;
+pub mod rig;
+pub mod rig_apply;
 pub mod synthetic;
 pub mod synthetic_matches;
 pub mod synthetic_noise;

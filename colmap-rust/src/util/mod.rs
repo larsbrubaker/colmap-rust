@@ -13,6 +13,8 @@
 //! - [`file`]: the path-string helpers of `file.h` (extensions).
 //! - [`timer`]: `timer.h` — the pausable stopwatch, with a host clock on wasm.
 //! - [`threading`]: `GetEffectiveNumThreads` of `threading.h`.
+//! - [`json`]: a small JSON reader (written here) standing in for `boost::property_tree`'s
+//!   `read_json`, with [`ptree_translate`] ptree's `bool`/`double` value translators.
 //! - [`cancellation`]: `cancellation.h` — [`cancellation::CancelToken`] and the
 //!   [`cancellation::Progress`] callback type.
 
@@ -20,8 +22,10 @@ pub mod cancellation;
 pub mod check;
 pub mod endian;
 pub mod file;
+pub mod json;
 pub mod line_tokens;
 pub mod misc;
+pub mod ptree_translate;
 pub mod stream_format;
 pub mod string;
 pub mod threading;

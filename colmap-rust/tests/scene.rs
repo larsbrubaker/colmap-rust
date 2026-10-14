@@ -39,6 +39,8 @@ mod reconstruction_queries;
 mod reconstruction_synthetic;
 #[path = "scene/reconstruction_transform.rs"]
 mod reconstruction_transform;
+#[path = "scene/rig.rs"]
+mod rig;
 #[path = "scene/rust_only_correspondence_graph.rs"]
 mod rust_only_correspondence_graph;
 #[path = "scene/rust_only_database.rs"]
@@ -49,6 +51,8 @@ mod rust_only_frame_image;
 mod rust_only_reconstruction;
 #[path = "scene/rust_only_reconstruction_io.rs"]
 mod rust_only_reconstruction_io;
+#[path = "scene/rust_only_rig.rs"]
+mod rust_only_rig;
 #[path = "scene/rust_only_scene_types.rs"]
 mod rust_only_scene_types;
 #[path = "scene/rust_only_two_view_geometry.rs"]
