@@ -40,6 +40,8 @@ mod relpose_shared_focal;
 mod rust_only_camera_pose;
 #[path = "estimators/rust_only_fundamental_matrix_degensac_oracle.rs"]
 mod rust_only_fundamental_matrix_degensac_oracle;
+#[path = "estimators/rust_only_fundamental_matrix_sampson.rs"]
+mod rust_only_fundamental_matrix_sampson;
 #[path = "estimators/rust_only_gen_relpose_6pt.rs"]
 mod rust_only_gen_relpose_6pt;
 #[path = "estimators/rust_only_gp3p.rs"]

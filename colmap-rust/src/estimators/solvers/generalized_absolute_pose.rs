@@ -37,7 +37,7 @@ pub struct GP3PObservation {
 }
 
 /// Whether to compute the cosine similarity or the reprojection error.
-/// [WARNING] The reprojection error being in normalized coordinates, the unique error
+/// \[WARNING\] The reprojection error being in normalized coordinates, the unique error
 /// threshold of RANSAC corresponds to different pixel values in the different cameras of the
 /// rig if they have different intrinsics. Port of `colmap::GP3PEstimator::ResidualType`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

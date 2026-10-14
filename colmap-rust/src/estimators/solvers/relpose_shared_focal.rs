@@ -6,7 +6,7 @@
 //! pose-plus-log-focal manifold; residuals are the pixel Sampson error under
 //! F = K^-1 E K^-1. [`RelativePoseSharedFocalEstimator::is_focal_identifiable`] screens out
 //! the poses whose focal cannot be recovered. Neighbor: [`super::relpose_one_sided_focal`]
-//! (one view calibrated), which shares [`calibrated_rays`] and [`refine_pose_and_focal`].
+//! (one view calibrated), which shares `calibrated_rays` and `refine_pose_and_focal`.
 //! Tests: `tests/estimators/relpose_shared_focal.rs` (`relpose_shared_focal_test.cc`).
 //!
 //! Tier B for `estimate` and `residuals`, Tier C for `refine`.

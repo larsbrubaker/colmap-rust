@@ -7,7 +7,7 @@
 //!
 //! Convention: Eigen quaternion storage order (x, y, z, w), Hamilton product. A quaternion
 //! q = (x, y, z, w) represents the rotation matrix R(q) = (w^2 - ||v||^2) I + 2 v v^T +
-//! 2 w [v]_x, where v = (x, y, z) is the vector part. The 4-vector representation used in
+//! 2 w `[v]_x`, where v = (x, y, z) is the vector part. The 4-vector representation used in
 //! the matrices is [x, y, z, w] (Eigen's `coeffs()`). The Ceres conversions use Ceres'
 //! order [w, x, y, z]; the Eigen-order wrappers swap.
 //!

@@ -19,7 +19,7 @@
 //! `ceres::TinySolverAutoDiffFunction` wrappers arrive with the solver phase, which owns the
 //! general Jet.
 //!
-//! The relative-pose functors build E = [t]_x R from the Rigid3d parameter layout
+//! The relative-pose functors build `E = [t]_x R` from the Rigid3d parameter layout
 //! [qx, qy, qz, qw, tx, ty, tz]. Jacobians are column-major `num_residuals x NUM_PARAMETERS`.
 //! The constructors check that the two correspondence lists have equal length (C++ leaves a
 //! mismatch undefined).
@@ -135,11 +135,11 @@ fn zero_residual(
 
 /// Port of `colmap::TinyTangentSampsonErrorCostFunctor`: tangent Sampson (pixel-space) cost
 /// for TinySolver refinement of a two-view relative pose from calibrated rays with
-/// unprojection Jacobians. E = [t]_x R is built from the pose [qx, qy, qz, qw, tx, ty, tz]
+/// unprojection Jacobians. `E = [t]_x R` is built from the pose `[qx, qy, qz, qw, tx, ty, tz]`
 /// (Rigid3d params); the solver applies the manifold. Pixel-accurate for any central model,
 /// matching EssentialMatrixTangentSampsonEstimator's score. The residual is
-/// r = num / sqrt(denom); the 7-parameter Jacobian dr/d[q,t] is computed in closed form
-/// (dr/dE contracted with dE/d[q,t]), ~3x faster than autodiff here.
+/// r = num / sqrt(denom); the 7-parameter Jacobian `dr/d[q,t]` is computed in closed form
+/// (`dr/dE` contracted with `dE/d[q,t]`), ~3x faster than autodiff here.
 #[derive(Clone, Copy, Debug)]
 pub struct TinyTangentSampsonErrorCostFunctor<'a> {
     cam_rays1_with_jac: &'a [CamRayWithJac],
