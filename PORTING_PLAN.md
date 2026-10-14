@@ -58,7 +58,7 @@ After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balan
 **Next slices** (start each from `main`):
 - Phase 6 — the estimators layer (see Phase 6 below).
 - Phase 4 — the exporter oracle fixture and the app view (see Phase 4 below).
-- Phase 9 — the covariant extractor (covdet's detector and shape, then the extractor).
+- Phase 9 — `CovariantSiftCPUFeatureExtractor` (covdet's detector and shape are on main).
 - Phase 7 — the Ceres replacement.
 
 **Other open items:**
@@ -160,15 +160,18 @@ App: run BA on a loaded model with live cost plot and progress/cancel.
 
 ### Phase 9 — Features
 Remaining:
-- The covariant extractor. On main: VLFeat's scale space, `vl_imsmooth_f`, image gradients,
-  `mathop.c`'s 2x2 SVD and Gaussian elimination, and `vl_sift_calc_raw_descriptor`. Left, in
-  order: `VlCovDet`'s detector (colmap-sharp `VlCovDet.cs`: DoG cornerness, `Detect`,
-  refinement, thresholds, suppression); its shape (`VlCovDet.Shape.cs`: patches, affine
-  adaptation, orientations); `CovariantSiftCPUFeatureExtractor` (`CovariantSift.cs`), then
-  `CreateSiftFeatureExtractor` and the five `Covariant*` rows of `sift_test.cc`'s
-  `SiftCpuExtractionTest.Nominal`; and colmap-sharp's bit-exact oracle
-  (`covariant_sift_vlfeat.json`, `oracle/fixture_covariant_sift.py`, `sift_harness.c`'s covdet
-  mode) with `VlCovDetTests`, which pins the pieces already on main too.
+- The covariant extractor. On main: VLFeat's scale space, smoothing, gradients, the 2x2 SVD and
+  Gaussian elimination, the raw descriptor, and `VlCovDet` (detector and shape), bit-exact against
+  colmap-sharp's VLFeat oracle (`covariant_sift_vlfeat.json`; one frame value 1 ulp off, entry 1).
+  Left: `CovariantSiftCPUFeatureExtractor` (`CovariantSift.cs`: `ComputeRawDescriptors`,
+  `PooledMean` with `VlCovDetTests.CSharpOnly_PooledMeanAddsRowsInBlocksOfFour`,
+  `CreateDescriptorFilter`, sort and truncation, the minimum-image-side guard; an interleaved
+  `vl_imgradient_polar_f` form), its oracle test against `covariant_sift.json`
+  (`CovariantSiftOracleTests`), `CreateSiftFeatureExtractor`, and the five `Covariant*` rows of
+  `sift_test.cc`'s `SiftCpuExtractionTest.Nominal`.
+- `vl_floor_d(-inf)` panics (`as i64` saturates, then subtracts); clamp rather than panic. Only
+  `put_image` guards it today.
+- The orientation sort's tie rule is not pinned (the oracle has no ties).
 
 App: keypoint overlay on images; match viewer between two images.
 
