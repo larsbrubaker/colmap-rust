@@ -1,7 +1,7 @@
 // Port of .NET's seeded `System.Random` (test support, not a test): colmap-sharp's C#-only
 // tests draw their random inputs from `new Random(seed)`, so the Rust ports of those tests use
-// this to build the same matrices. Covers `NextDouble()` and `Next(maxValue)`, the two calls
-// the ported tests make.
+// this to build the same matrices. Covers `NextDouble()`, `Next(maxValue)` and
+// `Next(minValue, maxValue)`, the calls the ported tests make.
 //
 // Include it from a test binary with `#[path = "support/net_random.rs"] mod net_random;`.
 
@@ -84,5 +84,13 @@ impl NetRandom {
     /// `Next(maxValue)`: `(int)(Sample() * maxValue)`, truncating.
     pub fn next(&mut self, max_value: i32) -> i32 {
         (self.next_double() * max_value as f64) as i32
+    }
+
+    /// `Next(minValue, maxValue)` for a range that fits an `int` (the legacy seeded
+    /// generator's `(int)(Sample() * range) + minValue`).
+    pub fn next_range(&mut self, min_value: i32, max_value: i32) -> i32 {
+        let range = max_value as i64 - min_value as i64;
+        assert!(range <= i32::MAX as i64, "only int-sized ranges are ported");
+        (self.next_double() * range as f64) as i32 + min_value
     }
 }

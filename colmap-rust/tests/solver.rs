@@ -6,7 +6,18 @@
 //
 // Run: `cargo test -p colmap-rust --test solver`.
 
+#[path = "support/net_random.rs"]
+mod net_random;
+
 #[path = "solver/rust_only_autodiff_cost_function.rs"]
 mod rust_only_autodiff_cost_function;
+#[path = "solver/rust_only_block_random_access_matrix.rs"]
+mod rust_only_block_random_access_matrix;
 #[path = "solver/rust_only_jet.rs"]
 mod rust_only_jet;
+#[path = "solver/rust_only_small_blas.rs"]
+mod rust_only_small_blas;
+#[path = "solver/rust_only_small_blas_fixed.rs"]
+mod rust_only_small_blas_fixed;
+#[path = "solver/rust_only_sparse_matrix.rs"]
+mod rust_only_sparse_matrix;

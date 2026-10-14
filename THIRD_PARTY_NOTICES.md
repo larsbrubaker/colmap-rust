@@ -290,7 +290,18 @@ arithmetic and elementary-function rules of `ceres::Jet` (`include/ceres/jet.h`)
 (`include/ceres/cost_function.h`, `autodiff_cost_function.h`, `internal/autodiff.h`) in
 `colmap-rust/src/solver/autodiff_cost_function.rs`; `ceres::TinySolverAutoDiffFunction`
 (`include/ceres/tiny_solver_autodiff_function.h`) in
-`colmap-rust/src/solver/tiny_solver_autodiff_function.rs`; and COLMAP's customized copy of
+`colmap-rust/src/solver/tiny_solver_autodiff_function.rs`; the small dense kernels and PSD
+inversion (`internal/ceres/small_blas.h`, `invert_psd_matrix.h`) in
+`colmap-rust/src/solver/small_blas.rs` and `small_blas_fixed.rs`; `LinearOperator`,
+`SparseMatrix` and `DenseSparseMatrix` (`internal/ceres/linear_operator.h`, `sparse_matrix.h`,
+`dense_sparse_matrix.cc`) in `colmap-rust/src/solver/sparse_matrix.rs`; the block structure
+and `BlockSparseMatrix` (`internal/ceres/block_structure.h`, `block_sparse_matrix.cc`) in
+`colmap-rust/src/solver/block_structure.rs` and `block_sparse_matrix.rs`; the block random
+access matrices (`internal/ceres/block_random_access_{matrix.h,dense_matrix.cc,
+sparse_matrix.cc,diagonal_matrix.cc}`) in `colmap-rust/src/solver/block_random_access_matrix.rs`
+and `block_random_access_sparse_matrix.rs`; the tests of `small_blas_test.cc` and
+`block_random_access_{dense,sparse,diagonal}_matrix_test.cc` in `colmap-rust/tests/solver/`;
+and COLMAP's customized copy of
 `ceres::TinySolver` (`src/colmap/optim/tiny_solver.h`, via colmap-sharp's
 `ColmapSharp/Optim/TinySolver.cs`) in `colmap-rust/src/optim/tiny_solver.rs`.
 

@@ -2167,3 +2167,49 @@ never gets there: it rejects such images first (colmap-sharp's `CovariantSift.cs
 side below `MinimumImageSide`), so no COLMAP result is lost.
 
 **Evidence.** `tests/feature/rust_only_vl_covdet.rs` `rust_only_vl_covdet_rejects_bad_input`.
+
+## 300. The small dense kernels use Ceres' naive loops for every shape
+
+**What differs.** Ceres' `small_blas.h` products (`MatrixMatrixMultiply`,
+`MatrixTransposeMatrixMultiply`, `MatrixVectorMultiply`, `MatrixTransposeVectorMultiply`) use
+Eigen's fixed-size kernels when all sizes are compile-time constants (the template
+specializations the Schur eliminator picks from the Jacobian's static block sizes, for COLMAP's
+bundle adjustment typically `<2, 3, 6>`) and the "Naive" loops otherwise.
+`colmap_rust::solver::small_blas` always computes each output element as a sum over k in
+increasing order into a temporary that starts at 0.0, then stores it with the operation
+(=, +=, -=): the naive loops' rounding. The bundle adjustment shapes (2 or 3 inner rows,
+inner dimension 3) go through `small_blas_fixed.rs`, whose const-generic kernels unroll the k
+loop but keep that order, so every shape rounds exactly as the naive loops do. Eigen's
+fixed-size products may sum in another order (vectorized pairs), so results agree with Ceres'
+to rounding, not bit for bit. Same as colmap-sharp entry 35 (item 2, the kernel part).
+
+**Why.** Eigen is replaced rather than ported (CLAUDE.md contract 2). One summation order for
+every shape makes the Schur solvers' results independent of which kernel a shape dispatches
+to, which the later determinism tests rely on. Bundle adjustment is Tier C.
+
+**Evidence.** `tests/solver/rust_only_small_blas.rs` (Ceres' `small_blas_test.cc` via
+colmap-sharp: every product, operation, stride and start offset against MatrixXd within
+5 * epsilon) and `tests/solver/rust_only_small_blas_fixed.rs` (the fixed kernels give the
+naive loops' bits for every operation, with negative zeros and strided, offset output blocks;
+reversing the fixed kernels' k order makes it fail).
+
+## 301. Inverting a PSD block that is not positive definite gives NaN
+
+**What differs.** Ceres' `InvertPSDMatrix` (assume_full_rank = true) is
+`selfadjointView<Upper>().llt().solve(Identity)`; for a block that is not positive definite,
+Eigen's LLT stops and the solve returns unspecified values. `small_blas::invert_upper_psd`
+(and `_in_place`, which `BlockRandomAccessDiagonalMatrix::invert` uses for the SCHUR_JACOBI
+preconditioner, and which the Schur eliminator will use for E'E) fills the whole inverse with
+NaN as soon as a Cholesky pivot is not positive or is NaN. Same as colmap-sharp entry 35
+(item 5).
+
+**Why.** Eigen's partial result cannot be reproduced without porting Eigen, and it is garbage
+either way. NaN makes the linear solve, and so the trust-region step, invalid; the minimizer
+then rejects the step and shrinks the radius, which is what Ceres' minimizer does when the
+garbage happens to be non-finite.
+
+**Evidence.** `tests/solver/rust_only_sparse_matrix.rs`
+`rust_only_invert_upper_psd_matches_llt_and_rejects_indefinite` (an indefinite 2x2 block
+gives all NaN; an SPD block with garbage below the diagonal matches `linalg::Llt` within
+1e-12, in place bit-identical to out of place). The ported
+`BlockRandomAccessDiagonalMatrixTest.Invert` checks the positive definite case at 1e-14.
