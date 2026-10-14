@@ -29,7 +29,9 @@ visible in the app so the web build is the integration test.
   p4pf, relpose_5pt, relpose_6pt_shared_focal, relpose_6pt_onesided_focal and gen_relpose_6pt
   solvers, and COLMAP's
   `absolute_pose` (P3P, P4Pf, EPnP, `ComputeSquaredReprojectionError`),
-  `generalized_absolute_pose` (GP3P) and `essential_matrix` (five-point, eight-point, tangent
+  `generalized_absolute_pose` (GP3P), `affine_transform`, `translation_transform`,
+  `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point),
+  `generalized_relative_pose` (GR6P) and `essential_matrix` (five-point, eight-point, tangent
   Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
   quaternion_utils (double forms).
 - Phase 9: feature types and utils, VLFeat's CPU SIFT, `SiftCPUFeatureExtractor`, the
@@ -110,9 +112,10 @@ Remaining:
 - COLMAP's `relpose_shared_focal` and `relpose_one_sided_focal`, with their tests. The shared
   focal `Refine` needs `TinyFocalSampsonErrorCostFunctor`, which C++ has only as an autodiff
   template (Phase 7) unless it can be written in closed form.
-- The other `estimators/solvers/*`: `affine_transform`, `euclidean_transform`,
-  `translation_transform`, `fundamental_matrix`, `homography_matrix`,
-  `generalized_relative_pose`.
+- `fundamental_matrix`'s `RefineFundamentalMatrixSampson` and `FundamentalMatrixSampsonEstimator`
+  (with IsFixedPointAtOptimum, PreservesRankTwo, RejectsDegenerateModels), and
+  `generalized_relative_pose`'s `GR8PEstimator` (Kneip and Li; colmap-sharp
+  `GeneralizedRelativePose.GR8P.cs`) with the 7 GR8P instantiations.
 - The estimators: `two_view_geometry`, `pose`, `generalized_pose`, `triangulation`,
   `alignment`, `fundamental_matrix_degensac`, `rotation_averaging`, `global_positioning`,
   `gravity_refinement`, `view_graph_calibration`.
