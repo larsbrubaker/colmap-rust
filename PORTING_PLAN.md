@@ -23,7 +23,7 @@ visible in the app so the web build is the integration test.
   two_view_geometry, correspondence_graph, the reconstruction core (bounds, Normalize,
   Transform, Crop), binary + text reconstruction I/O, synthetic datasets (with and without a
   database, SynthesizeNoise, SynthesizeImages), `Reconstruction::Load`,
-  `TranscribeImageIdsToDatabase`, the in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
+  `TranscribeImageIdsToDatabase`, rig configs (`ReadRigConfig`, `ApplyRigConfig`), the in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
 - Phase 5: all of optim/ (RANSAC family, sparse_cholesky, least_absolute_deviations,
   tiny_solver).
 - Phase 6: `SimilarityTransformEstimator`, `poselib_utils`, the PoseLib CameraPose,
@@ -97,8 +97,6 @@ and a camera-model undistortion preview.
 
 ### Phase 4 — Scene
 Remaining:
-- The scene `rig` config helpers: `ReadRigConfig` (over a small JSON reader, see Decisions) and
-  `ApplyRigConfig`, with `rig_test.cc`.
 - Reconstruction: PLY import/export (`ConvertToPLY`, `ImportPLYFromVector`; needs Phase 1's PLY
   I/O), `ExtractColors*`, `CreateImageDirs`.
 - `reconstruction_io.cc`'s exporters: NVM, Cam, Recon3D, Bundler, PLY, VRML.
@@ -283,7 +281,8 @@ Fix each one in agg-gui, then remove its workaround here:
 - **Optional `Database*` arguments become two functions** (`synthesize_dataset` and
   `synthesize_dataset_with_database`; the same for `synthesize_noise`). `synthesize_images` hands
   each bitmap to a sink (divergence 268): the core has no image encoder.
-- **JSON in the core is a small reader written here** (`util/`), not serde_json: the core stays
+- **JSON in the core is a small reader written here** (`util/json.rs`; ptree's text-to-value rules
+  in `util/ptree_translate.rs`), not serde_json: the core stays
   std-only (plus `libm`), and COLMAP's Boost property_tree is replaced by Rust written here.
   It takes a `&str`; the host reads files.
 - **The core is single-threaded for now** (no rayon): `num_threads` is validated and otherwise
