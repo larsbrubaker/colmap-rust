@@ -24,7 +24,8 @@ visible in the app so the web build is the integration test.
   Transform, Crop), binary + text reconstruction I/O, synthetic datasets (with and without a
   database, SynthesizeNoise, SynthesizeImages), `Reconstruction::Load`,
   `TranscribeImageIdsToDatabase`, rig configs (`ReadRigConfig`, `ApplyRigConfig`), PLY I/O (`util/ply`), ConvertToPLY / ImportPLY /
-  ExtractColors / CreateImageDirs, every `reconstruction_io.cc` exporter, the in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
+  ExtractColors / CreateImageDirs, every `reconstruction_io.cc` exporter, `pose_graph`, `reconstruction_manager`,
+  `reconstruction_pruning`, `scene_clustering`, `reconstruction_clustering`, the in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
 - Phase 5: all of optim/ (RANSAC family, sparse_cholesky, least_absolute_deviations,
   tiny_solver).
 - Phase 6: `SimilarityTransformEstimator`, `poselib_utils`, the PoseLib CameraPose,
@@ -56,7 +57,7 @@ After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balan
 
 **Next slices** (start each from `main`):
 - Phase 6 — the estimators layer (see Phase 6 below).
-- Phase 4 — what waits on the database (see Phase 4 below).
+- Phase 4 — the exporter oracle fixture and the app view (see Phase 4 below).
 - Phase 9 — the covariant extractor (covdet's detector and shape, then the extractor).
 - Phase 7 — the Ceres replacement.
 
@@ -100,10 +101,6 @@ and a camera-model undistortion preview.
 Remaining:
 - A pycolmap oracle fixture for the NVM, Bundler, Cam and Recon3D exporters' text (COLMAP's tests
   only check return values; the layout is pinned by Rust-only tests).
-- Move `open_read`/`open_write` from `scene::reconstruction_io_utils` to `util/` (`util::ply`
-  depends on them).
-- `pose_graph`, `reconstruction_manager`, `reconstruction_pruning`, `scene_clustering`,
-  `reconstruction_clustering`.
 
 App: open a COLMAP model folder / zip (native + browser) and show cameras + sparse points;
 bundled sample model on the web page. The library side is ready (`Reconstruction::read`).
@@ -112,8 +109,7 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 Remaining:
 - A test that pins `MaybeDecomposeRelativePoses`' unit-length translation on a PLANAR pair
   (nothing catches it today: essential decompositions are unit length already).
-- `estimators/rotation_averaging` (header, `_impl`, 15 tests): no Ceres, but every entry point
-  takes `scene/pose_graph`'s `PoseGraph` (with c4h).
+- `estimators/rotation_averaging` (header, `_impl`, 15 tests): no Ceres; `PoseGraph` is on main.
 
 Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without opt in via
 `EstimateAsLocal`.
@@ -297,6 +293,9 @@ Fix each one in agg-gui, then remove its workaround here:
   in `util/ptree_translate.rs`), not serde_json: the core stays
   std-only (plus `libm`), and COLMAP's Boost property_tree is replaced by Rust written here.
   It takes a `&str`; the host reads files.
+- **`ReconstructionManager` owns its models by value** (`Vec<Reconstruction>`; `get`/`get_mut`
+  borrow, `set` swaps one in), as the rest of the scene owns by id; pipelines borrow a model
+  for the steps that change it.
 - **The core is single-threaded for now** (no rayon): `num_threads` is validated and otherwise
   ignored, so results never depend on it.
 - **colmap-rust will be published to crates.io** once the core is usable (crate `colmap-rust`,
