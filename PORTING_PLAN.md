@@ -197,8 +197,13 @@ App: depth/normal map viewer, fused cloud, mesh display, export (PLY/OBJ/STL).
 
 ### Phase 13 — GPU PatchMatch (colmap-gpu)
 Remaining from colmap-sharp Phase 13, all waiting on Phase 12's MVS: the WGSL kernels (reuse
-as-is where possible), planner, orchestrator, CPU twin, conformance checker, and the three
-ColmapGpu PatchMatch classes. They run on the compute seam's dedicated wgpu device
+as-is where possible), planner, orchestrator, CPU twin and conformance checker. The three
+ColmapGpu PatchMatch test classes from MatterCAD's `Tests/ColmapGpuTests` are colmap-rust's to
+port and finish here, not mattercad-rust's (MatterCAD only consumes the GPU PatchMatch through
+colmap-rust): `PatchMatchGpuConformanceTests.TheConformanceKitPassesOnTheRealGpu`,
+`PatchMatchGpuCooperativeSweepTests.CooperativeSweepMatchesTheSerialSweep` (its parameter
+cases) and `PatchMatchGpuRunTests.ALargerSceneAgreesWithTheCpu`, same names, values and
+tolerances, landing with the kernels they exercise. They run on the compute seam's dedicated wgpu device
 (`WebGpuComputeDevice`, not agg-gui-wgpu's), on Metal/DX12/Vulkan natively and WebGPU in the
 browser.
 
