@@ -36,7 +36,7 @@ visible in the app so the web build is the integration test.
   `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point, Sampson
   refiner), `generalized_relative_pose` (GR6P, GR8P), estimators `triangulation`,
   `fundamental_matrix_degensac`, `pose` (EstimateAbsolutePose, EstimateRelativePose) and
-  `generalized_pose` (absolute, relative, structure-less), `two_view_geometry` (all of it), `relpose_shared_focal`, `relpose_one_sided_focal` and
+  `generalized_pose` (absolute, relative, structure-less), `two_view_geometry` (all of it), `alignment` (all of it), `relpose_shared_focal`, `relpose_one_sided_focal` and
   `essential_matrix` (five-point, eight-point, tangent
   Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
   quaternion_utils (double forms).
@@ -113,8 +113,8 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 Remaining:
 - A test that pins `MaybeDecomposeRelativePoses`' unit-length translation on a PLANAR pair
   (nothing catches it today: essential decompositions are unit length already).
-- The estimators: `alignment`, `rotation_averaging`, `global_positioning`,
-  `gravity_refinement`, `view_graph_calibration`.
+- `estimators/rotation_averaging` (header, `_impl`, 15 tests): no Ceres, but every entry point
+  takes `scene/pose_graph`'s `PoseGraph` (with c4h).
 
 Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without opt in via
 `EstimateAsLocal`.
@@ -130,6 +130,19 @@ and `TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction`.
 Also the Ceres refiners of `estimators/pose` (`RefineAbsolutePose`, `RefineRelativePose`,
 `RefineEssentialMatrix`) with `pose_test.cc`'s six refinement cases, and
 `RefineGeneralizedAbsolutePose` with `generalized_pose_test.cc`'s three refinement cases.
+And the Ceres estimators of Phase 6 (each also takes `PoseGraph`):
+- `global_positioning`: `GlobalPositioner` (Solve, SetupProblem, InitializeRandomPositions,
+  AddPointToCameraConstraints, AddPoint3DToProblem, AddCamerasAndPointsToParameterGroups,
+  ParameterizeVariables, ConvertBackResults), `RunGlobalPositioning`, the
+  `cost_functions/motion_averaging.h` costs; `GlobalPositioning.{Nominal, MultiCameraRig,
+  RefineSensorFromRigFalsePreservesRig}`.
+- `gravity_refinement`: `GravityRefiner::RefineGravity` (with its helpers) and
+  `RunGravityRefinement`, over `cost_functions/manifold.h`; `GravityRefinement.{RefineGravity,
+  RefineGravityWithNonTrivialRigs}`.
+- `view_graph_calibration`: `CalibrateFocalLengths` (`cost_functions/calibration.h`),
+  `CalibrateViewGraph` and its helpers, the options' Ceres loss; `CalibrateViewGraph.{Nominal,
+  PriorFocalLength, ConfigTagging, RelativePoseReestimation, SphericalCamerasAreIgnored,
+  FisheyeCamerasAreIgnored}`.
 
 ### Phase 8 — Bundle adjustment
 `estimators/bundle_adjustment*` (CPU), `cost_functions/*`, `ceres_loss_function`, `covariance`.

@@ -1,7 +1,7 @@
 //! Port of COLMAP's `src/colmap/util/ply.h/.cc`, part 1 (and colmap-sharp's `Util/Ply.cs`,
 //! `Util/Ply.Mesh.cs`, `Util/PlyTypes.cs`): the PLY data types and the readers — `ReadPly`
 //! (point clouds), `ReadPlyMesh` (triangle meshes, optionally textured) and
-//! `HasPlyMeshFaces`. The writers are [`super::ply_write`]. `scene::reconstruction_ply`
+//! `HasPlyMeshFaces`. The writers are in `util/ply_write.rs`. `scene::reconstruction_ply`
 //! (`ConvertToPLY` / `ImportPLY`) builds on both. Tests: `tests/util/ply.rs` (`ply_test.cc`).
 //!
 //! Every reader takes a `Read` stream, with a `_path` form that opens the file, as the
@@ -12,7 +12,7 @@
 //! `std::stoi` and wraps into a byte. Tier A (exact).
 //!
 //! Malformed input fails with an error, never with a huge allocation: counts are checked
-//! against COLMAP's limit (2^32), and the vectors start at most [`MAX_INITIAL_CAPACITY`] large
+//! against COLMAP's limit (2^32), and the vectors start at most `MAX_INITIAL_CAPACITY` large
 //! and grow with the data actually read (COLMAP reserves the declared count). A binary mesh
 //! whose texcoord lists are cut short fails with "Unexpected end of PLY file at face i", where
 //! COLMAP reads them unchecked (`docs/CPP_DIVERGENCES.md` entry 280). COLMAP's `LOG(WARNING)`s
