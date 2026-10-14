@@ -31,8 +31,8 @@ visible in the app so the web build is the integration test.
   solvers, and COLMAP's
   `absolute_pose` (P3P, P4Pf, EPnP, `ComputeSquaredReprojectionError`),
   `generalized_absolute_pose` (GP3P), `affine_transform`, `translation_transform`,
-  `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point),
-  `generalized_relative_pose` (GR6P), `relpose_shared_focal`, `relpose_one_sided_focal` and
+  `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point, Sampson
+  refiner), `generalized_relative_pose` (GR6P, GR8P), `relpose_shared_focal`, `relpose_one_sided_focal` and
   `essential_matrix` (five-point, eight-point, tangent
   Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
   quaternion_utils (double forms).
@@ -51,7 +51,7 @@ Divergence-log merges: keep both sides' entries in numeric order (entries are in
 After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balanced.
 
 **Next slices** (start each from `main`):
-- Phase 6 — the fundamental Sampson refiner, GR8P, and the estimators (see Phase 6 below).
+- Phase 6 — the estimators layer (see Phase 6 below).
 - Phase 4 — what waits on the database (see Phase 4 below).
 - Phase 9 — the covariant extractor and `util/cache.h`.
 - Phase 7 — the Ceres replacement.
@@ -110,10 +110,10 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 
 ### Phase 6 — Minimal solvers and estimators
 Remaining:
-- `fundamental_matrix`'s `RefineFundamentalMatrixSampson` and `FundamentalMatrixSampsonEstimator`
-  (with IsFixedPointAtOptimum, PreservesRankTwo, RejectsDegenerateModels), and
-  `generalized_relative_pose`'s `GR8PEstimator` (Kneip and Li; colmap-sharp
-  `GeneralizedRelativePose.GR8P.cs`) with the 7 GR8P instantiations.
+- A `rust_only_*` refiner test that starts `RefineFundamentalMatrixSampson` from a perturbed F
+  (COLMAP's three tests start at the optimum or hold by construction).
+- `cargo doc -p colmap-rust` with `-D warnings` fails on intra-doc links in
+  `cost_functions/quaternion_utils.rs` and `tiny_sampson_error.rs`.
 - The estimators: `two_view_geometry`, `pose`, `generalized_pose`, `triangulation`,
   `alignment`, `fundamental_matrix_degensac`, `rotation_averaging`, `global_positioning`,
   `gravity_refinement`, `view_graph_calibration`.
