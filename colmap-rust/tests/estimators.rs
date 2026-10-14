@@ -3,11 +3,15 @@
 //
 // Run: `cargo test -p colmap-rust --test estimators`.
 
+#[path = "support/eigen_matchers.rs"]
+mod eigen_matchers;
 #[path = "support/transform_matchers.rs"]
 mod transform_matchers;
 
 #[path = "estimators/absolute_pose.rs"]
 mod absolute_pose;
+#[path = "estimators/affine_transform.rs"]
+mod affine_transform;
 #[path = "estimators/essential_matrix.rs"]
 mod essential_matrix;
 #[path = "estimators/generalized_absolute_pose.rs"]
@@ -42,6 +46,8 @@ mod similarity_transform;
 mod tiny_manifold;
 #[path = "estimators/tiny_sampson_error.rs"]
 mod tiny_sampson_error;
+#[path = "estimators/translation_transform.rs"]
+mod translation_transform;
 
 /// gtest's `EXPECT_NEAR(a, b, tol)`.
 pub fn expect_near(a: f64, b: f64, tol: f64) {
