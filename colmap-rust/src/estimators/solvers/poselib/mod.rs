@@ -12,6 +12,8 @@
 //! - [`p3p`]: `solvers/p3p.cc`, the minimal absolute pose.
 //! - [`gp3p`]: `solvers/gp3p.cc`, the minimal generalized absolute pose.
 //! - [`p4pf`]: `solvers/p4pf.cc`, the minimal absolute pose with unknown focal length.
+//! - [`relpose_5pt`]: `solvers/relpose_5pt.cc`, the minimal five-point essential matrix
+//!   (its generated determinant polynomial is in a private sibling file).
 //! - [`poselib_camera`]: the camera description of `misc/camera_models.h`.
 
 pub mod camera_pose;
@@ -22,6 +24,8 @@ pub mod poselib_camera;
 pub mod re3q3;
 mod re3q3_coeffs;
 mod re3q3_var_change;
+pub mod relpose_5pt;
+mod relpose_5pt_det;
 pub mod sturm;
 
 pub use camera_pose::CameraPose;

@@ -1483,3 +1483,29 @@ reads into fresh reconstructions in practice).
 **Evidence.** `tests/scene/rust_only_reconstruction_io.rs`
 `rust_only_reconstruction_read_resets_registration` (COLMAP would report 5 registered frames
 for a file with 3).
+
+## 250. The five-point solver takes its null space from unpivoted Householder QR
+
+**What differs.** PoseLib's `relpose_5pt` (the minimal case of COLMAP's
+`EssentialMatrixFivePointEstimator`) takes the 4D null space of its five epipolar constraints
+from the last four columns of the full Q of `epipolar_constraints.fullPivHouseholderQr()` (a
+9 x 5 matrix). `estimators/solvers/poselib/relpose_5pt.rs` takes the same four columns from an
+unpivoted Householder QR (`linalg::householder::factor_in_place` / `apply_q`). Both are
+orthonormal bases of the same space; only the basis inside it differs, and with it the
+intermediate polynomial coefficients (`compute_trace_constraints`, the degree-10 determinant
+polynomial and its roots, which parametrize the solutions in basis coordinates).
+
+**Why.** Eigen (MPL-2.0) is not ported, and full-pivoting Householder QR has no published
+convention precise enough to reproduce Eigen's Q column for column. The solution set does not
+depend on the basis: the solver returns every unit-norm E = x N0 + y N1 + z N2 + N3 in the
+null space that meets the cubic constraints, and a change of orthonormal basis maps that set
+onto itself (up to the sign of each E). What can differ is numerical conditioning near the
+back substitution's 1e-6 switch to the three-row QR solve and the Sturm bracketing tolerance,
+where a near-degenerate root can be kept on one side and dropped on the other. Same as
+colmap-sharp entry 27.
+
+**Evidence.** `tests/estimators/rust_only_relpose_5pt.rs`,
+`rust_only_recovers_true_essential_matrix`: on 100 random minimal problems every solution has
+unit norm and satisfies the five epipolar constraints to 1e-8, and the true E is among the
+solutions up to sign. colmap-sharp's 1:1 `EssentialMatrixFivePointEstimatorTests_Nominal`
+cases pass on the same construction. Not compared against C++ PoseLib intermediates.

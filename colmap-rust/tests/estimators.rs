@@ -22,6 +22,8 @@ mod rust_only_p3p;
 mod rust_only_p4pf;
 #[path = "estimators/rust_only_re3q3.rs"]
 mod rust_only_re3q3;
+#[path = "estimators/rust_only_relpose_5pt.rs"]
+mod rust_only_relpose_5pt;
 #[path = "estimators/rust_only_sturm.rs"]
 mod rust_only_sturm;
 #[path = "estimators/similarity_transform.rs"]
