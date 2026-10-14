@@ -10,6 +10,8 @@
 //! - [`pose`]: robust absolute and relative pose estimation (`pose.h`, without the Ceres
 //!   refiners).
 //! - [`triangulation`]: robust multi-view point triangulation (`triangulation.h`).
+//! - [`two_view_geometry`]: robust two-view geometry verification of an image pair or of two
+//!   rigs, and the relative pose decomposition (`two_view_geometry.h`).
 //!
 //! Tests: `colmap-rust/tests/estimators.rs`.
 
@@ -20,3 +22,4 @@ pub mod generalized_pose;
 pub mod pose;
 pub mod solvers;
 pub mod triangulation;
+pub mod two_view_geometry;

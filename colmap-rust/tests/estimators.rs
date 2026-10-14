@@ -74,6 +74,8 @@ mod tiny_manifold;
 mod tiny_sampson_error;
 #[path = "estimators/translation_transform.rs"]
 mod translation_transform;
+#[path = "estimators/two_view_geometry.rs"]
+mod two_view_geometry;
 
 /// gtest's `EXPECT_NEAR(a, b, tol)`.
 pub fn expect_near(a: f64, b: f64, tol: f64) {
