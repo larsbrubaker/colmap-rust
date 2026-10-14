@@ -12,7 +12,7 @@
 //! Translation notes: the parameters `[qx, qy, qz, qw, tx, ty, tz, s]` are public fields;
 //! `Default` is hand-written as the identity (COLMAP's default constructor); COLMAP's free
 //! `Inverse(Sim3d)` is [`Sim3d::inverse`]. Estimating a `Sim3d` from point correspondences
-//! lives in COLMAP's `estimators/similarity_transform` and needs an SVD, so it is not here.
+//! is [`crate::estimators::solvers::estimate_sim3d`].
 
 use std::fmt;
 use std::ops::Mul;

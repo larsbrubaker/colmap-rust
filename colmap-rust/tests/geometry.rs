@@ -5,17 +5,20 @@
 // from `oracle/geometry_transforms.py`) and `rust_only_two_view_oracle.rs`
 // (`geometry_two_view.json` from `oracle/geometry_two_view.py`), and the hand-built
 // `rust_only_two_view.rs` cases for two-view functions COLMAP's tests do not reach. This file also holds
-// `eigen_matrix_near` and `rigid3d_near`, the ports of COLMAP's `EigenMatrixNear`
-// (util/eigen_matchers.h) and `Rigid3dNear` (geometry/rigid3_matchers.h) matchers the ported
-// tests share. Layout convention: see `tests/math.rs`.
+// `eigen_matrix_near`, the port of COLMAP's `EigenMatrixNear` matcher (util/eigen_matchers.h),
+// and re-exports `rigid3d_near` (`Rigid3dNear`, from `support/transform_matchers.rs`); the
+// ported tests share them. Layout convention: see `tests/math.rs`.
 //
 // Run: `cargo test -p colmap-rust --test geometry`.
 
-use colmap_rust::geometry::Rigid3d;
 use colmap_rust::linalg::{Matrix3d, Matrix3x4d, Matrix6d, Vector2d, Vector3d, Vector4d};
 
 #[path = "support/oracle_json.rs"]
 mod oracle_json;
+#[path = "support/transform_matchers.rs"]
+mod transform_matchers;
+
+pub use transform_matchers::rigid3d_near;
 
 #[path = "geometry/bbox.rs"]
 mod bbox;
@@ -100,23 +103,6 @@ pub fn eigen_matrix_near<T: Coeffs>(lhs: &T, rhs: &T, tol: f64) -> bool {
 /// `EigenMatrixNear(rhs)` with Eigen's default `dummy_precision()` (1e-12).
 pub fn eigen_matrix_near_default<T: Coeffs>(lhs: &T, rhs: &T) -> bool {
     eigen_matrix_near(lhs, rhs, 1e-12)
-}
-
-/// Port of COLMAP's `Rigid3dNear(rhs, rtol, ttol)` matcher (geometry/rigid3_matchers.h):
-/// the rotations within `rtol` angular distance, and the translations within `ttol`
-/// (`norm() <= ttol` when `rhs`'s is zero by Eigen's `isZero()`, every `|coefficient| <=
-/// 1e-12`; Eigen's `isApprox` otherwise).
-#[allow(clippy::neg_cmp_op_on_partial_ord)] // !(a <= b) is deliberate: NaN must fail.
-pub fn rigid3d_near(lhs: &Rigid3d, rhs: &Rigid3d, rtol: f64, ttol: f64) -> bool {
-    // Note the !(a <= b) form, as in COLMAP, to reject NaNs.
-    if !(lhs.rotation.angular_distance(rhs.rotation) <= rtol) {
-        return false;
-    }
-    if rhs.translation.to_array().iter().all(|c| c.abs() <= 1e-12) {
-        lhs.translation.norm() <= ttol
-    } else {
-        lhs.translation.is_approx_with(rhs.translation, ttol)
-    }
 }
 
 /// gtest's `EXPECT_NEAR(a, b, tol)`.

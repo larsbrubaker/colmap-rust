@@ -1,11 +1,10 @@
-// Test-only estimators and data for the RANSAC / LO-RANSAC tests (ransac.rs, loransac.rs,
-// rust_only_ransac.rs). COLMAP's ransac_test.cc and loransac_test.cc use the production
-// SimilarityTransformEstimator<3> (estimators/solvers/similarity_transform.h), which arrives
-// with Phase 6; until then:
-// - `MinSamples3Estimator` stands in for it where only its `kMinNumSamples = 3` matters
-//   (the Report and NumTrials tests): a constant model, the mean of the sampled y.
+// Test-only data and estimators for the RANSAC / LO-RANSAC tests (ransac.rs, loransac.rs,
+// rust_only_ransac.rs):
+// - `SimilarityTransformTestData`, `generate_test_data` and `validate_report`: the shared
+//   helpers of COLMAP's ransac_test.cc and loransac_test.cc (identical in both files), run
+//   with the production SimilarityTransformEstimator.
 // - `LineEstimator` (two-point line through (x, y) pairs) and `LineLsqEstimator` (least
-//   squares line, the LO-RANSAC local estimator) drive the full estimation loops in
+//   squares line, the LO-RANSAC local estimator) drive the Rust-only estimation loops in
 //   rust_only_ransac.rs, with data built like COLMAP's GenerateTestData: the first
 //   `num_outliers` targets are replaced by uniform draws far off the line. LoRansac takes
 //   `LineLsqEstimator` through `EstimateAsLocal`.
@@ -13,38 +12,83 @@
 
 #![allow(dead_code)]
 
+use colmap_rust::geometry::Sim3d;
+use colmap_rust::linalg::{Matrix3x4d, Vector3d};
+use colmap_rust::math::fns;
 use colmap_rust::math::random::{random_gaussian, random_uniform_real};
-use colmap_rust::optim::{Estimator, LocalEstimator};
+use colmap_rust::math::random_eigen::random_eigen_quaterniond;
+use colmap_rust::optim::{Estimator, InlierSupport, LocalEstimator, RansacReport};
 use colmap_rust::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// Stand-in for SimilarityTransformEstimator<3> where only kMinNumSamples = 3 is read.
-#[derive(Clone, Debug, Default)]
-pub struct MinSamples3Estimator;
+/// COLMAP's `SimilarityTransformTestData`.
+pub struct SimilarityTransformTestData {
+    pub expected_tgt_from_src: Sim3d,
+    pub src: Vec<Vector3d>,
+    pub tgt: Vec<Vector3d>,
+    pub num_samples: usize,
+    pub num_outliers: usize,
+}
 
-impl Estimator for MinSamples3Estimator {
-    type X = f64;
-    type Y = f64;
-    type M = f64;
-    const MIN_NUM_SAMPLES: usize = 3;
+/// COLMAP's `GenerateTestData(num_samples = 1000, num_outliers = 400)`: inliers mapped by a
+/// random-rotation similarity with scale 2 and translation (100, 10, 10), then the first
+/// `num_outliers` targets replaced by uniform draws far away.
+pub fn generate_test_data(num_samples: usize, num_outliers: usize) -> SimilarityTransformTestData {
+    let expected_tgt_from_src = Sim3d::new(
+        2.0,
+        random_eigen_quaterniond(),
+        Vector3d::new(100.0, 10.0, 10.0),
+    );
 
-    fn estimate(&mut self, _x: &[f64], y: &[f64], models: &mut Vec<f64>) -> Result<()> {
-        models.push(y.iter().sum::<f64>() / y.len() as f64);
-        Ok(())
+    let mut src = Vec::with_capacity(num_samples);
+    let mut tgt = Vec::with_capacity(num_samples);
+    for i in 0..num_samples {
+        let i = i as f64;
+        src.push(Vector3d::new(
+            i,
+            fns::sqrt(i) + 2.0,
+            fns::sqrt(2.0 * i + 2.0),
+        ));
+        tgt.push(expected_tgt_from_src * src[src.len() - 1]);
     }
 
-    fn residuals(
-        &mut self,
-        _x: &[f64],
-        y: &[f64],
-        model: &f64,
-        residuals: &mut Vec<f64>,
-    ) -> Result<()> {
-        residuals.clear();
-        residuals.extend(y.iter().map(|&yi| (yi - model) * (yi - model)));
-        Ok(())
+    for target in tgt.iter_mut().take(num_outliers) {
+        // Drawn in clang's left-to-right argument order.
+        let x = random_uniform_real(-3000.0, -2000.0);
+        let y = random_uniform_real(-4000.0, -3000.0);
+        let z = random_uniform_real(-5000.0, -4000.0);
+        *target = Vector3d::new(x, y, z);
     }
+
+    SimilarityTransformTestData {
+        expected_tgt_from_src,
+        src,
+        tgt,
+        num_samples,
+        num_outliers,
+    }
+}
+
+/// COLMAP's `ValidateReport`: success, at least one trial, exactly the inliers found, and the
+/// model within 1e-6 (Frobenius norm) of the expected matrix.
+pub fn validate_report(
+    report: &RansacReport<Matrix3x4d, InlierSupport>,
+    data: &SimilarityTransformTestData,
+) {
+    assert!(report.success);
+    assert!(report.num_trials > 0);
+
+    assert_eq!(
+        report.support.num_inliers,
+        data.num_samples - data.num_outliers
+    );
+    for i in 0..data.num_samples {
+        assert_eq!(report.inlier_mask[i], i >= data.num_outliers, "sample {i}");
+    }
+
+    let matrix_diff = (data.expected_tgt_from_src.to_matrix() - report.model).norm();
+    assert!(matrix_diff < 1e-6, "matrix_diff = {matrix_diff}");
 }
 
 /// The line y = a * x + b.

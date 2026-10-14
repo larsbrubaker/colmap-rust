@@ -24,11 +24,14 @@
 //! - [`optim`]: COLMAP's `optim/` robust-estimation framework — the [`optim::Estimator`] and
 //!   [`optim::Sampler`] traits, the random, PROSAC and combination samplers, support
 //!   measurement, [`optim::Ransac`], [`optim::LoRansac`] and SPRT.
+//! - [`estimators`]: COLMAP's `estimators/` — the similarity and rigid transform
+//!   estimators of [`estimators::solvers`], with `EstimateRigid3d` / `EstimateSim3d`.
 //! - [`scene`]: COLMAP's `scene/` data types — 2D and 3D points, tracks, cameras,
 //!   reprojection errors and the visibility pyramid.
 //! - [`feature`]: COLMAP's `feature/` — keypoints, descriptors, matches and the feature
 //!   type enums.
 
+pub mod estimators;
 pub mod feature;
 pub mod geometry;
 pub mod linalg;

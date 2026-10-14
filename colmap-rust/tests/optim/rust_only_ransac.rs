@@ -1,38 +1,17 @@
-// Rust-only tests (no COLMAP counterpart) of colmap_rust::optim::{Ransac, LoRansac}. They
-// run the checks of ransac_test.cc's / loransac_test.cc's SimilarityTransform,
-// ParallelSimilarityTransform and ReproducibilityWithRandomSeed cases (ValidateReport: success,
-// trials, exact inlier set, model within 1e-6) on the line estimators of test_estimators.rs,
-// until SimilarityTransformEstimator<3> lands in Phase 6 and the 1:1 cases replace them. They
-// also pin colmap-sharp's two C#-only RANSAC checks (docs/CPP_DIVERGENCES.md entries 140 and
-// 141), COLMAP's trial counting, and LO-RANSAC's local refit, both
-// through `EstimateAsLocal` and with a Refine-only `LocalEstimator`. Tier C (outcome).
+// Rust-only tests (no COLMAP counterpart) of colmap_rust::optim::{Ransac, LoRansac}, on the
+// line estimators of test_estimators.rs. They pin LO-RANSAC's local refit, both through
+// `EstimateAsLocal` and with a Refine-only `LocalEstimator`, COLMAP's trial counting, the
+// options check, and colmap-sharp's two C#-only RANSAC checks (docs/CPP_DIVERGENCES.md
+// entries 140 and 141). Tier C (outcome).
 
 use crate::test_estimators::{
     fit_line_lsq, generate_line_data, Line, LineEstimator, LineLsqEstimator, LineRefiner,
-    LineTestData,
 };
-use colmap_rust::math::random::{default_prng_seed, set_prng_seed};
+use colmap_rust::math::random::set_prng_seed;
 use colmap_rust::optim::{
-    CombinationSampler, EstimateAsLocal, InlierSupport, InlierSupportMeasurer, LoRansac,
-    ProgressiveSampler, Ransac, RansacOptions, RansacReport,
+    CombinationSampler, EstimateAsLocal, InlierSupportMeasurer, LoRansac, ProgressiveSampler,
+    Ransac, RansacOptions,
 };
-
-fn validate_report(report: &RansacReport<Line, InlierSupport>, data: &LineTestData) {
-    assert!(report.success);
-    assert!(report.num_trials > 0);
-
-    assert_eq!(
-        report.support.num_inliers,
-        data.num_samples - data.num_outliers
-    );
-    for i in 0..data.num_samples {
-        assert_eq!(report.inlier_mask[i], i >= data.num_outliers, "sample {i}");
-    }
-
-    let diff_a = data.expected.a - report.model.a;
-    let diff_b = data.expected.b - report.model.b;
-    assert!((diff_a * diff_a + diff_b * diff_b).sqrt() < 1e-6);
-}
 
 fn options(num_threads: i32, random_seed: i32) -> RansacOptions {
     RansacOptions {
@@ -41,93 +20,6 @@ fn options(num_threads: i32, random_seed: i32) -> RansacOptions {
         num_threads,
         ..Default::default()
     }
-}
-
-#[test]
-fn rust_only_ransac_line_fit() {
-    set_prng_seed(0);
-    let data = generate_line_data(1000, 400, 0.0);
-    let mut ransac =
-        Ransac::<LineEstimator>::new(&options(1, default_prng_seed()), LineEstimator).unwrap();
-    let report = ransac.estimate(&data.x, &data.y).unwrap();
-    validate_report(&report, &data);
-}
-
-#[test]
-fn rust_only_ransac_parallel_line_fit() {
-    set_prng_seed(0);
-    let data = generate_line_data(1000, 400, 0.0);
-    let mut ransac =
-        Ransac::<LineEstimator>::new(&options(4, default_prng_seed()), LineEstimator).unwrap();
-    let report = ransac.estimate(&data.x, &data.y).unwrap();
-    validate_report(&report, &data);
-}
-
-#[test]
-fn rust_only_ransac_reproducibility_with_random_seed() {
-    set_prng_seed(0);
-    // Noisy inliers, so different minimal samples give different models.
-    let data = generate_line_data(1000, 400, 0.1);
-
-    let options1 = options(1, 42);
-    let report1 = Ransac::<LineEstimator>::new(&options1, LineEstimator)
-        .unwrap()
-        .estimate(&data.x, &data.y)
-        .unwrap();
-
-    let mut options2 = options1;
-    let report2 = Ransac::<LineEstimator>::new(&options2, LineEstimator)
-        .unwrap()
-        .estimate(&data.x, &data.y)
-        .unwrap();
-
-    assert!(report1.success);
-    assert!(report2.success);
-
-    // Results should be exactly the same.
-    assert_eq!(report1.support.num_inliers, report2.support.num_inliers);
-    assert_eq!(report1.inlier_mask, report2.inlier_mask);
-    assert_eq!(report1.model, report2.model);
-
-    // Now change the seed.
-    options2.random_seed = 123;
-    let report3 = Ransac::<LineEstimator>::new(&options2, LineEstimator)
-        .unwrap()
-        .estimate(&data.x, &data.y)
-        .unwrap();
-
-    assert!(report3.success);
-
-    // Results should now differ.
-    assert_ne!(report1.model, report3.model);
-}
-
-#[test]
-fn rust_only_loransac_line_fit() {
-    set_prng_seed(0);
-    let data = generate_line_data(1000, 400, 0.0);
-    let mut loransac = LoRansac::<LineEstimator, EstimateAsLocal<LineLsqEstimator>>::new(
-        &options(1, default_prng_seed()),
-        LineEstimator,
-        EstimateAsLocal(LineLsqEstimator),
-    )
-    .unwrap();
-    let report = loransac.estimate(&data.x, &data.y).unwrap();
-    validate_report(&report, &data);
-}
-
-#[test]
-fn rust_only_loransac_parallel_line_fit() {
-    set_prng_seed(0);
-    let data = generate_line_data(1000, 400, 0.0);
-    let mut loransac = LoRansac::<LineEstimator, EstimateAsLocal<LineLsqEstimator>>::new(
-        &options(4, default_prng_seed()),
-        LineEstimator,
-        EstimateAsLocal(LineLsqEstimator),
-    )
-    .unwrap();
-    let report = loransac.estimate(&data.x, &data.y).unwrap();
-    validate_report(&report, &data);
 }
 
 #[test]
