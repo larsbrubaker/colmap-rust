@@ -37,7 +37,7 @@ visible in the app so the web build is the integration test.
   `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point, Sampson
   refiner), `generalized_relative_pose` (GR6P, GR8P), estimators `triangulation`,
   `fundamental_matrix_degensac`, `pose` (EstimateAbsolutePose, EstimateRelativePose) and
-  `generalized_pose` (absolute, relative, structure-less), `two_view_geometry` (all of it), `alignment` (all of it), `relpose_shared_focal`, `relpose_one_sided_focal` and
+  `generalized_pose` (absolute, relative, structure-less), `two_view_geometry` (all of it), `alignment` (all of it), `rotation_averaging` (all of it), `relpose_shared_focal`, `relpose_one_sided_focal` and
   `essential_matrix` (five-point, eight-point, tangent
   Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
   quaternion_utils (double forms).
@@ -109,7 +109,6 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 Remaining:
 - A test that pins `MaybeDecomposeRelativePoses`' unit-length translation on a PLANAR pair
   (nothing catches it today: essential decompositions are unit length already).
-- `estimators/rotation_averaging` (header, `_impl`, 15 tests): no Ceres; `PoseGraph` is on main.
 
 Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without opt in via
 `EstimateAsLocal`.
