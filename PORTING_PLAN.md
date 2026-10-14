@@ -123,13 +123,15 @@ kernels), `LinearOperator`, `SparseMatrix`/`DenseSparseMatrix`, the compressed-r
 structure, `BlockSparseMatrix`, and the dense, sparse and diagonal `BlockRandomAccessMatrix`
 (cells resolved once to a `CellLocation`), Ceres' losses with the `Corrector`, the
 `Manifold` trait (Euclidean, Subset, Quaternion, EigenQuaternion, Sphere, Product; kept apart
-from the tiny-solver manifolds, whose math differs) and the polynomial helpers. Ceres 2.2.0's
+from the tiny-solver manifolds, whose math differs), the polynomial helpers, and the problem
+model: `Problem` owns parameter values in an arena and hands back ids (divergence 306); cost
+functions, losses and manifolds are shared `Arc`s; `Problem::evaluate`, `Program`,
+`OrderedGroups`/`ParameterBlockOrdering` in Ceres' order (307), `BlockJacobianLayout` and a
+single-threaded `ProgramEvaluator`. `CostFunction` is not `Send + Sync` yet, so a `Problem` is
+built on the thread that solves it. Ceres 2.2.0's
 source is in `ceres-reference/` (`scripts/fetch-reference.sh`); `manifold_test.cc` and the other
 Ceres tests not yet ported can be checked there. Slices left, in dependency order:
-3. The problem model: ParameterBlock, ResidualBlock, Problem, Problem.Evaluate,
-   ParameterBlockOrdering, Program, `BlockJacobianLayout` (tests Problem, OrderedGroups, ParameterBlockOrdering;
-   colmap-sharp entries 36, 37, 53).
-4. Evaluator and basic linear solvers: ProgramEvaluator, SolverTypes, LinearSolvers (tests
+4. Basic linear solvers: SolverTypes, LinearSolvers, and Ceres' `evaluator_test.cc` (tests
    ConjugateGradientsSolver, the LinearLeastSquaresProblems fixtures; colmap-sharp 18, 22).
 5. Schur: SchurOrdering, SchurEliminator (+ parallel), SchurComplementSolvers,
    ImplicitSchurComplement, IterativeSchurSolver (tests SchurEliminator, SchurEliminatorParallel,
@@ -239,6 +241,14 @@ reasons to Rust. Every skipped COLMAP test is listed here by name when its file 
   SiftGPU, excluded by its licence.
 
 ### solver/ (colmap-sharp's C#-only tests)
+- Ceres `problem_test.cc`: null cost function (an `Arc` cannot be null); re-adding or aliasing a
+  block (`AddParameterWithDifferentSizesOnTheSameVariableDies`, `...AliasedParametersDies`,
+  `AddParameterIgnoresDuplicateCalls`, `RepeatedAddParameterBlockResetsManifold`: impossible
+  with ids); block removal (the DynamicProblem cases, `CostFunctionsAreDeletedEvenWithRemovals`,
+  `RemoveParameterBlockWithUnknownPtrDies`, the removal half of `ParameterBlockQuery*`: COLMAP
+  never removes blocks); `EvaluateResidualBlock` and evaluation callbacks (unused by COLMAP).
+- Ceres `program_test.cc` `BlockJacobianTest`, `ReallocationInCreateJacobianBlockSparsityTranspose`:
+  the transposed sparsity feeds only SuiteSparse, which is not ported.
 - `AutoDiffCostFunctionTests.EveryGradientWidth_GivesIdenticalBits`: it tests colmap-sharp's
   chunked Jet evaluation, which exists only because C# has no const generics; Rust runs one
   `Jet<N>` pass as Ceres does.
