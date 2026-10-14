@@ -780,11 +780,20 @@ undistortion loop, where a `Result` would cost every caller for a condition that
 once the camera is validated, so they keep a panic: an internal invariant, where CLAUDE.md's
 error rule allows one.
 
+**The same split on `Camera`** (`scene/camera.rs`). The methods over model metadata
+(`verify_params`, `has_bogus_params`, `params_info`, the four index-group getters, the focal
+length and principal point accessors and setters, `calibration_matrix`, `mean_focal_length`,
+`is_undistorted`, `set_params_from_string`, `rescale(scale)`) return the `DomainError`;
+`create_from_model_id` / `create_from_model_name` return COLMAP's `THROW_CHECK` error for an
+unknown model. The per-point methods (`cam_from_img`, `cam_ray_from_img`,
+`cam_from_img_threshold`, `img_from_cam`, `img_from_cam_with_jac`,
+`cam_ray_from_img_with_jac`, the `is_*` model-kind queries, `rescale_to`) and the projection
+functions in `scene/projection.rs` panic. `camera_test.cc`'s `EXPECT_THROW(.., domain_error)`
+becomes an `Err` check on the first group and a caught panic on the second.
+
 **Obligation on later phases.** Every path that creates a camera from outside data must
-validate the id through the fallible functions before any per-point call: Phase 4's
-`Camera::verify_params` (returning the error, as `camera_test.cc` expects), the camera
-readers (text, binary, database) and `Camera::create_from_model_name` /
-`create_from_model_id` propagate the `DomainError`; nothing may call a per-point function on
+validate the id through the fallible functions before any per-point call: the camera readers
+(text, binary, database) propagate the `DomainError`; nothing may call a per-point function on
 an unverified `Camera`.
 
 **Evidence.** `tests/sensor/models.rs` ports `models_test.cc` 1:1, including the
@@ -792,6 +801,9 @@ an unverified `Camera`.
 `tests/sensor/rust_only_models.rs` checks that every boundary function returns
 `Err(DomainError, "Camera model does not exist")` for `Invalid` and that projection and
 unprojection panic with that message.
+`tests/scene/camera.rs` ports `camera_test.cc` 1:1 on that split, and
+`tests/scene/rust_only_scene_types.rs` checks every metadata method of `Camera` for the
+`DomainError`.
 
 ## 102. The analytic projection Jacobians are unfused and use pure-Rust libm
 
@@ -959,3 +971,38 @@ left for when profiling shows RANSAC is a bottleneck. Same as colmap-sharp entry
 `rust_only_loransac_parallel_line_fit` (`num_threads = 4`) pass the same checks as the serial
 runs, and `rust_only_parallel_requires_random_sampler` pins the kept validation. The 1:1
 `ParallelSimilarityTransform` cases join them with Phase 6's `SimilarityTransformEstimator`.
+
+## 160. Track element access out of range panics instead of throwing `std::out_of_range`
+
+**What differs.** COLMAP's `Track::Element(idx)` and `SetElement(idx, ..)` go through
+`std::vector::at`, which throws `std::out_of_range` for a bad index. `Track::element`,
+`element_mut` and `set_element` (`scene/track.rs`) index the `Vec` and panic.
+`DeleteElement(idx)`, a `THROW_CHECK_LT` in COLMAP, stays an `Err`.
+
+**Why.** No COLMAP code catches that exception: callers iterate `0..Length()`, so an
+out-of-range index is a bug in the caller, an internal invariant where CLAUDE.md's error rule
+allows a panic. A `Result` on every element access would burden the per-observation loops of
+triangulation and bundle adjustment for a condition that cannot occur in correct code.
+
+**Evidence.** `tests/scene/rust_only_scene_types.rs`:
+`rust_only_track_element_out_of_range_panics` and
+`rust_only_track_delete_element_out_of_range_fails_check`.
+
+## 161. VisibilityPyramid defines its two undefined-behavior cases
+
+**What differs.** Two inputs are undefined behavior in COLMAP's `VisibilityPyramid` and
+defined in `scene/visibility_pyramid.rs`:
+- `max_score_ += dim * dim * dim * dim` is `int` arithmetic and overflows from 8 levels on
+  (dim 256, 2^32); here it is `usize`, so `max_score` is the sum the formula means.
+- `CellForPoint` converts `max_dim * x / width` to `size_t` before clamping; for a negative or
+  NaN coordinate that conversion is undefined. Rust's `as usize` saturates both to 0, so the
+  point lands in the first cell (and a coordinate beyond the range in the last, as in COLMAP).
+
+**Why.** Undefined behavior has no result to match; these are the values a caller would
+expect. COLMAP's only user, the incremental mapper's observation manager, builds pyramids
+with `kNumPoint3DVisibilityPyramidLevels = 6` levels and the image's size, where both versions
+agree.
+
+**Evidence.** `tests/scene/visibility_pyramid.rs` (1:1, 1 to 7 levels) passes unchanged;
+`tests/scene/rust_only_scene_types.rs`: `rust_only_visibility_pyramid_eight_levels_max_score`
+and `rust_only_visibility_pyramid_out_of_range_points_clamp`.

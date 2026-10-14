@@ -24,11 +24,14 @@
 //! - [`optim`]: COLMAP's `optim/` robust-estimation framework — the [`optim::Estimator`] and
 //!   [`optim::Sampler`] traits, the random, PROSAC and combination samplers, support
 //!   measurement, [`optim::Ransac`], [`optim::LoRansac`] and SPRT.
+//! - [`scene`]: COLMAP's `scene/` data types — 2D and 3D points, tracks, cameras,
+//!   reprojection errors and the visibility pyramid.
 
 pub mod geometry;
 pub mod linalg;
 pub mod math;
 pub mod optim;
+pub mod scene;
 pub mod sensor;
 pub mod util;
 
