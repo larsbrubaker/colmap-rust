@@ -29,7 +29,9 @@
 //!   COLMAP's binary and text model files;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
 //! - [`visibility_pyramid`]: `visibility_pyramid.h` / `.cc`, how evenly points cover an image;
-//! - [`synthetic`]: `synthetic.h` / `.cc`, synthetic datasets for tests;
+//! - [`synthetic`]: `synthetic.h` / `.cc`, synthetic datasets for tests, with
+//!   [`synthetic_matches`] the matches it writes to a database and [`synthetic_noise`]
+//!   `SynthesizeNoise` and `SynthesizeImages`;
 //! - [`two_view_geometry`]: `two_view_geometry.h` / `.cc`, the verified geometry of an image
 //!   pair.
 
@@ -53,6 +55,8 @@ pub mod reconstruction_io_utils;
 pub mod reconstruction_queries;
 pub mod reconstruction_transform;
 pub mod synthetic;
+pub mod synthetic_matches;
+pub mod synthetic_noise;
 pub mod track;
 pub mod two_view_geometry;
 pub mod visibility_pyramid;

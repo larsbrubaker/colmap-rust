@@ -1,16 +1,22 @@
 // Port of colmap/scene/reconstruction_test.cc, part 4, 1:1 (same test names, values and
 // checks): the tests that build their scene with SynthesizeDataset — ConstructCopy,
 // AssignCopy, Print, DeleteAllPoints2DAndPoints3D, TearDown, ReadWriteTextRoundtrip,
-// ReadWriteBinaryRoundtrip and ReadAutoDetectFormat. COLMAP's `ReconstructionEq` matcher
+// ReadWriteBinaryRoundtrip, ReadAutoDetectFormat, SetRigsAndFrames (over the in-memory
+// Database) and SetRigsAndFramesResetsNumRegImages. COLMAP's `ReconstructionEq` matcher
 // (reconstruction_matchers.h) is `expect_reconstruction_eq`, and the test's
 // `ExpectEqualSerialization` writes both models' text files to strings. A copy is the
-// derived `Clone` (copy construction and assignment alike; entry 170).
+// derived `Clone` (copy construction and assignment alike; entry 170). `Frame::ResetRigPtr`
+// has no counterpart (frames hold only their rig's id), and the image-to-frame pointer check is
+// `expect_valid_ptrs`.
 
+use colmap_rust::scene::database::Database;
 use colmap_rust::scene::reconstruction::Reconstruction;
 use colmap_rust::scene::reconstruction_io_text_write::{
     write_cameras_text, write_frames_text, write_images_text, write_points3d_text, write_rigs_text,
 };
-use colmap_rust::scene::synthetic::{synthesize_dataset, SyntheticDatasetOptions};
+use colmap_rust::scene::synthetic::{
+    synthesize_dataset, synthesize_dataset_with_database, SyntheticDatasetOptions,
+};
 
 use crate::reconstruction::expect_valid_ptrs;
 use crate::reconstruction_io::create_test_dir;
@@ -177,4 +183,73 @@ fn reconstruction_read_auto_detect_format() {
         expect_reconstruction_eq(&loaded, &reconstruction);
         expect_valid_ptrs(&loaded);
     }
+}
+
+#[test]
+fn reconstruction_set_rigs_and_frames() {
+    colmap_rust::math::random::set_prng_seed(0);
+    let mut reconstruction = Reconstruction::new();
+    let database = Database::new();
+    // COLMAP's test sets `num_rigs` twice (2, then 3); the second assignment wins.
+    let synthetic_dataset_options = SyntheticDatasetOptions {
+        num_rigs: 3,
+        num_cameras_per_rig: 1,
+        num_frames_per_rig: 8,
+        num_points3d: 21,
+        ..SyntheticDatasetOptions::default()
+    };
+    synthesize_dataset_with_database(&synthetic_dataset_options, &mut reconstruction, &database)
+        .unwrap();
+    let frame_ids: Vec<_> = reconstruction.frames().keys().copied().collect();
+    for frame_id in frame_ids {
+        reconstruction.deregister_frame(frame_id).unwrap();
+    }
+    let orig_reconstruction = reconstruction.clone();
+    reconstruction
+        .set_rigs_and_frames(
+            database.read_all_rigs().unwrap(),
+            database.read_all_frames().unwrap(),
+        )
+        .unwrap();
+    expect_reconstruction_eq(&reconstruction, &orig_reconstruction);
+    expect_equal_serialization(&reconstruction, &orig_reconstruction);
+}
+
+#[test]
+fn reconstruction_set_rigs_and_frames_resets_num_reg_images() {
+    let mut reconstruction = Reconstruction::new();
+    let synthetic_dataset_options = SyntheticDatasetOptions {
+        num_rigs: 2,
+        num_cameras_per_rig: 1,
+        num_frames_per_rig: 4,
+        num_points3d: 0,
+        ..SyntheticDatasetOptions::default()
+    };
+    synthesize_dataset(&synthetic_dataset_options, &mut reconstruction).unwrap();
+    let num_reg_images_before = reconstruction.num_reg_images();
+    assert!(num_reg_images_before > 0);
+    // Copy rigs and frames (with poses) from the reconstruction to re-apply.
+    let rigs: Vec<_> = reconstruction.rigs().values().cloned().collect();
+    let frames: Vec<_> = reconstruction.frames().values().cloned().collect();
+    let num_rigs_before = reconstruction.num_rigs();
+    let num_frames_before = reconstruction.num_frames();
+    let num_reg_frames_before = reconstruction.num_reg_frames();
+    // Call SetRigsAndFrames while frames are still registered. Previously this
+    // would double-count num_reg_images_ because it was not reset to zero.
+    reconstruction.set_rigs_and_frames(rigs, frames).unwrap();
+    // Verify num_reg_images_ is not double-counted.
+    assert_eq!(reconstruction.num_reg_images(), num_reg_images_before);
+    // Verify rigs, frames, and registered frames are preserved.
+    assert_eq!(reconstruction.num_rigs(), num_rigs_before);
+    assert_eq!(reconstruction.num_frames(), num_frames_before);
+    assert_eq!(reconstruction.num_reg_frames(), num_reg_frames_before);
+    // Verify every registered frame still has a pose.
+    for &frame_id in reconstruction.reg_frame_ids() {
+        assert!(reconstruction.frame(frame_id).unwrap().has_pose());
+    }
+    // Verify image-to-frame pointers are correctly re-wired.
+    for image in reconstruction.images().values() {
+        assert!(image.has_frame_id());
+    }
+    expect_valid_ptrs(&reconstruction);
 }

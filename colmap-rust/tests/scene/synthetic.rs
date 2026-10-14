@@ -1,10 +1,8 @@
-// Port of colmap/scene/synthetic_test.cc, 1:1 (same test names, values and checks) for the
-// tests that need no database: colmap_rust::scene::synthetic::synthesize_dataset. The tests
-// that write to or read from a `Database` (Nominal, MultipleTimes, WithPriors,
-// MultiReconstruction, the *Matches tests and every SynthesizeNoise test) and
-// SynthesizeImages.Nominal land with the database and `synthesize_noise` /
-// `synthesize_images` (PORTING_PLAN.md, Phase 4). COLMAP's NoDatabase test opens an
-// in-memory database it never uses; the port leaves it out.
+// Port of colmap/scene/synthetic_test.cc, part 1, 1:1 (same test names, values and checks):
+// the tests that need no database, for colmap_rust::scene::synthetic::synthesize_dataset.
+// The database tests are in synthetic_database.rs, the SynthesizeNoise and SynthesizeImages
+// tests in synthetic_noise.rs. COLMAP's NoDatabase test opens an in-memory database it never
+// uses; the port leaves it out.
 
 use colmap_rust::math::random::set_prng_seed;
 use colmap_rust::scene::reconstruction::Reconstruction;

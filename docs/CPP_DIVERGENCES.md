@@ -1430,22 +1430,28 @@ where COLMAP uses IVF) and `tests/feature/sift_matching.rs`
 `rust_only_index_float_queries_on_byte_index_and_large_k_order` checks the order against the
 definition.
 
-## 240. SynthesizeDataset visits the 3D points in ascending id order
+## 240. Synthetic datasets visit points, images and chained pairs in ascending id order
 
 **What differs.** COLMAP's `SynthesizeDataset` projects the reconstruction's 3D points into
 each image, and `track_length` pruning visits them, in `Reconstruction::Points3D()` order,
-which is the order of COLMAP's hash map. `scene/synthetic.rs` visits them in ascending id order
-(the reconstruction's `BTreeMap`, entry 213). The PRNG draws are the same and in the same
-sequence; what differs is the order of each image's 2D points before the shuffle and, with
-pruning, which point's track receives which shuffle. So a seeded run gives the same cameras,
-rigs, frame poses and 3D point positions as pycolmap's, but different 2D point orders and
-pruned tracks.
+which is the order of COLMAP's hash map; its CHAINED match configuration writes the pairs of a
+`NodeHashMap`; `SynthesizeNoise` adds 2D and 3D point noise visiting `Images()` and
+`Points3D()`, and `SynthesizeImages` renders the images in `Images()` order. `scene/synthetic.rs`,
+`scene/synthetic_matches.rs` and `scene/synthetic_noise.rs` visit all of them in ascending id
+order (the reconstruction's `BTreeMap`s, entry 213; a `BTreeMap` of pairs for CHAINED). The
+PRNG draws are the same and in the same sequence; what differs is the order of each image's 2D
+points before the shuffle, which point's track receives which pruning shuffle, which pair
+receives which outlier-match shuffle, which point receives which noise draws, and the
+descriptor seeds `SynthesizeImages` gives points without a 3D point. So a seeded run gives the
+same cameras, rigs, frame poses and 3D point positions as pycolmap's, but different 2D point
+orders, pruned tracks and noise assignment.
 
 **Why.** CLAUDE.md requires deterministic iteration; COLMAP's tests rely only on order-free
-properties (counts, track lengths, equality of two seeded runs). Same as colmap-sharp entry 31.
+properties (counts, track lengths, error bounds, connectivity, equality of two seeded runs).
+Same as colmap-sharp entry 31.
 
-**Evidence.** `tests/scene/synthetic.rs` (`synthetic_test.cc` 1:1 for the database-free
-tests) and every Phase 4 test that synthesizes its scene pass.
+**Evidence.** `tests/scene/synthetic.rs`, `synthetic_database.rs` and `synthetic_noise.rs`
+(`synthetic_test.cc` 1:1, all 18 cases) and every Phase 4 test that synthesizes its scene pass.
 
 ## 241. Model file readers reject input COLMAP's streams misread
 
@@ -1751,3 +1757,34 @@ replaced.
 **Evidence.** `tests/scene/database_cache.rs` (database_cache_test.cc 1:1) passes with COLMAP's
 expectations; `rust_only_create_from_cache_keeps_whole_frames` pins the filtering. Same as
 colmap-sharp entry 33.
+
+## 268. SynthesizeImages hands bitmaps to a sink instead of writing image files
+
+**What differs.** COLMAP's `SynthesizeImages(options, reconstruction, image_path)` writes each
+image to `image_path / image.Name()` with `Bitmap::Write` (OpenImageIO) and logs a failed
+write. `colmap_rust::scene::synthetic_noise::synthesize_images(options, reconstruction,
+write_image)` calls `write_image(image.name(), bitmap)` for each rendered RGB bitmap; the
+pixels are the same.
+
+**Why.** Image file encoding is not ported: the host owns image I/O (PORTING_PLAN.md, the
+skipped `bitmap_test.cc` file cases). A sink lets a caller encode files with its own encoder or
+keep the bitmaps in memory, natively and in the browser. Same as colmap-sharp entry 32.
+
+**Evidence.** `tests/scene/synthetic_noise.rs` `synthesize_images_nominal` checks every image
+reaches the sink with its camera's width and height (COLMAP's test reads each PNG back and
+checks the same).
+
+## 269. SynthesizeDataset rejects pose priors without a database
+
+**What differs.** COLMAP's `SynthesizeDataset` with `prior_position` or `prior_gravity` set
+writes each image's pose prior through `database->WritePosePrior` without checking the
+pointer, so calling it without a database dereferences null (undefined behavior, in practice a
+crash). `colmap_rust::scene::synthetic::synthesize_dataset` (the database-free form) returns
+an `InvalidArgument` error, "SynthesizeDataset: pose priors need a database", at the first
+image instead.
+
+**Why.** A null dereference is a bug, not behavior to reproduce; an error is the only safe
+answer, and the database form behaves exactly as COLMAP's.
+
+**Evidence.** `tests/scene/synthetic_database.rs`
+`rust_only_synthesize_dataset_pose_priors_need_a_database`.

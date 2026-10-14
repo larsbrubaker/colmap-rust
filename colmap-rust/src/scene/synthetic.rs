@@ -1,10 +1,15 @@
 //! Port of `colmap/scene/synthetic.h` / `.cc` (and colmap-sharp's `Scene/Synthetic.cs`): the
 //! synthetic dataset generator most of COLMAP's downstream tests build their scenes with.
 //! [`synthesize_dataset`] puts 3D points on the unit sphere and rigs of cameras on a sphere of
-//! radius 5 looking at the origin, and projects the points into every image. Neighbors:
-//! [`crate::scene::reconstruction`] (the model it fills). Tests: `tests/scene/synthetic.rs`
-//! (`synthetic_test.cc` 1:1 for the database-free tests); most `tests/scene/reconstruction*`
-//! tests build their scenes with it.
+//! radius 5 looking at the origin, and projects the points into every image;
+//! [`synthesize_dataset_with_database`] also writes the rigs, cameras, frames, images, pose
+//! priors, keypoints, descriptors, matches and two-view geometries into a
+//! [`crate::scene::database::Database`], as COLMAP's `Database*` argument does. Neighbors:
+//! [`crate::scene::reconstruction`] (the model it fills), [`super::synthetic_matches`] (the
+//! match configurations and pose prior coordinates) and [`super::synthetic_noise`]
+//! (`SynthesizeNoise`, `SynthesizeImages`). Tests: `tests/scene/synthetic.rs`
+//! (`synthetic_test.cc` 1:1); most `tests/scene/reconstruction*` tests build their scenes with
+//! it.
 //!
 //! Tier A for ids, counts and poses given the PRNG stream; the 3D points' order of visits
 //! differs from COLMAP's hash order (docs/CPP_DIVERGENCES.md entry 240).
@@ -16,19 +21,23 @@
 //!   right, as clang (the macOS pycolmap wheel) evaluates constructor arguments.
 //! - Iteration order: COLMAP visits `Reconstruction::Points3D()` in hash order; here it is
 //!   ascending id order (entries 213 and 240).
-//! - The `Database*` argument and the options only it reads (feature type, matches, two-view
-//!   geometries, pose priors) are not ported yet; they write into
-//!   [`crate::scene::database::Database`] (Phase 4).
-//!   `SynthesizeNoise` and `SynthesizeImages` follow in the same later slice.
+//! - COLMAP's optional `Database*` is two functions: [`synthesize_dataset`] (no database, the
+//!   form every other module's tests call) and [`synthesize_dataset_with_database`].
 
 use std::collections::BTreeSet;
 
+use crate::feature::types::{
+    FeatureDescriptors, FeatureDescriptorsData, FeatureExtractorType, FeatureKeypoint,
+};
+use crate::geometry::pose_prior::{CoordinateSystem, PosePrior};
 use crate::geometry::rigid3::Rigid3d;
 use crate::linalg::{AngleAxisd, Quaterniond, Vector2d, Vector3d, Vector3ub};
+use crate::math::random::mt19937::Mt19937;
 use crate::math::random::{self, libcxx};
 use crate::math::random_eigen::random_eigen_vector3d;
 use crate::math::utils::deg_to_rad;
 use crate::scene::camera::Camera;
+use crate::scene::database::Database;
 use crate::scene::frame::Frame;
 use crate::scene::image::Image;
 use crate::scene::point2d::Point2D;
@@ -37,10 +46,15 @@ use crate::scene::track::Track;
 use crate::sensor::models::CameraModelId;
 use crate::sensor::rig::Rig;
 use crate::util::types::{CameraId, FrameId, ImageId, Point2DIdx, Point3DId, RigId, SensorId};
+
+use super::synthetic_matches::{
+    pose_prior_position_cartesian_to_wgs84, synthesize_chained_matches,
+    synthesize_exhaustive_matches, synthesize_sparse_matches,
+};
 use crate::Result;
 
-/// Port of `colmap::SyntheticDatasetOptions`, the fields the database-free generator reads
-/// (see the header), with COLMAP's defaults.
+/// Port of `colmap::SyntheticDatasetOptions`, with COLMAP's defaults. The feature type,
+/// match, two-view geometry and pose prior options are read only with a database.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SyntheticDatasetOptions {
     pub num_rigs: i32,
@@ -62,10 +76,44 @@ pub struct SyntheticDatasetOptions {
     pub camera_params: Vec<f64>,
     pub camera_has_prior_focal_length: bool,
 
+    /// The type of feature descriptors to synthesize.
+    pub feature_type: FeatureExtractorType,
+
     pub num_points2d_without_point3d: i32,
+
+    pub inlier_match_ratio: f64,
+
+    /// Whether to include decomposed relative poses in two-view geometries.
+    pub two_view_geometry_has_relative_pose: bool,
+
+    pub match_config: MatchConfig,
+
+    /// Sparsity parameter for [`MatchConfig::Sparse`], in range [0, 1].
+    /// 0 = fully connected view graph, equivalent to EXHAUSTIVE (all edges)
+    /// 1 = empty view graph (no edges)
+    pub match_sparsity: f64,
+
+    pub prior_position: bool,
+    pub prior_position_coordinate_system: CoordinateSystem,
+    pub prior_gravity: bool,
+    pub prior_gravity_in_world: Vector3d,
 
     /// The synthesized image file extension.
     pub image_extension: String,
+}
+
+/// Port of `SyntheticDatasetOptions::MatchConfig`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MatchConfig {
+    /// Exhaustive matches between all pairs of observations of a 3D point.
+    #[default]
+    Exhaustive = 1,
+    /// Chain of matches between images with consecutive identifiers, i.e.,
+    /// there are only matches between image pairs (image_id, image_id+1).
+    Chained = 2,
+    /// Sparse matches with controllable sparsity, removing edges randomly while
+    /// maintaining view graph connectivity.
+    Sparse = 3,
 }
 
 impl Default for SyntheticDatasetOptions {
@@ -83,7 +131,16 @@ impl Default for SyntheticDatasetOptions {
             camera_model_id: CameraModelId::SimpleRadial,
             camera_params: vec![1280.0, 512.0, 384.0, 0.05],
             camera_has_prior_focal_length: false,
+            feature_type: FeatureExtractorType::Sift,
             num_points2d_without_point3d: 10,
+            inlier_match_ratio: 1.0,
+            two_view_geometry_has_relative_pose: false,
+            match_config: MatchConfig::Exhaustive,
+            match_sparsity: 0.0,
+            prior_position: false,
+            prior_position_coordinate_system: CoordinateSystem::Cartesian,
+            prior_gravity: false,
+            prior_gravity_in_world: Vector3d::new(0.0, 1.0, 0.0),
             image_extension: ".png".to_owned(),
         }
     }
@@ -99,6 +156,28 @@ pub fn synthesize_dataset(
     options: &SyntheticDatasetOptions,
     reconstruction: &mut Reconstruction,
 ) -> Result<()> {
+    synthesize(options, reconstruction, None)
+}
+
+/// Port of `colmap::SynthesizeDataset(options, reconstruction, database)`: as
+/// [`synthesize_dataset`], but the ids of rigs, cameras, frames and images are the ones the
+/// database assigns, so the function can be called repeatedly on the same reconstruction and
+/// database. Each image's keypoints and descriptors (identical rows for the observations of
+/// one 3D point, unique random ones otherwise), pose priors when asked for, and the matches
+/// and two-view geometries of `options.match_config` are written as well.
+pub fn synthesize_dataset_with_database(
+    options: &SyntheticDatasetOptions,
+    reconstruction: &mut Reconstruction,
+    database: &Database,
+) -> Result<()> {
+    synthesize(options, reconstruction, Some(database))
+}
+
+fn synthesize(
+    options: &SyntheticDatasetOptions,
+    reconstruction: &mut Reconstruction,
+    database: Option<&Database>,
+) -> Result<()> {
     crate::check_gt!(options.num_rigs, 0);
     crate::check_gt!(options.num_cameras_per_rig, 0);
     crate::check_gt!(options.num_frames_per_rig, 0);
@@ -106,9 +185,12 @@ pub fn synthesize_dataset(
     crate::check!(options.track_length == -1 || options.track_length >= 2);
     // COLMAP warns when track_length exceeds the number of images; pruning then removes
     // nothing (no track is longer), and the core has no logger (entry 211's reasoning).
+    crate::check_ne!(options.feature_type, FeatureExtractorType::Undefined);
     crate::check_ge!(options.num_points2d_without_point3d, 0);
     crate::check_ge!(options.sensor_from_rig_translation_stddev, 0.0);
     crate::check_ge!(options.sensor_from_rig_rotation_stddev, 0.0);
+    crate::check_ge!(options.match_sparsity, 0.0);
+    crate::check_le!(options.match_sparsity, 1.0);
     crate::check!(!options.image_extension.is_empty());
     crate::check!(options.image_extension.starts_with('.'));
 
@@ -126,7 +208,28 @@ pub fn synthesize_dataset(
         )?);
     }
 
-    let mut total_num_images: ImageId = 0;
+    let mut counters = Counters {
+        total_num_images: match database {
+            None => 0,
+            Some(database) => database.num_images()? as ImageId,
+        },
+        total_num_descriptors: match database {
+            None => 0,
+            // `int total_num_descriptors = database->NumDescriptors()`.
+            Some(database) => database.num_descriptors()? as i32,
+        },
+    };
+
+    let desc_dim = match options.feature_type {
+        FeatureExtractorType::Sift => 128,
+        FeatureExtractorType::Undefined => 0,
+        other => {
+            return Err(crate::util::check::ColmapError::new(
+                crate::util::check::ErrorKind::InvalidArgument,
+                format!("Invalid FeatureExtractorType specified: {}", other as i32),
+            ))
+        }
+    };
 
     for rig_idx in 0..options.num_rigs {
         let mut rig = Rig::new();
@@ -134,7 +237,7 @@ pub fn synthesize_dataset(
         let mut camera_sensor_ids: Vec<SensorId> =
             Vec::with_capacity(options.num_cameras_per_rig as usize);
         for camera_idx in 0..options.num_cameras_per_rig {
-            let camera = Camera {
+            let mut camera = Camera {
                 camera_id: (rig_idx * options.num_cameras_per_rig + camera_idx + 1) as CameraId,
                 model_id: options.camera_model_id,
                 width: options.camera_width,
@@ -143,6 +246,9 @@ pub fn synthesize_dataset(
                 has_prior_focal_length: options.camera_has_prior_focal_length,
             };
             crate::check!(camera.verify_params()?);
+            if let Some(database) = database {
+                camera.camera_id = database.write_camera(&camera, false)?;
+            }
             reconstruction.add_camera(camera.clone())?;
 
             if rig.num_sensors() == 0 {
@@ -157,20 +263,52 @@ pub fn synthesize_dataset(
             camera_sensor_ids.push(camera.sensor_id());
         }
 
-        rig.set_rig_id((rig_idx + 1) as RigId);
+        let rig_id = match database {
+            None => (rig_idx + 1) as RigId,
+            Some(database) => database.write_rig(&rig, false)?,
+        };
+        rig.set_rig_id(rig_id);
         reconstruction.add_rig(rig.clone())?;
 
         for frame_idx in 0..options.num_frames_per_rig {
             synthesize_frame(
-                options,
+                &FrameContext {
+                    options,
+                    database,
+                    rig: &rig,
+                    camera_sensor_ids: &camera_sensor_ids,
+                    new_points3d_ids: &new_points3d_ids,
+                    desc_dim,
+                },
                 reconstruction,
-                &rig,
-                &camera_sensor_ids,
                 rig_idx,
                 frame_idx,
-                &new_points3d_ids,
-                &mut total_num_images,
+                &mut counters,
             )?;
+        }
+    }
+
+    if let Some(database) = database {
+        match options.match_config {
+            MatchConfig::Exhaustive => synthesize_exhaustive_matches(
+                options.inlier_match_ratio,
+                options.two_view_geometry_has_relative_pose,
+                reconstruction,
+                database,
+            )?,
+            MatchConfig::Chained => synthesize_chained_matches(
+                options.inlier_match_ratio,
+                options.two_view_geometry_has_relative_pose,
+                reconstruction,
+                database,
+            )?,
+            MatchConfig::Sparse => synthesize_sparse_matches(
+                options.inlier_match_ratio,
+                options.two_view_geometry_has_relative_pose,
+                options.match_sparsity,
+                reconstruction,
+                database,
+            )?,
         }
     }
 
@@ -204,18 +342,33 @@ fn synthesize_sensor_from_rig(options: &SyntheticDatasetOptions) -> Rigid3d {
     sensor_from_rig
 }
 
-/// One posed frame of `rig` with an image per camera sensor, added with its images.
-#[allow(clippy::too_many_arguments)]
+/// The ids `synthesize` continues from: the images and descriptors written so far.
+struct Counters {
+    total_num_images: ImageId,
+    total_num_descriptors: i32,
+}
+
+/// What every frame of one rig is synthesized from.
+struct FrameContext<'a> {
+    options: &'a SyntheticDatasetOptions,
+    database: Option<&'a Database>,
+    rig: &'a Rig,
+    camera_sensor_ids: &'a [SensorId],
+    new_points3d_ids: &'a BTreeSet<Point3DId>,
+    desc_dim: usize,
+}
+
+/// One posed frame of the context's rig with an image per camera sensor, added with its
+/// images (and written to the database, with the images' pose priors, features and keypoints).
 fn synthesize_frame(
-    options: &SyntheticDatasetOptions,
+    cx: &FrameContext<'_>,
     reconstruction: &mut Reconstruction,
-    rig: &Rig,
-    camera_sensor_ids: &[SensorId],
     rig_idx: i32,
     frame_idx: i32,
-    new_points3d_ids: &BTreeSet<Point3DId>,
-    total_num_images: &mut ImageId,
+    counters: &mut Counters,
 ) -> Result<()> {
+    let options = cx.options;
+    let rig = cx.rig;
     let mut frame = Frame::new();
     frame.set_rig_id(rig.rig_id())?;
 
@@ -226,10 +379,10 @@ fn synthesize_frame(
     let rig_from_world = Rigid3d::new(rotation, rotation * -proj_center);
     frame.set_rig_from_world(rig_from_world);
 
-    let mut images: Vec<Image> = Vec::with_capacity(camera_sensor_ids.len());
-    let mut cams_from_world: Vec<Rigid3d> = Vec::with_capacity(camera_sensor_ids.len());
-    for sensor_id in camera_sensor_ids {
-        *total_num_images += 1;
+    let mut images: Vec<Image> = Vec::with_capacity(cx.camera_sensor_ids.len());
+    let mut cams_from_world: Vec<Rigid3d> = Vec::with_capacity(cx.camera_sensor_ids.len());
+    for sensor_id in cx.camera_sensor_ids {
+        counters.total_num_images += 1;
 
         let mut image = Image::new();
         image.set_name(&format!(
@@ -237,7 +390,11 @@ fn synthesize_frame(
             sensor_id.id, frame_idx, options.image_extension
         ));
         image.set_camera_id(sensor_id.id)?;
-        image.set_image_id(*total_num_images);
+        let image_id = match cx.database {
+            None => counters.total_num_images,
+            Some(database) => database.write_image(&image, false)?,
+        };
+        image.set_image_id(image_id);
 
         frame.add_data_id(image.data_id())?;
 
@@ -249,11 +406,19 @@ fn synthesize_frame(
         } else {
             rig.sensor_from_rig(camera.sensor_id())?
         };
-        cams_from_world.push(sensor_from_rig * rig_from_world);
+        let cam_from_world = sensor_from_rig * rig_from_world;
+        cams_from_world.push(cam_from_world);
+
+        if options.prior_position || options.prior_gravity {
+            write_pose_prior(options, cx.database, &image, &cam_from_world)?;
+        }
         images.push(image);
     }
 
-    let frame_id = (rig_idx * options.num_frames_per_rig + frame_idx + 1) as FrameId;
+    let frame_id = match cx.database {
+        None => (rig_idx * options.num_frames_per_rig + frame_idx + 1) as FrameId,
+        Some(database) => database.write_frame(&frame, false)?,
+    };
     frame.set_frame_id(frame_id);
     reconstruction.add_frame(frame)?;
 
@@ -263,10 +428,14 @@ fn synthesize_frame(
         let points2d = synthesize_points2d(
             options,
             reconstruction,
-            new_points3d_ids,
+            cx.new_points3d_ids,
             camera,
             &cam_from_world,
         )?;
+
+        if let Some(database) = cx.database {
+            write_features(cx, database, &image, &points2d, counters)?;
+        }
 
         for (point2d_idx, point2d) in points2d.iter().enumerate() {
             if point2d.has_point3d() {
@@ -278,9 +447,95 @@ fn synthesize_frame(
         }
 
         image.set_points2d(points2d)?;
+
+        if let Some(database) = cx.database {
+            database.update_image(&image)?;
+        }
         reconstruction.add_image(image)?;
     }
     Ok(())
+}
+
+/// The image's pose prior: its projection center (in Cartesian or WGS84 coordinates) and the
+/// world's gravity direction in the camera frame, as asked for. COLMAP writes it through the
+/// database pointer unconditionally, so asking for priors without a database is an error.
+fn write_pose_prior(
+    options: &SyntheticDatasetOptions,
+    database: Option<&Database>,
+    image: &Image,
+    cam_from_world: &Rigid3d,
+) -> Result<()> {
+    // C++ dereferences a null `database` here (undefined behavior); the port fails cleanly
+    // (docs/CPP_DIVERGENCES.md entry 269).
+    let Some(database) = database else {
+        return Err(crate::util::check::ColmapError::new(
+            crate::util::check::ErrorKind::InvalidArgument,
+            "SynthesizeDataset: pose priors need a database",
+        ));
+    };
+    let mut pose_prior = PosePrior::default();
+
+    if options.prior_position {
+        pose_prior.position = cam_from_world.tgt_origin_in_src();
+        pose_prior.coordinate_system = CoordinateSystem::Cartesian;
+        match options.prior_position_coordinate_system {
+            CoordinateSystem::Cartesian => {}
+            CoordinateSystem::Wgs84 => pose_prior_position_cartesian_to_wgs84(&mut pose_prior),
+            CoordinateSystem::Undefined => {
+                return Err(crate::util::check::ColmapError::new(
+                    crate::util::check::ErrorKind::InvalidArgument,
+                    "Invalid PosePrior::CoordinateSystem specified",
+                ))
+            }
+        }
+    }
+
+    if options.prior_gravity {
+        pose_prior.gravity =
+            (cam_from_world.rotation * options.prior_gravity_in_world).normalized();
+    }
+
+    pose_prior.corr_data_id = image.data_id();
+    database.write_pose_prior(&pose_prior, false)?;
+    Ok(())
+}
+
+/// Writes the image's keypoints and a descriptor per keypoint: the rows of the observations
+/// of one 3D point are identical (seeded by the point's id), the others unique random rows.
+fn write_features(
+    cx: &FrameContext<'_>,
+    database: &Database,
+    image: &Image,
+    points2d: &[Point2D],
+    counters: &mut Counters,
+) -> Result<()> {
+    let mut keypoints: Vec<FeatureKeypoint> = Vec::with_capacity(points2d.len());
+    let mut data = FeatureDescriptorsData::new(points2d.len(), cx.desc_dim);
+    for (point2d_idx, point2d) in points2d.iter().enumerate() {
+        keypoints.push(FeatureKeypoint::new(
+            point2d.xy.x as f32,
+            point2d.xy.y as f32,
+        ));
+        // Generate a unique descriptor for each 3D point. If the 2D point does not observe a
+        // 3D point, generate a random unique descriptor. `std::mt19937`'s seed is a
+        // `uint_fast32_t` (32 bits on libc++), so the id is truncated as C++ converts it.
+        let seed = if point2d.has_point3d() {
+            point2d.point3d_id as u32
+        } else {
+            counters.total_num_descriptors += 1;
+            (cx.options.num_points3d + counters.total_num_descriptors) as u32
+        };
+        let mut feature_generator = Mt19937::new(seed);
+        for d in 0..cx.desc_dim {
+            // `std::uniform_int_distribution<int>(0, 255)`, stored as `uint8_t`.
+            data[(point2d_idx, d)] = libcxx::uniform_int(&mut feature_generator, 0i32, 255) as u8;
+        }
+    }
+    database.write_keypoints(image.image_id(), &keypoints)?;
+    database.write_descriptors(
+        image.image_id(),
+        &FeatureDescriptors::new(cx.options.feature_type, data),
+    )
 }
 
 /// The image's 2D points: the projections of the new 3D points that land inside the image,

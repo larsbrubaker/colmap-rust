@@ -4,6 +4,8 @@
 //
 // Run: `cargo test -p colmap-rust --test scene`.
 
+#[path = "support/eigen_matchers.rs"]
+mod eigen_matchers;
 #[path = "support/transform_matchers.rs"]
 mod transform_matchers;
 
@@ -51,6 +53,10 @@ mod rust_only_scene_types;
 mod rust_only_two_view_geometry;
 #[path = "scene/synthetic.rs"]
 mod synthetic;
+#[path = "scene/synthetic_database.rs"]
+mod synthetic_database;
+#[path = "scene/synthetic_noise.rs"]
+mod synthetic_noise;
 #[path = "scene/track.rs"]
 mod track;
 #[path = "scene/two_view_geometry.rs"]
