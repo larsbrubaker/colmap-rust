@@ -33,7 +33,8 @@ visible in the app so the web build is the integration test.
   `absolute_pose` (P3P, P4Pf, EPnP, `ComputeSquaredReprojectionError`),
   `generalized_absolute_pose` (GP3P), `affine_transform`, `translation_transform`,
   `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point, Sampson
-  refiner), `generalized_relative_pose` (GR6P, GR8P), `relpose_shared_focal`, `relpose_one_sided_focal` and
+  refiner), `generalized_relative_pose` (GR6P, GR8P), estimators `triangulation`,
+  `fundamental_matrix_degensac` and `pose` (EstimateAbsolutePose, EstimateRelativePose), `relpose_shared_focal`, `relpose_one_sided_focal` and
   `essential_matrix` (five-point, eight-point, tangent
   Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
   quaternion_utils (double forms).
@@ -109,12 +110,17 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 
 ### Phase 6 — Minimal solvers and estimators
 Remaining:
-- A `rust_only_*` refiner test that starts `RefineFundamentalMatrixSampson` from a perturbed F
-  (COLMAP's three tests start at the optimum or hold by construction).
-- `cargo doc -p colmap-rust` with `-D warnings` fails on intra-doc links in
-  `cost_functions/quaternion_utils.rs` and `tiny_sampson_error.rs`.
-- The estimators: `two_view_geometry`, `pose`, `generalized_pose`, `triangulation`,
-  `alignment`, `fundamental_matrix_degensac`, `rotation_averaging`, `global_positioning`,
+- `cargo doc -p colmap-rust` with `-D warnings` fails on bracket notation read as intra-doc links
+  in `linalg/quaternion.rs`, `util/string.rs`, `util/line_tokens.rs`, `util/mod.rs`,
+  `feature/index.rs`, `feature/sift/cpu_matcher.rs`, `feature/sift/mod.rs` and
+  `math/graph_cut_partitioner.rs`.
+- `estimators/generalized_pose`: `EstimateGeneralizedAbsolutePose`,
+  `EstimateGeneralizedRelativePose`, `EstimateStructureLessAbsolutePose` (no Ceres), with their
+  tests; they need a libc++ `std::shuffle(…, PRNG)` emulation (COLMAP's own `Shuffle` is on
+  main, `std::shuffle` is not).
+- `estimators/two_view_geometry` (colmap-sharp: 5 files, about 2000 lines; 30 tests), after
+  `generalized_pose`.
+- The estimators: `alignment`, `rotation_averaging`, `global_positioning`,
   `gravity_refinement`, `view_graph_calibration`.
 
 Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without opt in via
@@ -128,6 +134,9 @@ ManifoldConvergesAndStaysOnManifold (`TinySolverAutoDiffFunction`; `TinySphereMa
 main); the Jet forms of the angle-axis wrappers and of the one-sided focal functor; and two
 `tiny_sampson_error_test.cc` tests, `TinyTangentSampsonErrorCostFunctor.MatchesAutodiffCostFunctor`
 and `TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction`.
+Also the Ceres refiners of `estimators/pose` (`RefineAbsolutePose`, `RefineRelativePose`,
+`RefineEssentialMatrix`) with `pose_test.cc`'s six refinement cases, and
+`RefineGeneralizedAbsolutePose`.
 
 ### Phase 8 — Bundle adjustment
 `estimators/bundle_adjustment*` (CPU), `cost_functions/*`, `ceres_loss_function`, `covariance`.
