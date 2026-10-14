@@ -132,6 +132,19 @@ pub fn string_to_double(s: &str) -> Result<f64> {
     Ok(value.unwrap_or(f64::NAN))
 }
 
+/// `stream >> float` on one token: the same accepted spellings as [`parse_double_token`],
+/// parsed straight to `f32` (correctly rounded, as `strtof`), and failing where the value
+/// overflows to infinity.
+pub(crate) fn parse_float_token(s: &str) -> Option<f32> {
+    // The spelling check of the double path; its value is not used, so `f32` rounds once.
+    parse_double_token(s)?;
+    let value: f32 = s.trim_matches(C_ISSPACE).parse().ok()?;
+    if value.is_infinite() {
+        return None;
+    }
+    Some(value)
+}
+
 /// The accepting core of [`string_to_double`]; `None` where COLMAP's stream read fails or
 /// leaves trailing characters.
 pub(crate) fn parse_double_token(s: &str) -> Option<f64> {

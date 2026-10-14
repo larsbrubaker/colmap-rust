@@ -39,7 +39,7 @@ use std::fmt;
 
 use crate::linalg::RowMajorMatrix;
 use crate::math::fns;
-use crate::util::check::{ColmapError, ErrorKind, Result};
+use crate::util::check::{CheckOpValue, ColmapError, ErrorKind, Result};
 use crate::util::types::{Point2DIdx, INVALID_POINT2D_IDX};
 use crate::{check_eq, check_ge, check_gt, fatal_throw};
 
@@ -100,6 +100,14 @@ impl FeatureExtractorType {
 impl fmt::Display for FeatureExtractorType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+impl CheckOpValue for FeatureExtractorType {
+    /// `operator<<` (`MAKE_ENUM_CLASS_OVERLOAD_STREAM`): the enum's name, as in a failed
+    /// `THROW_CHECK_EQ(descriptors.type, FeatureExtractorType::SIFT)`.
+    fn check_op_string(&self) -> String {
+        self.as_str().to_owned()
     }
 }
 

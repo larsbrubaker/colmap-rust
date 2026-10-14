@@ -1400,6 +1400,36 @@ with `-ffp-contract=off` (fixture `sift_vlfeat.json`). `tests/feature/rust_only_
 `rust_only_sift_matches_pycolmap_*`: the nine `sift.json` cases against the wheel within
 2e-3 per keypoint value, 1 per descriptor byte and 0.1% mismatched bytes.
 
+## 231. FeatureDescriptorIndex is an exact nearest-neighbour search, not faiss's IVF index
+
+**What differs.** COLMAP's `FeatureDescriptorIndex` (`feature/index.cc`) wraps faiss: an exact
+`IndexFlatL2` for fewer than 512 indexed descriptors, and for 512 or more an inverted-file
+index (`IndexIVFScalarQuantizer` with `QT_8bit_direct` for SIFT, `IndexIVFFlat` otherwise;
+4 sqrt(N) k-means centroids, searched with `nprobe = 8`). The IVF search is approximate: it
+only visits the 8 nearest clusters, so it can miss a query's true nearest or second-nearest
+neighbour. The port (`colmap-rust/src/feature/index.rs`) always returns the exact k nearest
+neighbours, ordered by (squared distance, index). SIFT descriptors are compared as integers
+(exact); other descriptor types sum (a - b)^2 in `f32`, left to right, where faiss's flat index
+uses the ||a||^2 + ||b||^2 - 2ab expansion.
+
+**Why.** faiss is native code (CLAUDE.md contract 1). Porting it, k-means training included,
+would reproduce a randomized approximation whose exact output also depends on faiss's OpenMP
+partitioning and BLAS. The exact search is the result the IVF index approximates, and it makes
+the default (index) matching path agree with COLMAP's own brute-force matcher, which is what
+`SiftCPUFeatureMatcherFaissVsBruteForce` asserts. On an image pair with 512+ features, the SIFT
+matches can therefore differ from COLMAP's default CPU matcher wherever faiss's approximation
+missed a neighbour (COLMAP returns fewer or different matches there); they equal COLMAP's
+`cpu_brute_force_matcher` matches except where acos-of-dot and sqrt-of-L2 round a threshold
+comparison differently, which COLMAP's two paths also do. Ties in distance are ordered by
+index; faiss leaves them unspecified, and the ratio test rejects a tie for the best neighbour
+either way. Same as colmap-sharp entry 42.
+
+**Evidence.** `tests/feature/index.rs` (`index_test.cc` 1:1, including the 1000-descriptor rows,
+where COLMAP uses IVF) and `tests/feature/sift_matching.rs`
+`sift_cpu_feature_matcher_faiss_vs_brute_force_nominal` (`sift_test.cc` 1:1) pass;
+`rust_only_index_float_queries_on_byte_index_and_large_k_order` checks the order against the
+definition.
+
 ## 240. SynthesizeDataset visits the 3D points in ascending id order
 
 **What differs.** COLMAP's `SynthesizeDataset` projects the reconstruction's 3D points into

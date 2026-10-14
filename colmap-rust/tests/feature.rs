@@ -10,16 +10,26 @@ mod oracle_json;
 
 #[path = "feature/extractor.rs"]
 mod extractor;
+#[path = "feature/index.rs"]
+mod index;
+#[path = "feature/matcher.rs"]
+mod matcher;
 #[path = "feature/rust_only_feature_types.rs"]
 mod rust_only_feature_types;
 #[path = "feature/rust_only_feature_utils.rs"]
 mod rust_only_feature_utils;
 #[path = "feature/rust_only_sift.rs"]
 mod rust_only_sift;
+#[path = "feature/rust_only_sift_text.rs"]
+mod rust_only_sift_text;
 #[path = "feature/rust_only_vl_sift_filter.rs"]
 mod rust_only_vl_sift_filter;
 #[path = "feature/sift.rs"]
 mod sift;
+#[path = "feature/sift_guided_matching.rs"]
+mod sift_guided_matching;
+#[path = "feature/sift_matching.rs"]
+mod sift_matching;
 #[path = "feature/types.rs"]
 mod types;
 #[path = "feature/utils.rs"]

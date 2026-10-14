@@ -1,19 +1,37 @@
 //! Port of `colmap/feature/sift.h` / `sift.cc`, COLMAP's SIFT on the CPU. Port of
-//! colmap-sharp's `Feature/Sift.cs` (extraction half).
-//! - This file: [`SiftExtractionOptions`] (with [`SiftNormalization`]) and
-//!   `kSiftDescriptorDim`.
+//! colmap-sharp's `Feature/Sift.cs` and `Feature/SiftMatcher.cs`.
+//! - This file: [`SiftExtractionOptions`] (with [`SiftNormalization`]),
+//!   [`SiftMatchingOptions`] and `kSiftDescriptorDim`.
 //! - [`cpu_extractor`]: `SiftCPUFeatureExtractor` (VLFeat's SIFT, [`super::vlfeat`], driven
 //!   octave by octave) and `TransformVLFeatToUBCFeatureDescriptors`.
+//! - [`cpu_matcher`]: `SiftCPUFeatureMatcher` and `CreateSiftFeatureMatcher`, over
+//!   [`match_kernels`] (the fused integer distance scan) and [`guided_matching`] (the guided
+//!   filters of `MatchGuided`).
+//! - [`features_text`] ports `LoadSiftFeaturesFromTextFile`.
 //!
 //! SiftGPU is excluded by licence (docs/LICENSE_AUDIT.md): there is no GPU extractor or
-//! matcher and no `use_gpu` branch.
-//! The covariant extractor (`CovariantSiftCPUFeatureExtractor`, VLFeat's covdet),
-//! `CreateSiftFeatureExtractor` and the SIFT matcher are not ported yet (PORTING_PLAN.md
-//! Phase 9).
-//! Tests: `tests/feature/sift.rs` (`sift_test.cc`) and `tests/feature/rust_only_sift.rs`
-//! (pycolmap fixtures, reuse, cancellation).
+//! matcher and no `use_gpu` branch. SIFT LightGlue (ONNX) is excluded too, so
+//! [`SiftMatchingOptions`] has no `lightglue` options.
+//! The covariant extractor (`CovariantSiftCPUFeatureExtractor`, VLFeat's covdet) and
+//! `CreateSiftFeatureExtractor` are not ported yet (PORTING_PLAN.md Phase 9).
+//! Tests: `tests/feature/sift.rs` (`sift_test.cc`'s extraction cases),
+//! `tests/feature/sift_matching.rs` and `tests/feature/sift_guided_matching.rs` (its CPU
+//! matcher cases), and `tests/feature/rust_only_sift.rs` (pycolmap fixtures, reuse,
+//! cancellation).
+
+use std::fmt;
+use std::sync::Arc;
+
+use super::index::FeatureDescriptorIndexCache;
 
 pub mod cpu_extractor;
+pub mod cpu_matcher;
+pub mod features_text;
+pub mod guided_matching;
+pub(crate) mod match_kernels;
+
+#[cfg(test)]
+mod tests;
 
 /// `kSiftDescriptorDim`: the length of a SIFT descriptor.
 pub const SIFT_DESCRIPTOR_DIM: usize = 128;
@@ -124,5 +142,57 @@ impl SiftExtractionOptions {
             return false;
         }
         true
+    }
+}
+
+/// Port of `colmap::SiftMatchingOptions` (minus the ONNX LightGlue options).
+#[derive(Clone)]
+pub struct SiftMatchingOptions {
+    /// Maximum distance ratio between first and second best match.
+    pub max_ratio: f64,
+    /// Maximum distance to best match.
+    pub max_distance: f64,
+    /// Whether to enable cross checking in matching.
+    pub cross_check: bool,
+    /// Whether to use brute-force instead of index based CPU matching.
+    pub cpu_brute_force_matcher: bool,
+    /// Cache for reusing descriptor index for feature matching. Required unless
+    /// `cpu_brute_force_matcher`. Shared, not copied, by `Clone` (COLMAP's raw pointer).
+    pub cpu_descriptor_index_cache: Option<Arc<dyn FeatureDescriptorIndexCache>>,
+}
+
+impl Default for SiftMatchingOptions {
+    fn default() -> Self {
+        Self {
+            max_ratio: 0.8,
+            max_distance: 0.7,
+            cross_check: true,
+            cpu_brute_force_matcher: false,
+            cpu_descriptor_index_cache: None,
+        }
+    }
+}
+
+impl fmt::Debug for SiftMatchingOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SiftMatchingOptions")
+            .field("max_ratio", &self.max_ratio)
+            .field("max_distance", &self.max_distance)
+            .field("cross_check", &self.cross_check)
+            .field("cpu_brute_force_matcher", &self.cpu_brute_force_matcher)
+            .field(
+                "cpu_descriptor_index_cache",
+                &self.cpu_descriptor_index_cache.as_ref().map(|_| "<cache>"),
+            )
+            .finish()
+    }
+}
+
+impl SiftMatchingOptions {
+    /// Port of `SiftMatchingOptions::Check` (`CHECK_OPTION_*`: false on a violation; NaN
+    /// fails, as the C++ comparisons do).
+    #[allow(clippy::neg_cmp_op_on_partial_ord)] // `!(a > b)`: NaN fails, as in C++.
+    pub fn check(&self) -> bool {
+        self.max_ratio > 0.0 && self.max_distance > 0.0
     }
 }

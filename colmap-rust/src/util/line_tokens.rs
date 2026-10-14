@@ -8,13 +8,14 @@
 //! C++ sets `failbit`. Spellings follow libc++'s `num_get`: an unsigned integer accepts an
 //! optional '-' and negates with wrap-around ("-1" reads as the maximum), and a magnitude
 //! above the type's maximum fails; a double is parsed by
-//! [`crate::util::string::parse_double_token`] (decimal and exponent notation; entry 60).
+//! [`crate::util::string::parse_double_token`] (decimal and exponent notation; entry 60), and a
+//! float by `parse_float_token`, which accepts the same spellings and rounds once to `f32`.
 //! A token is taken whole, so "12abc" fails where libc++ would read 12 into an integer and
 //! leave "abc" for the next extraction (docs/CPP_DIVERGENCES.md entry 241).
 
 use std::io::Read;
 
-use crate::util::string::parse_double_token;
+use crate::util::string::{parse_double_token, parse_float_token};
 
 /// The characters C's `isspace` accepts in the "C" locale: what separates tokens.
 const C_ISSPACE: &[char] = &[' ', '\t', '\n', '\u{b}', '\u{c}', '\r'];
@@ -71,6 +72,11 @@ impl<'a> LineTokens<'a> {
     /// `stream >> double`.
     pub fn read_f64(&mut self) -> Option<f64> {
         self.take(parse_double_token)
+    }
+
+    /// `stream >> float`.
+    pub fn read_f32(&mut self) -> Option<f32> {
+        self.take(parse_float_token)
     }
 
     /// `stream >> uint32_t`.
