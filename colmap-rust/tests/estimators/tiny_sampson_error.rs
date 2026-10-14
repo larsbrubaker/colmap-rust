@@ -5,14 +5,15 @@
 // bars.
 //
 // Not ported yet (they need Ceres autodiff, which the solver phase brings, with the general
-// Jet): TinyTangentSampsonErrorCostFunctor.MatchesAutodiffCostFunctor,
-// TinyFocalSampsonErrorCostFunctor.MatchesSquaredSampsonError (that functor is autodiff-only)
-// and TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction.
+// Jet): TinyTangentSampsonErrorCostFunctor.MatchesAutodiffCostFunctor and
+// TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction.
+// TinyFocalSampsonErrorCostFunctor is autodiff-only in C++; its closed-form Jacobian here is
+// pinned against finite differences by a rust_only test (docs/CPP_DIVERGENCES.md, entry 252).
 
 use crate::expect_near;
 use colmap_rust::estimators::cost_functions::{
-    TinyFundamentalSampsonErrorCostFunctor, TinyOneSidedFocalTangentSampsonErrorCostFunctor,
-    TinyTangentSampsonErrorCostFunctor,
+    TinyFocalSampsonErrorCostFunctor, TinyFundamentalSampsonErrorCostFunctor,
+    TinyOneSidedFocalTangentSampsonErrorCostFunctor, TinyTangentSampsonErrorCostFunctor,
 };
 use colmap_rust::geometry::essential_matrix::{
     compute_squared_sampson_errors, compute_squared_tangent_sampson_error,
@@ -155,6 +156,87 @@ fn tiny_tangent_sampson_error_cost_functor_jacobian_matches_finite_difference() 
     let t = Vector3d::new(0.6, -0.3, 1.0).normalized();
     let p = [q.x, q.y, q.z, q.w, t.x, t.y, t.z];
     check_jacobian_against_finite_differences(&functor, &p);
+}
+
+// Principal-point-centered image points (u - cx, v - cy), not calibrated rays, shared by the
+// focal functor tests.
+fn focal_test_points1() -> Vec<Vector2d> {
+    vec![
+        Vector2d::new(120.0, -45.0),
+        Vector2d::new(-200.0, 80.0),
+        Vector2d::new(33.0, 210.0),
+    ]
+}
+
+fn focal_test_points2() -> Vec<Vector2d> {
+    vec![
+        Vector2d::new(95.0, -60.0),
+        Vector2d::new(-180.0, 100.0),
+        Vector2d::new(50.0, 190.0),
+    ]
+}
+
+#[test]
+fn tiny_focal_sampson_error_cost_functor_matches_squared_sampson_error() {
+    let points1 = focal_test_points1();
+    let points2 = focal_test_points2();
+    let functor = TinyFocalSampsonErrorCostFunctor::new(&points1, &points2).unwrap();
+
+    let q0 = quaternion(0.7, Vector3d::new(0.3, -1.0, 0.5));
+    let t0 = Vector3d::new(1.0, -0.5, 2.0).normalized();
+    let q1 = quaternion(0.25, Vector3d::new(-0.6, 0.4, 1.0));
+    let t1 = Vector3d::new(-0.7, 1.1, 0.3).normalized();
+
+    let quaternions = [q0, q1];
+    let translations = [t0, t1];
+    let focals = [900.0, 1500.0];
+
+    for k in 0..quaternions.len() {
+        let q = quaternions[k].normalized();
+        let t = translations[k];
+        let focal = focals[k];
+        let params = [q.x, q.y, q.z, q.w, t.x, t.y, t.z, fns::ln(focal)];
+
+        let mut residuals = vec![0.0; points1.len()];
+        assert!(functor.evaluate(&params, &mut residuals, None));
+
+        // Independent reference: build the pixel-space fundamental matrix and evaluate the
+        // squared Sampson error with a matrix-based implementation.
+        let e = essential_matrix_from_pose(&Rigid3d::new(q, t));
+        let inv_f = 1.0 / focal;
+        let k_inv = Matrix3d::from_diagonal(Vector3d::new(inv_f, inv_f, 1.0));
+        let f = k_inv * e * k_inv;
+        let expected_squared = compute_squared_sampson_errors(&points1, &points2, &f).unwrap();
+
+        for i in 0..points1.len() {
+            expect_near(residuals[i] * residuals[i], expected_squared[i], 1e-9);
+        }
+    }
+}
+
+// The closed-form 8-parameter Jacobian (C++ differentiates this functor by autodiff) matches
+// central finite differences, including the log-focal column, at two poses and focals.
+#[test]
+fn rust_only_tiny_focal_sampson_error_cost_functor_jacobian_matches_finite_difference() {
+    let points1 = focal_test_points1();
+    let points2 = focal_test_points2();
+    let functor = TinyFocalSampsonErrorCostFunctor::new(&points1, &points2).unwrap();
+
+    for (q, t, focal) in [
+        (
+            quaternion(0.7, Vector3d::new(0.2, -1.0, 0.5)),
+            Vector3d::new(0.6, -0.3, 1.0).normalized(),
+            1100.0,
+        ),
+        (
+            quaternion(0.25, Vector3d::new(-0.6, 0.4, 1.0)),
+            Vector3d::new(-0.7, 1.1, 0.3).normalized(),
+            450.0,
+        ),
+    ] {
+        let p = [q.x, q.y, q.z, q.w, t.x, t.y, t.z, fns::ln(focal)];
+        check_jacobian_against_finite_differences(&functor, &p);
+    }
 }
 
 // Centered image points of the uncalibrated view and bearing rays with unprojection

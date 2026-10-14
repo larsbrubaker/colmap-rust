@@ -1536,6 +1536,35 @@ TinySolver stops before converging (the 25-iteration cap of
 `EssentialMatrixTangentSampsonEstimator`'s refinement, LO-RANSAC's ten refit rounds), the
 relative poses its global-SfM oracle test re-estimates agree with pycolmap to 6.5e-7 deg.
 
+## 252. TinyFocalSampsonErrorCostFunctor's Jacobian is closed-form, not Ceres autodiff
+
+**What differs.** COLMAP's `TinyFocalSampsonErrorCostFunctor`
+(`estimators/cost_functions/tiny_sampson_error.h`), the refiner of
+`RelativePoseSharedFocalEstimator::Refine`, is a templated functor that TinySolver
+differentiates through `ceres::TinySolverAutoDiffFunction` (Jets).
+`estimators/cost_functions/tiny_sampson_error.rs` evaluates the same residual,
+`SampsonError(F, point1, point2)` with F = diag(1/f, 1/f, 1) E diag(1/f, 1/f, 1), in the same
+arithmetic order, and computes its 8-parameter Jacobian in closed form: dr/dF contracted with
+dF/d[q, t, log_f], where the pose columns are COLMAP's dE/d[q, t] carried through the focal
+scaling and d F/d(log_f) negates F with the top-left 2x2 block doubled and F(2, 2) zeroed. It
+is the exact derivative of the same function, so it differs from autodiff's only by rounding;
+TinySolver's iterates can therefore differ in the last bits.
+
+**Why.** The general Jet and `TinySolverAutoDiffFunction` belong to the solver phase (Ceres
+replacement), and the shared-focal estimator would otherwise wait for it. The closed form is the
+pattern COLMAP itself uses for the neighboring tangent, one-sided focal and fundamental
+functors in the same header, and it is cheaper than autodiff. TinySolver is Tier C, so what
+must agree is the converged result.
+
+**Evidence.** `tests/estimators/tiny_sampson_error.rs`:
+`tiny_focal_sampson_error_cost_functor_matches_squared_sampson_error` (the 1:1
+`TinyFocalSampsonErrorCostFunctor.MatchesSquaredSampsonError`, residuals within 1e-9) and
+`rust_only_tiny_focal_sampson_error_cost_functor_jacobian_matches_finite_difference` (every
+column, log-focal included, against central differences within 1e-5 at two poses and focals;
+scaling the log-focal column wrongly fails it). `tests/estimators/relpose_shared_focal.rs`'s
+1:1 `relative_pose_shared_focal_estimator_refine_from_initial_model` converges from a 10%
+focal error to within 1% on all 50 draws, and fails with that same mutation.
+
 ## 255. The six-point focal relative pose solvers take their null space from unpivoted Householder QR
 
 **What differs.** PoseLib's `relpose_6pt_shared_focal` and `relpose_6pt_onesided_focal` (the

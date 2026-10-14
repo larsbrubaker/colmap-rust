@@ -18,6 +18,10 @@
 //! - [`similarity_transform`]: [`SimilarityTransformEstimator`] and
 //!   [`EuclideanTransformEstimator`] (Umeyama), [`estimate_rigid3d`], [`estimate_sim3d`] and
 //!   their LO-RANSAC variants.
+//! - [`relpose_shared_focal`]: [`RelativePoseSharedFocalEstimator`], relative pose plus one
+//!   shared unknown focal length from centered image points.
+//! - [`relpose_one_sided_focal`]: [`RelativePoseOneSidedFocalEstimator`], relative pose plus
+//!   the first view's unknown focal, the second view calibrated.
 //! - [`poselib`]: the PoseLib solvers and helpers they are built on.
 //! - [`poselib_utils`]: conversions between COLMAP's camera and pose types and PoseLib's.
 
@@ -35,6 +39,8 @@ pub mod generalized_relative_pose;
 pub mod homography_matrix;
 pub mod poselib;
 pub mod poselib_utils;
+pub mod relpose_one_sided_focal;
+pub mod relpose_shared_focal;
 pub mod similarity_transform;
 pub mod translation_transform;
 
@@ -58,6 +64,10 @@ pub use generalized_relative_pose::{GR6PEstimator, GRNPObservation};
 pub use homography_matrix::{
     CamRayWithImgPoint, HomographyMatrixEstimator, HomographyMatrixRayEstimator,
 };
+pub use relpose_one_sided_focal::{
+    RelativePoseOneSidedFocalEstimator, RelativePoseOneSidedFocalModel,
+};
+pub use relpose_shared_focal::{RelativePoseSharedFocalEstimator, RelativePoseSharedFocalModel};
 pub use similarity_transform::{
     estimate_rigid3d, estimate_rigid3d_robust, estimate_sim3d, estimate_sim3d_robust,
     EuclideanTransformEstimator, SimilarityTransformEstimator, SimilarityTransformReport,

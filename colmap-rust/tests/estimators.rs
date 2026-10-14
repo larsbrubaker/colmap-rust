@@ -26,6 +26,10 @@ mod homography_matrix;
 mod poselib_utils;
 #[path = "estimators/quaternion_utils.rs"]
 mod quaternion_utils;
+#[path = "estimators/relpose_one_sided_focal.rs"]
+mod relpose_one_sided_focal;
+#[path = "estimators/relpose_shared_focal.rs"]
+mod relpose_shared_focal;
 #[path = "estimators/rust_only_camera_pose.rs"]
 mod rust_only_camera_pose;
 #[path = "estimators/rust_only_gen_relpose_6pt.rs"]

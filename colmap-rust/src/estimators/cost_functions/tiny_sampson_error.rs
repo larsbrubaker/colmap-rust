@@ -7,14 +7,17 @@
 //!
 //! - [`TinyTangentSampsonErrorCostFunctor`]: pixel-space tangent Sampson error of a calibrated
 //!   relative pose (the refiner of `EssentialMatrixTangentSampsonEstimator`).
+//! - [`TinyFocalSampsonErrorCostFunctor`]: pixel-space Sampson error of a pose plus a shared
+//!   log-focal (the refiner of `relpose_shared_focal`). C++ differentiates it by autodiff;
+//!   here its Jacobian is closed-form like the others (docs/CPP_DIVERGENCES.md, entry 252).
 //! - [`TinyOneSidedFocalTangentSampsonErrorCostFunctor`]: a pose plus the first view's
 //!   log-focal (the refiner of `relpose_one_sided_focal`).
 //! - [`TinyFundamentalSampsonErrorCostFunctor`]: a fundamental matrix in Bartoli and Sturm's
 //!   minimal SVD parameterization (the refiner of the fundamental matrix estimators).
 //!
-//! The header's autodiff-only `TinyFocalSampsonErrorCostFunctor` and the generic (Jet)
-//! `operator()` of the one-sided functor, with their `ceres::TinySolverAutoDiffFunction`
-//! wrappers, arrive with the solver phase, which owns the general Jet.
+//! The generic (Jet) `operator()` of the one-sided functor and the
+//! `ceres::TinySolverAutoDiffFunction` wrappers arrive with the solver phase, which owns the
+//! general Jet.
 //!
 //! The relative-pose functors build E = [t]_x R from the Rigid3d parameter layout
 //! [qx, qy, qz, qw, tx, ty, tz]. Jacobians are column-major `num_residuals x NUM_PARAMETERS`.
@@ -208,6 +211,133 @@ impl TinySolverFunction for TinyTangentSampsonErrorCostFunctor<'_> {
                     - coef * (outer(ray2, j1a) + outer(j2b, ray1));
                 for (l, d) in d_e.iter().enumerate() {
                     jac[i + l * n] = cwise_product_sum(&drd_e, d);
+                }
+            }
+        }
+        true
+    }
+}
+
+/// `F = diag(inv_f, inv_f, 1) * E * diag(inv_f, inv_f, 1)` in C++'s operation order: the
+/// top-left 2x2 block times `inv_f * inv_f`, the rest of the last column and row times
+/// `inv_f`.
+fn shared_focal_scaled(e: Matrix3d, inv_f: f64) -> Matrix3d {
+    let mut f = e;
+    let inv_f_sq = inv_f * inv_f;
+    for row in 0..2 {
+        for col in 0..2 {
+            f[(row, col)] *= inv_f_sq;
+        }
+    }
+    for k in 0..2 {
+        f[(k, 2)] *= inv_f;
+        f[(2, k)] *= inv_f;
+    }
+    f
+}
+
+/// Port of `colmap::TinyFocalSampsonErrorCostFunctor`: Sampson-error cost for fixed-size
+/// TinySolver refinement of a two-view relative pose *and* a shared, unknown focal length.
+///
+/// The pose is parameterized as [qx, qy, qz, qw, tx, ty, tz] and the focal is appended as an
+/// eighth parameter optimized in log-space (log_f), which keeps it strictly positive and
+/// gives a scale-invariant step. The essential matrix is built from the pose, then converted
+/// to the fundamental matrix implied by the focal so the Sampson error is measured in *pixel*
+/// space: F = diag(1/f, 1/f, 1) * E * diag(1/f, 1/f, 1), f = exp(log_f). The inputs
+/// points1/points2 are therefore principal-point-centered image points (u - cx, v - cy), not
+/// calibrated rays. The 6-DoF manifold (rotation on SO(3), translation on the unit sphere,
+/// log-focal) is applied by the solver.
+///
+/// C++ differentiates this functor with Ceres autodiff
+/// (`ceres::TinySolverAutoDiffFunction`). Here the 8-parameter Jacobian is closed-form,
+/// dr/dF contracted with dF/d[q, t, log_f], as for the neighboring functors: the same
+/// derivative up to rounding (docs/CPP_DIVERGENCES.md, entry 252). The residual follows the
+/// C++ arithmetic of `SampsonError` exactly.
+#[derive(Clone, Copy, Debug)]
+pub struct TinyFocalSampsonErrorCostFunctor<'a> {
+    points1: &'a [Vector2d],
+    points2: &'a [Vector2d],
+}
+
+impl<'a> TinyFocalSampsonErrorCostFunctor<'a> {
+    /// The cost of the centered image point correspondences `points1[i]` <-> `points2[i]`.
+    pub fn new(points1: &'a [Vector2d], points2: &'a [Vector2d]) -> Result<Self> {
+        check_eq!(points1.len(), points2.len());
+        Ok(Self { points1, points2 })
+    }
+}
+
+impl TinySolverFunction for TinyFocalSampsonErrorCostFunctor<'_> {
+    const NUM_PARAMETERS: usize = 8;
+
+    fn num_residuals(&self) -> usize {
+        self.points1.len()
+    }
+
+    fn evaluate(
+        &self,
+        params: &[f64],
+        residuals: &mut [f64],
+        mut jacobian: Option<&mut [f64]>,
+    ) -> bool {
+        // Build E once from the pose, then scale it into the pixel-space fundamental matrix
+        // F = diag(inv_f, inv_f, 1) * E * diag(inv_f, inv_f, 1).
+        let r = rotation_from_params(params);
+        let t_x = cross_from_params(params);
+        let inv_f = fns::exp(-params[7]);
+        let f = shared_focal_scaled(t_x * r, inv_f);
+
+        let mut d_f = [Matrix3d::zeros(); 8];
+        if jacobian.is_some() {
+            essential_derivatives(params, t_x, r, &mut d_f);
+            // The pose derivatives are of E, so carry them through the same scaling that
+            // turns E into F.
+            for d in d_f.iter_mut().take(7) {
+                *d = shared_focal_scaled(*d, inv_f);
+            }
+            // d(inv_f^2)/d(log_f) = -2 inv_f^2 and d(inv_f)/d(log_f) = -inv_f, while F(2, 2)
+            // carries no focal.
+            let mut d7 = -f;
+            for row in 0..2 {
+                for col in 0..2 {
+                    d7[(row, col)] *= 2.0;
+                }
+            }
+            d7[(2, 2)] = 0.0;
+            d_f[7] = d7;
+        }
+
+        let n = self.points1.len();
+        for i in 0..n {
+            // SampsonError: the constraint and the first two components of each view's
+            // constraint gradient.
+            let point1 = self.points1[i].homogeneous();
+            let point2 = self.points2[i].homogeneous();
+            let epipolar_line1 = f * point1;
+            let num = point2.dot(epipolar_line1);
+            let d0 = point2.dot(f.col(0));
+            let d1 = point2.dot(f.col(1));
+            // Eigen's unrolled (non-vectorized, as for the Jets C++ refines with) reduction
+            // of the 4-vector's squared norm sums the halves first.
+            let denom = (d0 * d0 + d1 * d1)
+                + (epipolar_line1.x * epipolar_line1.x + epipolar_line1.y * epipolar_line1.y);
+            let sqrt_denom = fns::sqrt(denom);
+            if sqrt_denom == 0.0 {
+                zero_residual(i, n, 8, residuals, jacobian.as_deref_mut());
+                continue;
+            }
+            residuals[i] = num / sqrt_denom;
+            if let Some(jac) = jacobian.as_deref_mut() {
+                // dr/dF = (1/sqrt_denom) point2 point1^T
+                //         - (num/denom^1.5) (point2 g1^T + g2 point1^T), where g1 and g2
+                // are F^T point2 and F point1 with the third component dropped.
+                let g1 = Vector3d::new(d0, d1, 0.0);
+                let g2 = Vector3d::new(epipolar_line1.x, epipolar_line1.y, 0.0);
+                let coef = num / (denom * sqrt_denom);
+                let drd_f = (1.0 / sqrt_denom) * outer(point2, point1)
+                    - coef * (outer(point2, g1) + outer(g2, point1));
+                for (l, d) in d_f.iter().enumerate() {
+                    jac[i + l * n] = cwise_product_sum(&drd_f, d);
                 }
             }
         }

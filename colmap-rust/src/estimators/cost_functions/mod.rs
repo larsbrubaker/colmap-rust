@@ -15,6 +15,7 @@ pub mod tiny_manifold;
 pub mod tiny_sampson_error;
 
 pub use tiny_manifold::{TinyEigenQuaternionManifold, TinyProductManifold, TinySphereManifold};
+pub use tiny_sampson_error::TinyFocalSampsonErrorCostFunctor;
 pub use tiny_sampson_error::{
     TinyFundamentalSampsonErrorCostFunctor, TinyOneSidedFocalTangentSampsonErrorCostFunctor,
     TinyTangentSampsonErrorCostFunctor,
