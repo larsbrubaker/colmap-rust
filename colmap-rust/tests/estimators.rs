@@ -26,6 +26,8 @@ mod generalized_absolute_pose;
 mod generalized_relative_pose;
 #[path = "estimators/homography_matrix.rs"]
 mod homography_matrix;
+#[path = "estimators/pose.rs"]
+mod pose;
 #[path = "estimators/poselib_utils.rs"]
 mod poselib_utils;
 #[path = "estimators/quaternion_utils.rs"]
