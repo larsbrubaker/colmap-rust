@@ -1,6 +1,7 @@
 /target
 **/target
 cpp-reference/
+ceres-reference/
 oracle/.venv/
 __pycache__/
 web/node_modules/

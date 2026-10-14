@@ -123,9 +123,9 @@ kernels), `LinearOperator`, `SparseMatrix`/`DenseSparseMatrix`, the compressed-r
 structure, `BlockSparseMatrix`, and the dense, sparse and diagonal `BlockRandomAccessMatrix`
 (cells resolved once to a `CellLocation`), Ceres' losses with the `Corrector`, the
 `Manifold` trait (Euclidean, Subset, Quaternion, EigenQuaternion, Sphere, Product; kept apart
-from the tiny-solver manifolds, whose math differs) and the polynomial helpers. Ceres' own
-sources are not on this machine; the port follows colmap-sharp's citations. Slices left, in
-dependency order:
+from the tiny-solver manifolds, whose math differs) and the polynomial helpers. Ceres 2.2.0's
+source is in `ceres-reference/` (`scripts/fetch-reference.sh`); `manifold_test.cc` and the other
+Ceres tests not yet ported can be checked there. Slices left, in dependency order:
 3. The problem model: ParameterBlock, ResidualBlock, Problem, Problem.Evaluate,
    ParameterBlockOrdering, Program, `BlockJacobianLayout` (tests Problem, OrderedGroups, ParameterBlockOrdering;
    colmap-sharp entries 36, 37, 53).

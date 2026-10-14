@@ -49,6 +49,9 @@ Explain the trade-offs, then defer once a decision is made.
 - **COLMAP's C++ (`cpp-reference/`) is the specification** for COLMAP's own code. Always read
   the C++ function *and everything it calls* before porting it. Tests are ported from the
   `*_test.cc` files, not from colmap-sharp's C# tests.
+- **Ceres Solver 2.2.0 (`ceres-reference/`)** is the reference for the solver (`solver/`), the
+  version colmap-sharp's `Solver/` follows. Read the Ceres source a colmap-sharp file cites before
+  porting it, and port Ceres' own tests (`internal/ceres/*_test.cc`) where they cover what lands.
 - **colmap-sharp is the worked map.** Before porting a module, read colmap-sharp's port of it,
   its tests and the `CPP_DIVERGENCES.md` entries that cite it: they record every trap already
   found (tie orders, libc++ distribution details, hash iteration order, FMA contraction). For
@@ -260,7 +263,7 @@ cargo clippy --workspace -- -D warnings
 cargo run -p colmap-native                            # desktop app
 web/build.sh && (cd web && bun run serve)             # web app at localhost
 (cd web && bunx playwright test)                      # browser smoke test
-scripts/fetch-reference.sh                            # C++ reference into cpp-reference/
+scripts/fetch-reference.sh                            # COLMAP into cpp-reference/, Ceres into ceres-reference/
 oracle/setup.sh && oracle/.venv/bin/python oracle/<script>.py   # regenerate fixtures
 ```
 
@@ -285,7 +288,7 @@ error. A deliverable is one coherent slice of a `PORTING_PLAN.md` phase with its
 Implementers that may run concurrently get `isolation: "worktree"`.
 
 Working conventions that every brief repeats:
-- A new worktree starts with `git reset --hard main`. `cpp-reference/` and `oracle/.venv` are
+- A new worktree starts with `git reset --hard main`. `cpp-reference/`, `ceres-reference/` and `oracle/.venv` are
   git-ignored, so worktrees read them from the main checkout. On a fresh machine run
   `scripts/fetch-reference.sh` and `oracle/setup.sh` first.
 - Implementers commit on their own branch and never push or edit `PORTING_PLAN.md`; they list
