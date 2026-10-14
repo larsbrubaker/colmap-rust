@@ -25,7 +25,9 @@ visible in the app so the web build is the integration test.
 - Phase 5: all of optim/ (RANSAC family, sparse_cholesky, least_absolute_deviations,
   tiny_solver).
 - Phase 6: `SimilarityTransformEstimator`, `poselib_utils`, the PoseLib CameraPose,
-  PoseLibCamera, sturm, re3q3, p3p, gp3p, p4pf and relpose_5pt solvers, and COLMAP's
+  PoseLibCamera, `ImagePair`, essential (motion from E, cheirality), sturm, re3q3, p3p, gp3p,
+  p4pf, relpose_5pt, relpose_6pt_shared_focal, relpose_6pt_onesided_focal and gen_relpose_6pt
+  solvers, and COLMAP's
   `absolute_pose` (P3P, P4Pf, EPnP, `ComputeSquaredReprojectionError`) and
   `generalized_absolute_pose` (GP3P).
 - Phase 9: feature types and utils, VLFeat's CPU SIFT, `SiftCPUFeatureExtractor`, the
@@ -109,9 +111,8 @@ Remaining:
 - 6b (b), after (a): COLMAP's `essential_matrix` solvers: FivePoint (its over-determined path
   needs the generated `essential_matrix_poly` / `essential_matrix_coeffs`, colmap-sharp's
   `EssentialMatrixPolynomials`), EightPoint and TangentSampson, with `essential_matrix_test.cc`.
-- The rest of PoseLib (port colmap-sharp's `Estimators/Solvers/PoseLib/`): Essential,
-  Relpose6ptSharedFocal, Relpose6ptOnesidedFocal, GenRelpose6pt and `ImagePair`; then COLMAP's
-  `relpose_shared_focal` and `relpose_one_sided_focal`.
+- After (a): COLMAP's `relpose_shared_focal` and `relpose_one_sided_focal` (their `Refine` needs
+  the tiny manifolds and the focal Sampson functors), with their tests.
 - The other `estimators/solvers/*`: `affine_transform`, `euclidean_transform`,
   `translation_transform`, `fundamental_matrix`, `homography_matrix`,
   `generalized_relative_pose`.
