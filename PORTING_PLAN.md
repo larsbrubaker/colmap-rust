@@ -121,9 +121,11 @@ rotation conversions, `CostFunction`, `AutoDiffCostFunction`, `TinySolverAutoDif
 `sampson_error.h` functors, the small BLAS kernels (`Operation` enum, const-generic fixed
 kernels), `LinearOperator`, `SparseMatrix`/`DenseSparseMatrix`, the compressed-row block
 structure, `BlockSparseMatrix`, and the dense, sparse and diagonal `BlockRandomAccessMatrix`
-(cells resolved once to a `CellLocation`). Slices left, in dependency order:
-2. Losses and manifolds: LossFunctions, Manifolds, SphereProductManifolds, CeresPolynomial
-   (tests LossFunction, Corrector, Manifold, CeresPolynomial).
+(cells resolved once to a `CellLocation`), Ceres' losses with the `Corrector`, the
+`Manifold` trait (Euclidean, Subset, Quaternion, EigenQuaternion, Sphere, Product; kept apart
+from the tiny-solver manifolds, whose math differs) and the polynomial helpers. Ceres' own
+sources are not on this machine; the port follows colmap-sharp's citations. Slices left, in
+dependency order:
 3. The problem model: ParameterBlock, ResidualBlock, Problem, Problem.Evaluate,
    ParameterBlockOrdering, Program, `BlockJacobianLayout` (tests Problem, OrderedGroups, ParameterBlockOrdering;
    colmap-sharp entries 36, 37, 53).
