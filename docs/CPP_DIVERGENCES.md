@@ -1192,3 +1192,59 @@ VLFeat-on-macOS's bits on every target, native and wasm, which is what entry 1 a
 `rust_only_vl_sift_filter_matches_unfused_vlfeat_*` tests are bit-exact with the table (with
 `libm`'s `exp`, four of them fail on an orientation's last bit);
 `rust_only_vl_sift_expn_table_is_exp` checks every entry within 1 ulp of `fns::exp`.
+
+## 210. CorrespondenceGraph lists image pairs in insertion order
+
+**What differs.** `CorrespondenceGraph::image_pairs` and `num_matches_between_all_images`
+(`scene/correspondence_graph.rs`) enumerate the image pairs in the order
+`add_two_view_geometry` added them. COLMAP iterates its `FlatHashMap<image_pair_t, ImagePair>`,
+whose order is the hash table's: `std::unordered_map` or `boost::unordered_flat_map`, whichever
+`COLMAP_HASH_MAP_BACKEND` the build picked, so it is not even the same across COLMAP builds.
+`NumMatchesBetweenAllImages` returns a `NodeHashMap`; here it is a `Vec<(pair id, number of
+matches)>`, since every COLMAP caller (`ObservationManager`, `PoseGraph::Load`,
+`SceneClustering`, `DatabaseCache`) only iterates it.
+
+**Why.** CLAUDE.md requires deterministic iteration, and reproducing either backend's bucket
+layout would mean porting it; the order is not part of COLMAP's contract
+(`correspondence_graph_test.cc` compares `ImagePairs()` with `UnorderedElementsAre` and reads
+`NumMatchesBetweenAllImages()` by key). Insertion order rather than ascending pair id keeps
+colmap-rust and colmap-sharp walking the pairs in the same order, so pipelines that iterate
+them (the pose graph and the global mapper) agree between the two ports. Every per-point
+correspondence list, `extract_matches_between_images` and `extract_transitive_correspondences`
+are in COLMAP's order already (they come from vectors, not hash iteration).
+Same as colmap-sharp entry 14.
+
+**Evidence.** `tests/scene/correspondence_graph.rs` (`correspondence_graph_test.cc` 1:1)
+passes; `tests/scene/rust_only_correspondence_graph.rs`
+`rust_only_correspondence_graph_pairs_in_insertion_order` pins the order.
+
+## 211. CorrespondenceGraph does not log dropped matches
+
+**What differs.** COLMAP's `AddTwoViewGeometry` emits a `LOG(WARNING)` line for a self-match
+(`image_id1 == image_id2`), for each match whose point index is out of bounds and for each
+duplicate match. `CorrespondenceGraph::add_two_view_geometry` drops and counts them exactly as
+COLMAP does, without the log lines.
+
+**Why.** The core crate has no logging facility yet (COLMAP's glog is not ported); the lines are
+diagnostic only, and the counts, which are the function's contract, are unchanged. When a
+logger lands, this entry goes away (as entry 84).
+
+**Evidence.** `tests/scene/correspondence_graph.rs` `correspondence_graph_out_of_bounds` and
+`correspondence_graph_duplicate` (1:1) check the counts; `tests/scene/rust_only_correspondence_graph.rs`
+`rust_only_correspondence_graph_self_match_is_ignored`.
+
+## 212. A rejected AddTwoViewGeometry leaves the correspondence graph unchanged
+
+**What differs.** COLMAP's `AddTwoViewGeometry` adds the match count to both images'
+`num_correspondences` before its `THROW_CHECK(inserted)` for a pair that was already added
+(and before `ImagePairToPairId` rejects an id beyond `kMaxNumImages`), so the throw leaves
+both totals inflated. `CorrespondenceGraph::add_two_view_geometry` checks the
+pair (and that both images exist) first, so an `Err` leaves the graph as it was.
+
+**Why.** A failed call that half-applies is a bug: after it, the counts the incremental mapper
+uses to pick its initial pair no longer match the stored correspondences. No caller relies on
+the inflated totals.
+
+**Evidence.** `tests/scene/rust_only_correspondence_graph.rs`
+`rust_only_correspondence_graph_rejected_duplicate_pair_leaves_graph_unchanged` and
+`rust_only_correspondence_graph_missing_image_is_out_of_range`.

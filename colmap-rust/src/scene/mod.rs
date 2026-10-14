@@ -10,6 +10,8 @@
 //! - [`point3d`]: `point3d.h` / `point3d.cc`, a triangulated point with its track;
 //! - [`track`]: `track.h` / `track.cc`, the observations of a 3D point;
 //! - [`camera`]: `camera.h` / `camera.cc`, a camera model with its parameters;
+//! - [`correspondence_graph`]: `correspondence_graph.h` / `.cc`, the feature correspondences
+//!   between all images;
 //! - [`frame`]: `frame.h` / `frame.cc`, a posed instance of a rig with its measurements;
 //! - [`image`]: `image.h` / `image.cc`, one exposure: its features, camera and frame;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
@@ -18,6 +20,7 @@
 //!   pair.
 
 pub mod camera;
+pub mod correspondence_graph;
 pub mod frame;
 pub mod image;
 pub mod point2d;

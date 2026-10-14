@@ -6,6 +6,8 @@
 
 #[path = "scene/camera.rs"]
 mod camera;
+#[path = "scene/correspondence_graph.rs"]
+mod correspondence_graph;
 #[path = "scene/frame.rs"]
 mod frame;
 #[path = "scene/image.rs"]
@@ -16,6 +18,8 @@ mod point2d;
 mod point3d;
 #[path = "scene/projection.rs"]
 mod projection;
+#[path = "scene/rust_only_correspondence_graph.rs"]
+mod rust_only_correspondence_graph;
 #[path = "scene/rust_only_frame_image.rs"]
 mod rust_only_frame_image;
 #[path = "scene/rust_only_scene_types.rs"]
