@@ -1043,6 +1043,64 @@ agree.
 `tests/scene/rust_only_scene_types.rs`: `rust_only_visibility_pyramid_eight_levels_max_score`
 and `rust_only_visibility_pyramid_out_of_range_points_clamp`.
 
+## 170. Frames and images store ids, not pointers to their rig, camera and frame
+
+**What differs.** COLMAP's `Frame` holds a raw `Rig* rig_ptr_`, and its `Image` holds
+`Camera* camera_ptr_` and `Frame* frame_ptr_`; the reconstruction sets them (`SetRigPtr`,
+`SetCameraPtr`, `SetFramePtr`) and clears them (`Reset*Ptr`), and methods such as
+`Frame::SensorFromWorld`, `Image::CamFromWorld` and `Image::ProjectPoint` follow them.
+`scene/frame.rs` and `scene/image.rs` store only the ids; the owner of the maps passes the
+objects to the methods that need them, and each method checks it was handed the right one:
+- `Frame::sensor_from_world(&rig, ..)`, `set_cam_from_world(&rig, ..)`;
+  `Image::cam_from_world(&frame, &rig)`, `projection_center`, `viewing_direction`,
+  `is_ref_in_frame` (same parameters), `project_point(&frame, &rig, &camera, ..)`. Each fails
+  unless the frame / camera has the image's id and the rig has the frame's rig id, where
+  COLMAP fails on a null pointer.
+- `SetRigPtr`, `SetCameraPtr`, `SetFramePtr` become `Frame::verify_rig`,
+  `Image::verify_camera`, `Image::verify_frame`: the same checks, with nothing stored.
+  Rebinding to another rig / camera / frame (COLMAP's `Set*Ptr` on an already bound object,
+  which adopts the new id) is setting the id, then verifying.
+- `AddDataId` on a frame with a rig (which checks the rig has the sensor) is
+  `Frame::add_data_id_in_rig(&rig, ..)`; `add_data_id` is the unbound form.
+- `Image::HasPose` takes the image's frame as an `Option` (`frames.get(&image.frame_id())`);
+  `operator<<` is `Image::display(frame)`. `Image`'s `PartialEq` compares the image's own data;
+  `Image::eq_with_frames` is COLMAP's `operator==`, which also compares the frames' poses.
+- `RigPtr`, `CameraPtr`, `FramePtr`, `Has*Ptr` and `Reset*Ptr` have no counterpart, and
+  `Frame::set_rig_id` / `Image::set_camera_id` / `Image::set_frame_id` drop COLMAP's
+  `THROW_CHECK(!Has*Ptr())`: there is no binding to protect, and a frame or image inside a
+  reconstruction is only reached through it.
+
+**Why.** CLAUDE.md's translation rule: pointer graphs become ids into owning maps. Shared
+mutable pointers between the reconstruction's maps cannot be expressed in safe Rust without
+`Rc<RefCell<..>>` everywhere, which would make every pose read in bundle adjustment and the
+mapper a runtime borrow check. Passing the owner keeps frames and images plain data that
+clone, move between threads and serialize without fix-ups (COLMAP's reconstruction re-links
+every pointer after a copy; with ids there is nothing to re-link).
+
+**Evidence.** `tests/scene/frame.rs` and `tests/scene/image.rs` port `frame_test.cc` and
+`image_test.cc` 1:1, with the pointer tests (`SetResetRigPtr`, `CameraPtr`, `FramePtr`,
+`ConstructCopy`, `AssignCopy`) as behaviour tests of the id-based API under the C++ names;
+`tests/scene/rust_only_frame_image.rs` checks that every owner-taking method rejects the
+wrong rig, frame or camera, and the two equality forms.
+
+## 171. Image point access out of range panics instead of throwing `std::out_of_range`
+
+**What differs.** COLMAP's `Image::Point2D(idx)`, `SetPoint3DForPoint2D` and
+`ResetPoint3DForPoint2D` go through `std::vector::at`, which throws `std::out_of_range` for a
+bad index. `Image::point2d`, `point2d_mut`, `set_point3d_for_point2d` and
+`reset_point3d_for_point2d` (`scene/image.rs`) index the `Vec` and panic.
+`SetPoint3DForPoint2D`'s `THROW_CHECK_NE(point3D_id, kInvalidPoint3DId)` stays an `Err`.
+
+**Why.** The same reason as entry 160 for `Track`: no COLMAP code catches the exception;
+callers index with feature indices taken from the image itself or from its correspondences,
+so an out-of-range index is a caller bug, an internal invariant where CLAUDE.md's error rule
+allows a panic, and a `Result` on every point access would burden triangulation and bundle
+adjustment.
+
+**Evidence.** `tests/scene/rust_only_frame_image.rs`:
+`rust_only_image_point2d_out_of_range_panics` and
+`rust_only_image_set_point3d_out_of_range_panics`.
+
 ## 180. SIFT descriptors converted from float saturate to 0..255
 
 **What differs.** `FeatureDescriptors::FromFloat` casts each SIFT value with
