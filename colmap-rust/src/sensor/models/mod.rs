@@ -17,8 +17,10 @@
 //! - `jacobian.rs`: the analytic projection Jacobians of `models_jacobian.h`
 //!   ([`CameraModelWithJac`], COLMAP's `ImgFromCamWithJac`) and their shared helpers, with the
 //!   per-model kernels in `jacobian_pinhole.rs`, `jacobian_fisheye.rs` and `jacobian_other.rs`;
-//! - `undistortion.rs`: `IterativeUndistortion`, evaluated on `jet.rs`'s Jet;
-//! - `scalar.rs`: the [`Scalar`] trait the templated model code is generic over.
+//! - `undistortion.rs`: `IterativeUndistortion`, evaluated on [`crate::solver::Jet`].
+//!
+//! The [`Scalar`] trait the templated model code is generic over is [`crate::solver::Scalar`],
+//! re-exported here.
 //!
 //! Design (an API later phases build on):
 //! - COLMAP's CRTP (`struct M : BasePerspectivePinholeCameraModel<M>`) becomes a trait with
@@ -26,8 +28,8 @@
 //!   and calls `M::img_from_cam(...)`, the Rust spelling of `CameraModel::ImgFromCam`, so
 //!   COLMAP's templated tests and, later, its templated cost functions port one to one.
 //! - The functions COLMAP templates over `T` (`ImgFromCam`, `Distortion`, the fisheye
-//!   helpers) are generic over [`Scalar`]: `f64` now, a Ceres-style Jet for the iterative
-//!   undistortion now and for bundle adjustment later. Functions COLMAP only ever
+//!   helpers) are generic over [`Scalar`]: `f64`, and [`crate::solver::Jet`] for the iterative
+//!   undistortion and for the autodiff cost functions. Functions COLMAP only ever
 //!   instantiates for `double` (`CamFromImg`, `CamRayFromImg`, the bogus-parameter checks,
 //!   `CamFromImgThreshold`) take `f64`.
 //! - The per-model functions keep COLMAP's out-parameter shape (`&mut` outputs, `bool`
@@ -39,7 +41,7 @@
 //! wheel come only from its FMA contraction and its libm (docs/CPP_DIVERGENCES.md, entries 1
 //! and 100); `tests/sensor/rust_only_camera_model_oracle.rs` pins what is bit-identical.
 //! Tests: `colmap-rust/tests/sensor.rs`; the Jacobian tests (`models_jacobian_test.cc`), which
-//! differentiate with the crate-private Jet, are the unit tests in `jacobian_tests.rs`.
+//! differentiate with [`crate::solver::Jet`], are the unit tests in `jacobian_tests.rs`.
 
 mod dispatch;
 mod fisheye;
@@ -49,14 +51,13 @@ mod jacobian_other;
 mod jacobian_pinhole;
 #[cfg(test)]
 mod jacobian_tests;
-mod jet;
 mod other;
 mod pinhole;
-mod scalar;
 mod undistortion;
 
 use std::fmt;
 
+pub use crate::solver::Scalar;
 pub use dispatch::*;
 pub use fisheye::{
     FisheyeCameraModel, OpenCVFisheyeCameraModel, RadTanThinPrismFisheyeModel,
@@ -72,7 +73,6 @@ pub use pinhole::{
     FullOpenCVCameraModel, OpenCVCameraModel, PinholeCameraModel, RadialCameraModel,
     SimplePinholeCameraModel, SimpleRadialCameraModel,
 };
-pub use scalar::Scalar;
 pub use undistortion::iterative_undistortion;
 
 use crate::math::fns;

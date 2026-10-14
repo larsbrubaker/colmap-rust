@@ -2,7 +2,7 @@
 //! model's additive distortion `x + d(x) = x0` by a trust-region Newton iteration. Ported
 //! from colmap-sharp's `ColmapSharp/Sensor/IterativeUndistortion.cs`.
 //!
-//! The Jacobian of `d` comes from evaluating the model's `Distortion` on `Jet<2>` (`jet.rs`),
+//! The Jacobian of `d` comes from evaluating the model's `Distortion` on `Jet<2>` (`crate::solver::Jet`),
 //! as COLMAP does with `ceres::Jet<double, 2>`, and each step solves the 2x2 system by LU
 //! decomposition with partial (row) pivoting, which is what COLMAP's
 //! `J.partialPivLu().solve(...)` computes. The 2x2 solve is written here from the textbook
@@ -15,8 +15,8 @@
 
 use crate::math::fns;
 
-use super::jet::Jet;
 use super::DistortedCameraModel;
+use crate::solver::Jet;
 
 /// The most extra parameters of any model (RAD_TAN_THIN_PRISM_FISHEYE's 12).
 const MAX_EXTRA_PARAMS: usize = 12;

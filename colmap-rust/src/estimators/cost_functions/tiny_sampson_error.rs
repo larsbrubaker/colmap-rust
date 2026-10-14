@@ -15,9 +15,9 @@
 //! - [`TinyFundamentalSampsonErrorCostFunctor`]: a fundamental matrix in Bartoli and Sturm's
 //!   minimal SVD parameterization (the refiner of the fundamental matrix estimators).
 //!
-//! The generic (Jet) `operator()` of the one-sided functor and the
-//! `ceres::TinySolverAutoDiffFunction` wrappers arrive with the solver phase, which owns the
-//! general Jet.
+//! The one-sided functor also has C++'s generic (Jet) `operator()`, as an
+//! [`AutoDiffFunctor`] built on [`super::sampson_error`], and its `AutoDiffFunction` wrapper
+//! ([`TinyOneSidedFocalTangentSampsonErrorCostFunctor::auto_diff_function`]).
 //!
 //! The relative-pose functors build `E = [t]_x R` from the Rigid3d parameter layout
 //! [qx, qy, qz, qw, tx, ty, tz]. Jacobians are column-major `num_residuals x NUM_PARAMETERS`.
@@ -32,6 +32,9 @@ use crate::geometry::pose::CamRayWithJac;
 use crate::linalg::{Matrix3d, Matrix3x2d, Quaterniond, Vector2d, Vector3d};
 use crate::math::fns;
 use crate::optim::tiny_solver::TinySolverFunction;
+use crate::solver::{AutoDiffFunctor, Scalar, TinySolverAutoDiffFunction};
+
+use super::sampson_error::{essential_matrix_from_pose_params, tangent_sampson_error};
 use crate::{check_eq, Result};
 
 /// R of the Eigen-order quaternion `params[0..4]` (`Eigen::Map<const Quaterniond>`).
@@ -455,6 +458,56 @@ impl TinySolverFunction for TinyOneSidedFocalTangentSampsonErrorCostFunctor<'_> 
                     jac[i + l * n] = cwise_product_sum(&drd_m, d);
                 }
             }
+        }
+        true
+    }
+}
+
+impl<'a> TinyOneSidedFocalTangentSampsonErrorCostFunctor<'a> {
+    /// C++ `AutoDiffFunction`, `ceres::TinySolverAutoDiffFunction<Self, Dynamic, 8>`: the
+    /// functor differentiated by Jets instead of its closed-form Jacobian. The solver uses
+    /// the closed form; this only serves to pin it to a second implementation in tests.
+    pub fn auto_diff_function(&self) -> TinySolverAutoDiffFunction<Self, 8> {
+        TinySolverAutoDiffFunction::new(*self, self.img_points1.len())
+    }
+}
+
+impl AutoDiffFunctor for TinyOneSidedFocalTangentSampsonErrorCostFunctor<'_> {
+    /// The C++ `template <typename T> operator()`.
+    fn call<T: Scalar>(&self, params: &[T], residuals: &mut [T]) -> bool {
+        // Build E once from the pose, then apply the unknown focal to the columns to obtain
+        // the matrix relating view-1 image points to view-2 rays.
+        let mut m = essential_matrix_from_pose_params(params);
+        let inv_f1 = (-params[7]).exp();
+        for row in m.iter_mut() {
+            row[0] = row[0] * inv_f1;
+            row[1] = row[1] * inv_f1;
+        }
+        // Measurement Jacobian d(x, y, 1) / d(x, y) of the uncalibrated view; C++ builds it
+        // as a Matrix<T, 3, 2>, whose entries are constants either way.
+        let j1 = Matrix3x2d::new(1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
+        for (i, residual) in residuals
+            .iter_mut()
+            .enumerate()
+            .take(self.img_points1.len())
+        {
+            let point1 = self.img_points1[i];
+            let ray2 = self.cam_rays2_with_jac[i].ray;
+            *residual = tangent_sampson_error(
+                &m,
+                [
+                    T::from_f64(point1.x),
+                    T::from_f64(point1.y),
+                    T::from_f64(1.0),
+                ],
+                &j1,
+                [
+                    T::from_f64(ray2.x),
+                    T::from_f64(ray2.y),
+                    T::from_f64(ray2.z),
+                ],
+                &self.cam_rays2_with_jac[i].jacobian,
+            );
         }
         true
     }

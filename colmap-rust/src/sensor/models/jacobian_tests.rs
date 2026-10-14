@@ -1,9 +1,8 @@
 //! Port of `colmap/sensor/models_jacobian_test.cc`, 1:1: one test per gtest
 //! `TEST(Suite, Name)`, named `suite_name` in snake case, with the same parameters, grids and
-//! tolerances, plus `rust_only_*` tests of the paths COLMAP's test does not reach. A unit-test
-//! module rather than a file under `tests/` because COLMAP checks the analytic Jacobians
-//! (`jacobian*.rs`) against `ImgFromCam` on `ceres::Jet<double, num_params + 3>`, and the Jet
-//! here (`jet.rs`) is crate-private. Run: `cargo test -p colmap-rust --lib jacobian_tests`.
+//! tolerances, plus `rust_only_*` tests of the paths COLMAP's test does not reach. COLMAP checks
+//! the analytic Jacobians (`jacobian*.rs`) against `ImgFromCam` on
+//! `ceres::Jet<double, num_params + 3>`, here [`crate::solver::Jet`]. Run: `cargo test -p colmap-rust --lib jacobian_tests`.
 //!
 //! Tier B: analytic and automatic derivatives are different formulas for the same value, so
 //! they agree to COLMAP's 1e-10, not bitwise. Failed expectations are collected and reported
@@ -11,8 +10,8 @@
 
 use crate::linalg::{Matrix2d, Matrix2x3d, Vector3d};
 
-use super::jet::Jet;
 use super::*;
+use crate::solver::Jet;
 
 /// The failed non-fatal expectations of one test.
 #[derive(Default)]

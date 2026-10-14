@@ -282,14 +282,17 @@ Software.
 
 Source: http://ceres-solver.org (https://github.com/ceres-solver/ceres-solver)
 
-Ported from Ceres 2.2.0 (via colmap-sharp's `ColmapSharp/Solver/Jet.cs`): the dual-number
+Ported from Ceres 2.2.0 (via colmap-sharp's `ColmapSharp/Solver/`): the dual-number
 arithmetic and elementary-function rules of `ceres::Jet` (`include/ceres/jet.h`) in
-`colmap-rust/src/sensor/models/jet.rs`; COLMAP's customized copy of `ceres::TinySolver`
-(`src/colmap/optim/tiny_solver.h`, via colmap-sharp's `ColmapSharp/Optim/TinySolver.cs`) in
-`colmap-rust/src/optim/tiny_solver.rs`; and the rotation conversions
-`ceres::AngleAxisToQuaternion` / `ceres::QuaternionToAngleAxis` (`include/ceres/rotation.h`, via
-colmap-sharp's `ColmapSharp/Solver/Rotation.cs`) in
-`colmap-rust/src/estimators/cost_functions/quaternion_utils.rs`.
+`colmap-rust/src/solver/jet.rs`; the rotation conversions `ceres::AngleAxisToQuaternion` /
+`ceres::QuaternionToAngleAxis` (`include/ceres/rotation.h`) in
+`colmap-rust/src/solver/rotation.rs`; `ceres::CostFunction` and `ceres::AutoDiffCostFunction`
+(`include/ceres/cost_function.h`, `autodiff_cost_function.h`, `internal/autodiff.h`) in
+`colmap-rust/src/solver/autodiff_cost_function.rs`; `ceres::TinySolverAutoDiffFunction`
+(`include/ceres/tiny_solver_autodiff_function.h`) in
+`colmap-rust/src/solver/tiny_solver_autodiff_function.rs`; and COLMAP's customized copy of
+`ceres::TinySolver` (`src/colmap/optim/tiny_solver.h`, via colmap-sharp's
+`ColmapSharp/Optim/TinySolver.cs`) in `colmap-rust/src/optim/tiny_solver.rs`.
 
 ```
 Ceres Solver - A fast non-linear least squares minimizer

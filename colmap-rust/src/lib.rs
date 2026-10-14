@@ -32,6 +32,8 @@
 //! - [`feature`]: COLMAP's `feature/` — keypoints, descriptors, matches, the feature
 //!   type enums, descriptor normalization, quantization and top-scale selection, and VLFeat's
 //!   SIFT filter (scale space, detection, orientations, descriptors).
+//! - [`solver`]: the Ceres replacement — [`solver::Scalar`], [`solver::Jet`], the
+//!   `ceres/rotation.h` conversions and the autodiff cost functions.
 
 pub mod estimators;
 pub mod feature;
@@ -41,6 +43,7 @@ pub mod math;
 pub mod optim;
 pub mod scene;
 pub mod sensor;
+pub mod solver;
 pub mod util;
 
 pub use util::check::{ColmapError, ErrorKind, Result};

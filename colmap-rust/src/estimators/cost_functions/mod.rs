@@ -3,14 +3,17 @@
 //!
 //! - [`quaternion_utils`]: quaternion multiplication matrices, rotation with Jacobian, and
 //!   the Eigen-order angle-axis conversions (`quaternion_utils.h`).
+//! - [`sampson_error`]: the generic essential matrix, Sampson and tangent Sampson errors and
+//!   their Ceres autodiff cost functors (`sampson_error.h`).
 //! - [`tiny_manifold`]: the manifold policies for `optim::TinySolver` (`tiny_manifold.h`).
 //! - [`tiny_sampson_error`]: closed-form Sampson-error functors for `optim::TinySolver`
 //!   (`tiny_sampson_error.h`).
 //!
-//! The Ceres cost functors (`sampson_error.h`, `reprojection_error.h`, `manifold.h`, ...)
-//! arrive with the solver and bundle adjustment phases.
+//! The other Ceres cost functors (`reprojection_error.h`, `manifold.h`, ...) arrive with the
+//! solver and bundle adjustment phases.
 
 pub mod quaternion_utils;
+pub mod sampson_error;
 pub mod tiny_manifold;
 pub mod tiny_sampson_error;
 

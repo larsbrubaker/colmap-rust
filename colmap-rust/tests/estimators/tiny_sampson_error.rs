@@ -4,13 +4,14 @@
 // and closed-form Jacobians against central finite differences; COLMAP's tolerances are the
 // bars.
 //
-// Not ported yet (they need Ceres autodiff, which the solver phase brings, with the general
-// Jet): TinyTangentSampsonErrorCostFunctor.MatchesAutodiffCostFunctor and
-// TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction.
+// The two MatchesAutodiff tests pin the closed forms against Jets: the Ceres
+// TangentSampsonErrorCostFunctor (cost_functions::sampson_error) and the one-sided functor's
+// own generic operator(), through solver::AutoDiffCostFunction / TinySolverAutoDiffFunction.
 // TinyFocalSampsonErrorCostFunctor is autodiff-only in C++; its closed-form Jacobian here is
 // pinned against finite differences by a rust_only test (docs/CPP_DIVERGENCES.md, entry 252).
 
 use crate::expect_near;
+use colmap_rust::estimators::cost_functions::sampson_error::TangentSampsonErrorCostFunctor;
 use colmap_rust::estimators::cost_functions::{
     TinyFocalSampsonErrorCostFunctor, TinyFundamentalSampsonErrorCostFunctor,
     TinyOneSidedFocalTangentSampsonErrorCostFunctor, TinyTangentSampsonErrorCostFunctor,
@@ -26,6 +27,7 @@ use colmap_rust::linalg::{
 };
 use colmap_rust::math::fns;
 use colmap_rust::optim::TinySolverFunction;
+use colmap_rust::solver::CostFunction;
 
 fn make(ray: Vector3d, jac: Matrix3x2d) -> CamRayWithJac {
     CamRayWithJac {
@@ -156,6 +158,56 @@ fn tiny_tangent_sampson_error_cost_functor_jacobian_matches_finite_difference() 
     let t = Vector3d::new(0.6, -0.3, 1.0).normalized();
     let p = [q.x, q.y, q.z, q.w, t.x, t.y, t.z];
     check_jacobian_against_finite_differences(&functor, &p);
+}
+
+#[test]
+fn tiny_tangent_sampson_error_cost_functor_matches_autodiff_cost_functor() {
+    let cam_rays1_with_jac = [
+        make(
+            Vector3d::new(0.1, 0.2, 1.0),
+            Matrix3x2d::new(1.0, 0.1, 0.05, 1.0, 0.2, -0.1),
+        ),
+        make(
+            Vector3d::new(-0.3, 0.1, 1.0),
+            Matrix3x2d::new(0.9, -0.1, 0.15, 1.1, -0.05, 0.2),
+        ),
+    ];
+    let cam_rays2_with_jac = [
+        make(
+            Vector3d::new(0.15, -0.1, 1.0),
+            Matrix3x2d::new(1.0, 0.05, -0.1, 1.0, 0.2, 0.0),
+        ),
+        make(
+            Vector3d::new(0.05, 0.3, 1.0),
+            Matrix3x2d::new(0.8, 0.2, 0.1, 1.2, 0.0, -0.15),
+        ),
+    ];
+    let functor =
+        TinyTangentSampsonErrorCostFunctor::new(&cam_rays1_with_jac, &cam_rays2_with_jac).unwrap();
+    let n = cam_rays1_with_jac.len();
+
+    let q = quaternion(0.6, Vector3d::new(0.3, -0.7, 0.5));
+    let t = Vector3d::new(0.4, 0.9, -0.2).normalized();
+    let p = [q.x, q.y, q.z, q.w, t.x, t.y, t.z];
+
+    let mut residuals = vec![0.0; n];
+    let mut jacobian = vec![0.0; n * 7];
+    assert!(functor.evaluate(&p, &mut residuals, Some(&mut jacobian)));
+
+    for i in 0..n {
+        let cost =
+            TangentSampsonErrorCostFunctor::create(cam_rays1_with_jac[i], cam_rays2_with_jac[i])
+                .unwrap();
+        let mut residual_ad = [0.0];
+        let mut jacobian_ad = [0.0; 7];
+        let mut jacobian_ad_ptrs = [Some(&mut jacobian_ad[..])];
+        let param_ptrs: [&[f64]; 1] = [&p];
+        assert!(cost.evaluate(&param_ptrs, &mut residual_ad, Some(&mut jacobian_ad_ptrs)));
+        expect_near(residuals[i], residual_ad[0], 1e-9);
+        for l in 0..7 {
+            expect_near(jacobian[i + l * n], jacobian_ad[l], 1e-9);
+        }
+    }
 }
 
 // Principal-point-centered image points (u - cx, v - cy), not calibrated rays, shared by the
@@ -329,6 +381,36 @@ fn tiny_one_sided_focal_tangent_sampson_error_cost_functor_jacobian_matches_fini
     let t = Vector3d::new(0.6, -0.3, 1.0).normalized();
     let p = [q.x, q.y, q.z, q.w, t.x, t.y, t.z, fns::ln(1100.0)];
     check_jacobian_against_finite_differences(&functor, &p);
+}
+
+#[test]
+fn tiny_one_sided_focal_tangent_sampson_error_cost_functor_matches_autodiff_function() {
+    let points1 = one_sided_focal_test_points1();
+    let cam_rays2_with_jac = one_sided_focal_test_rays2();
+    let functor =
+        TinyOneSidedFocalTangentSampsonErrorCostFunctor::new(&points1, &cam_rays2_with_jac)
+            .unwrap();
+    let autodiff = functor.auto_diff_function();
+    let n = points1.len();
+
+    let q = quaternion(0.6, Vector3d::new(0.3, -0.7, 0.5));
+    let t = Vector3d::new(0.4, 0.9, -0.2).normalized();
+    let p = [q.x, q.y, q.z, q.w, t.x, t.y, t.z, fns::ln(1250.0)];
+
+    let mut residuals = vec![0.0; n];
+    let mut jacobian = vec![0.0; n * 8];
+    assert!(functor.evaluate(&p, &mut residuals, Some(&mut jacobian)));
+
+    let mut residuals_ad = vec![0.0; n];
+    let mut jacobian_ad = vec![0.0; n * 8];
+    assert!(autodiff.evaluate(&p, &mut residuals_ad, Some(&mut jacobian_ad)));
+
+    for i in 0..n {
+        expect_near(residuals[i], residuals_ad[i], 1e-9);
+        for l in 0..8 {
+            expect_near(jacobian[i + l * n], jacobian_ad[i + l * n], 1e-9);
+        }
+    }
 }
 
 // Image points shared by the fundamental matrix functor tests, in the normalized frame the

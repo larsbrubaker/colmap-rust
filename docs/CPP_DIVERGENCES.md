@@ -1556,11 +1556,9 @@ scaling and d F/d(log_f) negates F with the top-left 2x2 block doubled and F(2, 
 is the exact derivative of the same function, so it differs from autodiff's only by rounding;
 TinySolver's iterates can therefore differ in the last bits.
 
-**Why.** The general Jet and `TinySolverAutoDiffFunction` belong to the solver phase (Ceres
-replacement), and the shared-focal estimator would otherwise wait for it. The closed form is the
-pattern COLMAP itself uses for the neighboring tangent, one-sided focal and fundamental
-functors in the same header, and it is cheaper than autodiff. TinySolver is Tier C, so what
-must agree is the converged result.
+**Why.** The closed form is the pattern COLMAP itself uses for the neighboring tangent,
+one-sided focal and fundamental functors in the same header, and it is cheaper than autodiff.
+TinySolver is Tier C, so what must agree is the converged result.
 
 **Evidence.** `tests/estimators/tiny_sampson_error.rs`:
 `tiny_focal_sampson_error_cost_functor_matches_squared_sampson_error` (the 1:1

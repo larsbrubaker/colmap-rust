@@ -1,12 +1,13 @@
 // Port of COLMAP's `src/colmap/optim/tiny_solver_test.cc` (same names, checks and
 // tolerances). Tests `colmap_rust::optim::TinySolver` (Tier C: the convergence outcome,
-// with COLMAP's bounds). `TinySolver.ManifoldConvergesAndStaysOnManifold` is not here yet:
-// it needs `SphereManifold<3>` (estimators/cost_functions/tiny_manifold.h) and
-// `ceres::TinySolverAutoDiffFunction` (Jets, the Ceres replacement of Phase 7); it lands
-// with them.
+// with COLMAP's bounds). `ManifoldConvergesAndStaysOnManifold` differentiates through
+// `colmap_rust::solver::TinySolverAutoDiffFunction` (`ceres::TinySolverAutoDiffFunction`)
+// over `TinySphereManifold` (`SphereManifold<3>`).
 
-use colmap_rust::linalg::{Ldlt, MatrixXd, VectorXd};
+use colmap_rust::estimators::cost_functions::TinySphereManifold;
+use colmap_rust::linalg::{Ldlt, MatrixXd, Vector3d, VectorXd};
 use colmap_rust::optim::{TinySolver, TinySolverFunction, TinySolverOptions, TinySolverStatus};
+use colmap_rust::solver::{AutoDiffFunctor, Scalar, TinySolverAutoDiffFunction};
 
 use crate::expect_near;
 
@@ -74,6 +75,48 @@ fn tiny_solver_euclidean_converges_to_normal_equations_solution() {
     assert!(summary.iterations <= options.max_num_iterations);
 }
 
+// Autodiff functor minimizing ||x - target||^2; on the unit sphere the optimum is
+// target.normalized().
+struct SphereFitResidual {
+    target: Vector3d,
+}
+
+impl AutoDiffFunctor for SphereFitResidual {
+    fn call<T: Scalar>(&self, x: &[T], residuals: &mut [T]) -> bool {
+        residuals[0] = x[0] - T::from_f64(self.target.x);
+        residuals[1] = x[1] - T::from_f64(self.target.y);
+        residuals[2] = x[2] - T::from_f64(self.target.z);
+        true
+    }
+}
+
+#[test]
+fn tiny_solver_manifold_converges_and_stays_on_manifold() {
+    let functor = SphereFitResidual {
+        target: Vector3d::new(0.3, -0.7, 0.5),
+    };
+    let target = functor.target;
+
+    // ceres::TinySolverAutoDiffFunction<SphereFitResidual, 3, 3>.
+    let f = TinySolverAutoDiffFunction::<_, 3>::new(functor, 3);
+
+    let mut solver = TinySolver::new(TinySphereManifold).unwrap();
+    let options = TinySolverOptions {
+        gradient_tolerance: 0.0,
+        parameter_tolerance: 0.0,
+        function_tolerance: 0.0,
+        max_num_iterations: 100,
+        ..Default::default()
+    };
+    let mut x = [1.0, 0.0, 0.0]; // Unit seed.
+    solver.solve(&f, &mut x, &options).unwrap();
+
+    let x = Vector3d::new(x[0], x[1], x[2]);
+    expect_near(x.norm(), 1.0, 1e-9);
+    assert!((x - target.normalized()).norm() < 1e-6);
+}
+
+// A functor that always fails to evaluate.
 struct FailingResidual;
 
 impl TinySolverFunction for FailingResidual {

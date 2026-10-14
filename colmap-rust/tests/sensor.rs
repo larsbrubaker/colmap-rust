@@ -13,7 +13,7 @@
 //   (fixture `tests/data/oracle/bitmap_rescale.json` from `oracle/fixture_bitmap_rescale.py`);
 // - `sensor/rust_only_exif_reader.rs`: the EXIF parser on hand-built JPEG/TIFF blocks.
 // colmap/sensor/models_jacobian_test.cc is ported as unit tests in the library,
-// `src/sensor/models/jacobian_tests.rs`, because it differentiates with the crate-private Jet
+// `src/sensor/models/jacobian_tests.rs`, differentiating with `solver::Jet`
 // (run: `cargo test -p colmap-rust --lib jacobian_tests`).
 //
 // Run: `cargo test -p colmap-rust --test sensor`.

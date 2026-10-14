@@ -1,9 +1,8 @@
-//! Port of COLMAP's `colmap/estimators/cost_functions/quaternion_utils.h` (double forms), via
-//! colmap-sharp's `Estimators/CostFunctions/QuaternionUtils.cs`, with the two Ceres
-//! `rotation.h` conversions it wraps (`ceres::AngleAxisToQuaternion`,
-//! `ceres::QuaternionToAngleAxis`; Ceres Solver, BSD-3-Clause, see THIRD_PARTY_NOTICES.md,
-//! via colmap-sharp's `Solver/Rotation.cs`). Tests: `tests/estimators/quaternion_utils.rs`
-//! (`quaternion_utils_test.cc`).
+//! Port of COLMAP's `colmap/estimators/cost_functions/quaternion_utils.h`, via colmap-sharp's
+//! `Estimators/CostFunctions/QuaternionUtils.cs`. The two Ceres `rotation.h` conversions it
+//! wraps (`ceres::AngleAxisToQuaternion`, `ceres::QuaternionToAngleAxis`) live in
+//! [`crate::solver::rotation`] and are re-exported here under their `ceres_` names. Tests:
+//! `tests/estimators/quaternion_utils.rs` (`quaternion_utils_test.cc`).
 //!
 //! Convention: Eigen quaternion storage order (x, y, z, w), Hamilton product. A quaternion
 //! q = (x, y, z, w) represents the rotation matrix R(q) = (w^2 - ||v||^2) I + 2 v v^T +
@@ -12,83 +11,24 @@
 //! order [w, x, y, z]; the Eigen-order wrappers swap.
 //!
 //! [`super::tiny_manifold`] retracts with [`eigen_quaternion_from_angle_axis`] and takes its
-//! Plus Jacobian from [`quaternion_left_mult_matrix`]. The generic (Jet) forms of the
-//! angle-axis wrappers arrive with the solver phase, which owns the general Jet.
+//! Plus Jacobian from [`quaternion_left_mult_matrix`]. The angle-axis wrappers are generic
+//! over [`Scalar`], so autodiff cost functors call them on Jets.
 
 use crate::linalg::{Matrix4d, Quaterniond, Vector3d};
-use crate::math::fns;
+use crate::solver::Scalar;
 
-/// Port of `ceres::AngleAxisToQuaternion` on doubles: the unit quaternion [w, x, y, z] of the
-/// rotation by |angle_axis| radians about angle_axis. At the origin it uses the first-order
-/// Taylor expansion (w = 1, xyz = angle_axis / 2), as Ceres does so Jets get correct
-/// derivatives there.
-pub fn ceres_angle_axis_to_quaternion(angle_axis: &[f64], quaternion: &mut [f64]) {
-    let a0 = angle_axis[0];
-    let a1 = angle_axis[1];
-    let a2 = angle_axis[2];
-    let theta = fns::hypot3(a0, a1, a2);
+/// Port of `ceres::AngleAxisToQuaternion`: [`crate::solver::rotation::angle_axis_to_quaternion`]
+/// under the name this module has always exported.
+pub use crate::solver::rotation::angle_axis_to_quaternion as ceres_angle_axis_to_quaternion;
 
-    // For points not at the origin, the full conversion is numerically stable.
-    if theta != 0.0 {
-        let half_theta = theta * 0.5;
-        let k = fns::sin(half_theta) / theta;
-        quaternion[0] = fns::cos(half_theta);
-        quaternion[1] = a0 * k;
-        quaternion[2] = a1 * k;
-        quaternion[3] = a2 * k;
-    } else {
-        // At the origin, sqrt() will produce NaN in the derivative since the argument is
-        // zero. By approximating with a Taylor series, and truncating at one term, the value
-        // and first derivatives will be computed correctly when Jets are used.
-        let k = 0.5;
-        quaternion[0] = 1.0;
-        quaternion[1] = a0 * k;
-        quaternion[2] = a1 * k;
-        quaternion[3] = a2 * k;
-    }
-}
+/// Port of `ceres::QuaternionToAngleAxis`: [`crate::solver::rotation::quaternion_to_angle_axis`]
+/// under the name this module has always exported.
+pub use crate::solver::rotation::quaternion_to_angle_axis as ceres_quaternion_to_angle_axis;
 
-/// Port of `ceres::QuaternionToAngleAxis` on doubles: the angle-axis vector of the rotation
-/// by a unit quaternion [w, x, y, z], normalized to an angle of at most pi. For zero rotation
-/// it uses the first-order Taylor expansion (angle_axis = 2 xyz).
-pub fn ceres_quaternion_to_angle_axis(quaternion: &[f64], angle_axis: &mut [f64]) {
-    let q1 = quaternion[1];
-    let q2 = quaternion[2];
-    let q3 = quaternion[3];
-    let sin_theta = fns::hypot3(q1, q2, q3);
-
-    // For quaternions representing non-zero rotation, the conversion is numerically stable.
-    if sin_theta != 0.0 {
-        let cos_theta = quaternion[0];
-
-        // If cos_theta is negative, theta is greater than pi/2, which means that angle for
-        // the angle_axis vector which is 2 * theta would be greater than pi. While this
-        // would still be the correct rotation, it would not be a normalized angle-axis
-        // vector. In that case 2 * theta ~ 2 * theta - 2 * pi, which is to say
-        // theta - pi = atan(sin(theta - pi), cos(theta - pi)) = atan(-sin(theta), -cos(theta)).
-        let two_theta = if cos_theta < 0.0 {
-            2.0 * fns::atan2(-sin_theta, -cos_theta)
-        } else {
-            2.0 * fns::atan2(sin_theta, cos_theta)
-        };
-        let k = two_theta / sin_theta;
-        angle_axis[0] = q1 * k;
-        angle_axis[1] = q2 * k;
-        angle_axis[2] = q3 * k;
-    } else {
-        // For zero rotation, sqrt() will produce NaN in the derivative since the argument is
-        // zero. By approximating with a Taylor series, and truncating at one term, the value
-        // and first derivatives will be computed correctly when Jets are used.
-        let k = 2.0;
-        angle_axis[0] = q1 * k;
-        angle_axis[1] = q2 * k;
-        angle_axis[2] = q3 * k;
-    }
-}
-
-/// Port of `colmap::AngleAxisFromEigenQuaternion` (double form): the angle-axis vector of
-/// an (x, y, z, w) quaternion, through `ceres::QuaternionToAngleAxis`.
-pub fn angle_axis_from_eigen_quaternion(eigen_quaternion: &[f64], angle_axis: &mut [f64]) {
+/// Port of `colmap::AngleAxisFromEigenQuaternion`: the angle-axis vector of an
+/// (x, y, z, w) quaternion, through `ceres::QuaternionToAngleAxis`. Generic over [`Scalar`]
+/// (doubles or Jets), as the C++ template is.
+pub fn angle_axis_from_eigen_quaternion<T: Scalar>(eigen_quaternion: &[T], angle_axis: &mut [T]) {
     let quaternion = [
         eigen_quaternion[3],
         eigen_quaternion[0],
@@ -98,10 +38,11 @@ pub fn angle_axis_from_eigen_quaternion(eigen_quaternion: &[f64], angle_axis: &m
     ceres_quaternion_to_angle_axis(&quaternion, angle_axis);
 }
 
-/// Port of `colmap::EigenQuaternionFromAngleAxis` (double form): the (x, y, z, w) unit
-/// quaternion of an angle-axis vector, through `ceres::AngleAxisToQuaternion`.
-pub fn eigen_quaternion_from_angle_axis(angle_axis: &[f64], eigen_quaternion: &mut [f64]) {
-    let mut quaternion = [0.0; 4];
+/// Port of `colmap::EigenQuaternionFromAngleAxis`: the (x, y, z, w) unit quaternion of an
+/// angle-axis vector, through `ceres::AngleAxisToQuaternion`. Generic over [`Scalar`]
+/// (doubles or Jets), as the C++ template is.
+pub fn eigen_quaternion_from_angle_axis<T: Scalar>(angle_axis: &[T], eigen_quaternion: &mut [T]) {
+    let mut quaternion = [T::from_f64(0.0); 4];
     ceres_angle_axis_to_quaternion(angle_axis, &mut quaternion);
     eigen_quaternion[0] = quaternion[1];
     eigen_quaternion[1] = quaternion[2];
