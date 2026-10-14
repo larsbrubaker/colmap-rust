@@ -34,7 +34,8 @@ visible in the app so the web build is the integration test.
   `generalized_absolute_pose` (GP3P), `affine_transform`, `translation_transform`,
   `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point, Sampson
   refiner), `generalized_relative_pose` (GR6P, GR8P), estimators `triangulation`,
-  `fundamental_matrix_degensac` and `pose` (EstimateAbsolutePose, EstimateRelativePose), `relpose_shared_focal`, `relpose_one_sided_focal` and
+  `fundamental_matrix_degensac`, `pose` (EstimateAbsolutePose, EstimateRelativePose) and
+  `generalized_pose` (absolute, relative, structure-less), `relpose_shared_focal`, `relpose_one_sided_focal` and
   `essential_matrix` (five-point, eight-point, tangent
   Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
   quaternion_utils (double forms).
@@ -108,16 +109,7 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 
 ### Phase 6 — Minimal solvers and estimators
 Remaining:
-- `cargo doc -p colmap-rust` with `-D warnings` fails on bracket notation read as intra-doc links
-  in `linalg/quaternion.rs`, `util/string.rs`, `util/line_tokens.rs`, `util/mod.rs`,
-  `feature/index.rs`, `feature/sift/cpu_matcher.rs`, `feature/sift/mod.rs` and
-  `math/graph_cut_partitioner.rs`.
-- `estimators/generalized_pose`: `EstimateGeneralizedAbsolutePose`,
-  `EstimateGeneralizedRelativePose`, `EstimateStructureLessAbsolutePose` (no Ceres), with their
-  tests; they need a libc++ `std::shuffle(…, PRNG)` emulation (COLMAP's own `Shuffle` is on
-  main, `std::shuffle` is not).
-- `estimators/two_view_geometry` (colmap-sharp: 5 files, about 2000 lines; 30 tests), after
-  `generalized_pose`.
+- `estimators/two_view_geometry` (colmap-sharp: 5 files, about 2000 lines; 30 tests).
 - The estimators: `alignment`, `rotation_averaging`, `global_positioning`,
   `gravity_refinement`, `view_graph_calibration`.
 
@@ -134,7 +126,7 @@ main); the Jet forms of the angle-axis wrappers and of the one-sided focal funct
 and `TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction`.
 Also the Ceres refiners of `estimators/pose` (`RefineAbsolutePose`, `RefineRelativePose`,
 `RefineEssentialMatrix`) with `pose_test.cc`'s six refinement cases, and
-`RefineGeneralizedAbsolutePose`.
+`RefineGeneralizedAbsolutePose` with `generalized_pose_test.cc`'s three refinement cases.
 
 ### Phase 8 — Bundle adjustment
 `estimators/bundle_adjustment*` (CPU), `cost_functions/*`, `ceres_loss_function`, `covariance`.
