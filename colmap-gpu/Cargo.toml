@@ -1,0 +1,39 @@
+# colmap-gpu: wgpu compute for colmap-rust. The compute seam (port of colmap-sharp's
+# ColmapSharp.Compute.IComputeDevice) and its wgpu implementation, which opens a dedicated
+# device natively (Metal/DX12/Vulkan) and in the browser (WebGPU). The WGSL PatchMatch kernels
+# build on this seam. The core crate (colmap-rust) never depends on wgpu; this crate does.
+[package]
+name = "colmap-gpu"
+description = "wgpu compute for colmap-rust: the compute device seam and its WebGPU implementation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+name = "colmap_gpu"
+path = "src/lib.rs"
+
+[dependencies]
+colmap-rust = { path = "../colmap-rust" }
+# The same wgpu agg-gui-wgpu uses (already in the lockfile), so the app can share one stack.
+wgpu = { version = "29", default-features = false, features = ["wgsl"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.wgpu]
+version = "29"
+features = ["vulkan", "dx12", "metal"]
+
+# `WebGpuComputeDevice::create` blocks on the adapter and device requests on the desktop; the
+# browser uses `create_async` instead, so this is native-only.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pollster = "0.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.wgpu]
+version = "29"
+features = ["webgpu"]
+
+[dev-dependencies]
+# Blocks on the device's flush and read futures in the native GPU tests.
+pollster = "0.3"

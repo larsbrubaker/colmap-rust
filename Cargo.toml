@@ -1,13 +1,14 @@
 # colmap-rust workspace: a pure-Rust port of COLMAP 4.2.0 (see CLAUDE.md, PORTING_PLAN.md).
 #
 # Members: the core library, the agg-gui app (colmap-app), its headless UI tests
-# (colmap-app-test), the desktop shell (colmap-native) and the browser shell (colmap-web, a wasm
-# cdylib that compiles to an empty rlib natively). colmap-gpu (wgpu compute) arrives with Phase 13.
+# (colmap-app-test), the desktop shell (colmap-native), the browser shell (colmap-web, a wasm
+# cdylib that compiles to an empty rlib natively) and colmap-gpu (wgpu compute: the compute
+# device seam, Phase 13).
 [workspace]
 resolver = "2"
 members = [
     "colmap-rust",
-    # "colmap-gpu",
+    "colmap-gpu",
     "colmap-app",
     "colmap-app-test",
     "colmap-native",

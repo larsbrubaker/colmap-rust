@@ -68,7 +68,15 @@ a permissive license, pure Rust (it must still build for wasm32), and a pinned m
 `rayon` (MIT/Apache-2.0) is the expected next addition, behind a `parallel` feature, for
 determinism-preserving parallel loops.
 
-`colmap-gpu` may additionally use `wgpu` (MIT/Apache-2.0). The app crates may use agg-gui and
+`colmap-gpu` may additionally use `wgpu` (MIT/Apache-2.0). In use today:
+
+| Crate | License | Why |
+|---|---|---|
+| `colmap-rust` (path) | MIT | `CancelToken` for the compute seam's flush and read. |
+| `wgpu` 29 | MIT/Apache-2.0 | The compute device: buffers, WGSL kernels, dispatch, readback. Native backends (Metal/Vulkan/DX12) natively, WebGPU in the browser. |
+| `pollster` 0.3 | MIT/Apache-2.0 | Native only (and the tests): `WebGpuComputeDevice::create` blocks on the adapter and device requests, and the tests block on flush and read. |
+
+The app crates may use agg-gui and
 its stack (MIT), `wasm-bindgen`/`web-sys`/`js-sys` (MIT/Apache-2.0), and permissive image
 decoders (`image`, `png`, `jpeg-decoder`/`zune-jpeg`; MIT/Apache-2.0/zlib).
 

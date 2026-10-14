@@ -166,8 +166,11 @@ colmap-rust/        core library (lib `colmap_rust`): pure Rust, std only, no GU
                     Modules mirror COLMAP: math/ geometry/ sensor/ scene/ optim/ estimators/
                     feature/ sfm/ mvs/ controllers/ util/, plus linalg/ and solver/
                     (the Eigen and Ceres replacements).
-colmap-gpu/         wgpu compute (WGSL PatchMatch, later SIFT/matching) behind a device seam.
-                    Takes a wgpu Device/Queue from the host — the app passes agg-gui-wgpu's.
+colmap-gpu/         wgpu compute (WGSL PatchMatch, later SIFT/matching) behind a device seam
+                    (`compute::ComputeDevice`). `webgpu::WebGpuComputeDevice` opens a dedicated
+                    wgpu device, natively and in the browser: the seam's rules (no host work
+                    interleaved with compute recording, GPU errors attributed to compute calls)
+                    need a device nothing else records on.
 colmap-app/         the agg-gui application: widgets, views (image browser, feature/match
                     viewer, 3D sparse/dense viewer via agg-gui-wgpu custom rendering),
                     pipeline runner with progress/cancel. `build_app()` is shared by both shells.
