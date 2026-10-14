@@ -91,8 +91,10 @@ pub fn bisect_sturm(n: usize, coeffs: &[f64], roots: &mut [f64], tol: f64) -> us
     let sa = sign_changes(n, &svec, a);
     let sb = sign_changes(n, &svec, b);
 
-    let n_roots = sa - sb;
-    if n_roots == 0 {
+    // PoseLib's `int n_roots = sa - sb; if (n_roots == 0) return 0;`. Rounding can leave
+    // sa < sb (the counts are unsigned here), and then PoseLib's negative count isolates no
+    // root below, so comparing the counts keeps its result without the unsigned underflow.
+    if sa == sb {
         return 0;
     }
 

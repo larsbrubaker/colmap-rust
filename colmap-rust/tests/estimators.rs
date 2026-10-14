@@ -6,6 +6,10 @@
 #[path = "support/transform_matchers.rs"]
 mod transform_matchers;
 
+#[path = "estimators/absolute_pose.rs"]
+mod absolute_pose;
+#[path = "estimators/generalized_absolute_pose.rs"]
+mod generalized_absolute_pose;
 #[path = "estimators/poselib_utils.rs"]
 mod poselib_utils;
 #[path = "estimators/rust_only_camera_pose.rs"]

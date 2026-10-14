@@ -76,6 +76,27 @@ fn rust_only_sturm_no_real_roots() {
 }
 
 #[test]
+fn rust_only_sturm_more_sign_changes_at_upper_bound() {
+    // A degree-8 polynomial from P4Pf (AbsolutePose.P4PFSharedFocalLength) whose Sturm
+    // sequence, rounded, has fewer sign changes at -r0 than at r0. PoseLib's int count goes
+    // negative and isolates nothing; the unsigned counts here must give the same 0 roots
+    // instead of underflowing.
+    let coeffs = [
+        3.6445373821210745e-28,
+        -4.849705123623497e-15,
+        0.0018912384681492324,
+        -0.0027707026293560272,
+        -0.002333305695706817,
+        0.00774795666155109,
+        -0.002361603480685079,
+        -0.0018956211953063441,
+        0.0007039400206650948,
+    ];
+    let mut roots = [0.0; 8];
+    assert_eq!(bisect_sturm(8, &coeffs, &mut roots, 1e-10), 0);
+}
+
+#[test]
 fn rust_only_sturm_degenerate_degrees() {
     let mut roots = [0.0; 3];
     // Degree 0 has no roots.
