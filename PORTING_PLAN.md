@@ -53,8 +53,6 @@ After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balan
 - colmap-rust is a rust-apps submodule (pushed); after cloning rust-apps,
   `git -C colmap-rust checkout main && git -C colmap-rust pull`. Only `main` exists on origin;
   agents work on local worktree branches that are merged to `main` and then deleted.
-- `Cargo.lock` on `main` is stale against current agg-gui (any build rewrites it); commit a
-  refreshed lock.
 
 ## Out of scope (do not re-litigate)
 
