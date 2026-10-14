@@ -1,7 +1,8 @@
 //! Port of `colmap/scene/reconstruction.h` / `.cc`, part 1: [`Reconstruction`], the owner of
 //! a reconstruction's rigs, cameras, frames, images and 3D points, with its accessors and the
 //! operations that add, delete, register and de-register them. Its queries, statistics,
-//! validity check and tear-down are in [`crate::scene::reconstruction_queries`]. Port of
+//! validity check and tear-down are in [`crate::scene::reconstruction_queries`], its bounds,
+//! normalization, transform and crop in [`crate::scene::reconstruction_transform`]. Port of
 //! colmap-sharp's `Scene/Reconstruction.cs`.
 //! Tests: `tests/scene/reconstruction.rs` and `tests/scene/reconstruction_queries.rs`
 //! (`reconstruction_test.cc` 1:1 for the ported methods) and
@@ -26,10 +27,9 @@
 //!   not rejected at the setter (there is no pointer to guard it, entry 170); `is_valid`
 //!   reports it, and every owner-taking method of `Frame` / `Image` rejects the mismatched
 //!   objects (entry 214).
-//! - Not yet ported (later Phase 4 slices): `Load` (needs `DatabaseCache`), `Normalize`,
-//!   `ComputeCentroid`, `ComputeBoundingBox`, `Transform`, `Crop` (need `Sim3d`),
-//!   `TranscribeImageIdsToDatabase` (needs `Database`), `Read*` / `Write*`
-//!   (`reconstruction_io`), the PLY import/export, `ExtractColors*` and `CreateImageDirs`.
+//! - Not yet ported (later Phase 4 slices): `Load` (needs `DatabaseCache`),
+//!   `TranscribeImageIdsToDatabase` (needs `Database`), the PLY import/export,
+//!   `ExtractColors*` and `CreateImageDirs`.
 
 use std::collections::{BTreeMap, HashMap};
 

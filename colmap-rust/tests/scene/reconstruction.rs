@@ -1,9 +1,10 @@
 // Port of colmap/scene/reconstruction_test.cc, part 1, 1:1 (same test names, values and
 // checks) for the ported methods of colmap_rust::scene::reconstruction::Reconstruction: the
 // add, delete and register tests, and the test's helpers. The query and statistics tests are
-// in reconstruction_queries.rs. Tests of methods
-// not yet ported (they need SynthesizeDataset, the database, Sim3d, PLY or the text/binary
-// I/O) land with those methods. COLMAP's `ExpectValidPtrs` (every frame's rig
+// in reconstruction_queries.rs, the bounds and transform tests in reconstruction_transform.rs,
+// and the tests that synthesize their scene in reconstruction_synthetic.rs. Tests of methods
+// not yet ported (they need the database, PLY, image colors or image directories) land with
+// those methods. COLMAP's `ExpectValidPtrs` (every frame's rig
 // pointer and every image's camera and frame pointers point into the reconstruction) is
 // `expect_valid_ptrs`: the ids it guards resolve and pass the `verify_*` checks
 // (docs/CPP_DIVERGENCES.md entry 170). `EXPECT_ANY_THROW` is `is_err()`; a `try` / `catch`
@@ -24,7 +25,7 @@ use colmap_rust::sensor::rig::Rig;
 use colmap_rust::util::types::{DataId, ImageId};
 
 /// Port of the test's `ExpectValidPtrs` (see the header).
-fn expect_valid_ptrs(reconstruction: &Reconstruction) {
+pub(crate) fn expect_valid_ptrs(reconstruction: &Reconstruction) {
     for frame in reconstruction.frames().values() {
         let rig = reconstruction.rig(frame.rig_id()).unwrap();
         frame.verify_rig(rig).unwrap();

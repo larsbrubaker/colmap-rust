@@ -15,9 +15,16 @@
 //! - [`frame`]: `frame.h` / `frame.cc`, a posed instance of a rig with its measurements;
 //! - [`image`]: `image.h` / `image.cc`, one exposure: its features, camera and frame;
 //! - [`reconstruction`]: `reconstruction.h` / `.cc`, the owner of the rigs, cameras, frames,
-//!   images and 3D points of a model, with [`reconstruction_queries`] its whole-model queries;
+//!   images and 3D points of a model, with [`reconstruction_queries`] its whole-model queries
+//!   and [`reconstruction_transform`] its bounds, normalization, transform and crop, and
+//!   [`reconstruction_files`] its model-folder read and write;
+//! - [`reconstruction_io_binary`], [`reconstruction_io_text`] (readers),
+//!   [`reconstruction_io_text_write`] (writers) and [`reconstruction_io_utils`]:
+//!   `reconstruction_io_binary.*`, `reconstruction_io_text.*` and `reconstruction_io_utils.*`,
+//!   COLMAP's binary and text model files;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
 //! - [`visibility_pyramid`]: `visibility_pyramid.h` / `.cc`, how evenly points cover an image;
+//! - [`synthetic`]: `synthetic.h` / `.cc`, synthetic datasets for tests;
 //! - [`two_view_geometry`]: `two_view_geometry.h` / `.cc`, the verified geometry of an image
 //!   pair.
 
@@ -29,7 +36,14 @@ pub mod point2d;
 pub mod point3d;
 pub mod projection;
 pub mod reconstruction;
+pub mod reconstruction_files;
+pub mod reconstruction_io_binary;
+pub mod reconstruction_io_text;
+pub mod reconstruction_io_text_write;
+pub mod reconstruction_io_utils;
 pub mod reconstruction_queries;
+pub mod reconstruction_transform;
+pub mod synthetic;
 pub mod track;
 pub mod two_view_geometry;
 pub mod visibility_pyramid;

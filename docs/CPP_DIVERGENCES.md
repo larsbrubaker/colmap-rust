@@ -1399,3 +1399,57 @@ the port is bit-exact. Same as colmap-sharp entry 41.
 with `-ffp-contract=off` (fixture `sift_vlfeat.json`). `tests/feature/rust_only_sift.rs`
 `rust_only_sift_matches_pycolmap_*`: the nine `sift.json` cases against the wheel within
 2e-3 per keypoint value, 1 per descriptor byte and 0.1% mismatched bytes.
+
+## 240. SynthesizeDataset visits the 3D points in ascending id order
+
+**What differs.** COLMAP's `SynthesizeDataset` projects the reconstruction's 3D points into
+each image, and `track_length` pruning visits them, in `Reconstruction::Points3D()` order,
+which is the order of COLMAP's hash map. `scene/synthetic.rs` visits them in ascending id order
+(the reconstruction's `BTreeMap`, entry 213). The PRNG draws are the same and in the same
+sequence; what differs is the order of each image's 2D points before the shuffle and, with
+pruning, which point's track receives which shuffle. So a seeded run gives the same cameras,
+rigs, frame poses and 3D point positions as pycolmap's, but different 2D point orders and
+pruned tracks.
+
+**Why.** CLAUDE.md requires deterministic iteration; COLMAP's tests rely only on order-free
+properties (counts, track lengths, equality of two seeded runs). Same as colmap-sharp entry 31.
+
+**Evidence.** `tests/scene/synthetic.rs` (`synthetic_test.cc` 1:1 for the database-free
+tests) and every Phase 4 test that synthesizes its scene pass.
+
+## 241. Model file readers reject input COLMAP's streams misread
+
+**What differs.** COLMAP's model readers use `std::istream`, which parses a value
+character by character and does not check every read. The Rust readers:
+- parse each text value as a whole whitespace-separated token (`util/line_tokens.rs`), so
+  "12abc" fails where libc++ reads 12 and leaves "abc" for the next value;
+- reject a sensor type number in `rigs.bin` / `frames.bin` that names no `SensorType`, and a
+  camera model number that names no model (a Rust enum cannot hold an unnamed value);
+- reject an image name or text line that is not UTF-8 (a Rust `String` cannot hold it);
+- fail when a binary stream ends early (as entry 61), where COLMAP reads unspecified values
+  or, for an image name, loops on the last character.
+
+Valid files, including every file COLMAP writes, read to the same model.
+
+**Why.** Each case is malformed input where COLMAP's result is unspecified or silently wrong;
+an error is the only safe answer. Same as colmap-sharp entry 25 for the token parsing.
+
+**Evidence.** `tests/scene/rust_only_reconstruction_io.rs`
+`rust_only_reconstruction_io_rejects_what_cpp_misreads`; the pycolmap fixtures in
+`tests/data/oracle/reconstruction_io` read and re-write byte for byte
+(`rust_only_reconstruction_io_rewrites_pycolmap_files_byte_for_byte`).
+
+## 242. Reading a model resets the reconstruction's registration
+
+**What differs.** COLMAP's `Reconstruction::ReadText` / `ReadBinary` clear the rig, camera,
+frame, image and 3D point maps, but keep the registered-frame list, the registered-image count
+and the largest 3D point id. Reading into a reconstruction that already held registered frames
+leaves frames that no longer exist registered, so `NumRegFrames()` is wrong and `IsValid()`
+fails. Here `read_text` / `read_binary` start from an empty reconstruction.
+
+**Why.** Stale registration of frames that are gone is a bug; nothing relies on it (COLMAP
+reads into fresh reconstructions in practice).
+
+**Evidence.** `tests/scene/rust_only_reconstruction_io.rs`
+`rust_only_reconstruction_read_resets_registration` (COLMAP would report 5 registered frames
+for a file with 3).

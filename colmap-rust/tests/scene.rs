@@ -20,18 +20,28 @@ mod point3d;
 mod projection;
 #[path = "scene/reconstruction.rs"]
 mod reconstruction;
+#[path = "scene/reconstruction_io.rs"]
+mod reconstruction_io;
 #[path = "scene/reconstruction_queries.rs"]
 mod reconstruction_queries;
+#[path = "scene/reconstruction_synthetic.rs"]
+mod reconstruction_synthetic;
+#[path = "scene/reconstruction_transform.rs"]
+mod reconstruction_transform;
 #[path = "scene/rust_only_correspondence_graph.rs"]
 mod rust_only_correspondence_graph;
 #[path = "scene/rust_only_frame_image.rs"]
 mod rust_only_frame_image;
 #[path = "scene/rust_only_reconstruction.rs"]
 mod rust_only_reconstruction;
+#[path = "scene/rust_only_reconstruction_io.rs"]
+mod rust_only_reconstruction_io;
 #[path = "scene/rust_only_scene_types.rs"]
 mod rust_only_scene_types;
 #[path = "scene/rust_only_two_view_geometry.rs"]
 mod rust_only_two_view_geometry;
+#[path = "scene/synthetic.rs"]
+mod synthetic;
 #[path = "scene/track.rs"]
 mod track;
 #[path = "scene/two_view_geometry.rs"]

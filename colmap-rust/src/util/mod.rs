@@ -9,6 +9,7 @@
 //! - [`string`]: `string.h` — split, trim, replace, case, `StringToDouble`.
 //! - [`misc`]: `misc.h` — vector helpers and the CSV list conversions.
 //! - [`endian`]: `endian.h` — byte order and little-endian binary stream I/O.
+//! - [`line_tokens`]: `std::getline` and `istream >>` token parsing for the text readers.
 //! - [`file`]: the path-string helpers of `file.h` (extensions).
 //! - [`timer`]: `timer.h` — the pausable stopwatch, with a host clock on wasm.
 //! - [`threading`]: `GetEffectiveNumThreads` of `threading.h`.
@@ -19,6 +20,7 @@ pub mod cancellation;
 pub mod check;
 pub mod endian;
 pub mod file;
+pub mod line_tokens;
 pub mod misc;
 pub mod stream_format;
 pub mod string;
