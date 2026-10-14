@@ -29,6 +29,8 @@ mod point3d;
 mod projection;
 #[path = "scene/reconstruction.rs"]
 mod reconstruction;
+#[path = "scene/reconstruction_database.rs"]
+mod reconstruction_database;
 #[path = "scene/reconstruction_io.rs"]
 mod reconstruction_io;
 #[path = "scene/reconstruction_queries.rs"]

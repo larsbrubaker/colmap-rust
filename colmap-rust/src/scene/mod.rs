@@ -21,8 +21,9 @@
 //! - [`image`]: `image.h` / `image.cc`, one exposure: its features, camera and frame;
 //! - [`reconstruction`]: `reconstruction.h` / `.cc`, the owner of the rigs, cameras, frames,
 //!   images and 3D points of a model, with [`reconstruction_queries`] its whole-model queries
-//!   and [`reconstruction_transform`] its bounds, normalization, transform and crop, and
-//!   [`reconstruction_files`] its model-folder read and write;
+//!   and [`reconstruction_transform`] its bounds, normalization, transform and crop,
+//!   [`reconstruction_files`] its model-folder read and write, and [`reconstruction_database`]
+//!   `Load` from a database cache and `TranscribeImageIdsToDatabase`;
 //! - [`reconstruction_io_binary`], [`reconstruction_io_text`] (readers),
 //!   [`reconstruction_io_text_write`] (writers) and [`reconstruction_io_utils`]:
 //!   `reconstruction_io_binary.*`, `reconstruction_io_text.*` and `reconstruction_io_utils.*`,
@@ -47,6 +48,7 @@ pub mod point2d;
 pub mod point3d;
 pub mod projection;
 pub mod reconstruction;
+pub mod reconstruction_database;
 pub mod reconstruction_files;
 pub mod reconstruction_io_binary;
 pub mod reconstruction_io_text;

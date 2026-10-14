@@ -1788,3 +1788,21 @@ answer, and the database form behaves exactly as COLMAP's.
 
 **Evidence.** `tests/scene/synthetic_database.rs`
 `rust_only_synthesize_dataset_pose_priors_need_a_database`.
+
+## 273. TranscribeImageIdsToDatabase changes nothing when it fails
+
+**What differs.** COLMAP's `Reconstruction::TranscribeImageIdsToDatabase` renames the images
+one by one while it looks their names up in the database, so when a name is missing
+(`LOG(FATAL_THROW)`) or two images map to one id (`THROW_CHECK`), the images before it already
+carry their new ids while the frames and tracks still refer to the old ones: the reconstruction
+is left broken. `colmap_rust::scene::reconstruction_database::transcribe_image_ids_to_database`
+looks every id up, and checks every frame data id and track element has a mapping, before it
+changes anything, so a failure returns the error and leaves the reconstruction as it was. The
+successful result is the same.
+
+**Why.** A half-applied renumbering is a bug (`IsValid` fails afterwards); checking first costs
+one extra pass and makes the error recoverable.
+
+**Evidence.** `tests/scene/reconstruction_database.rs`
+`rust_only_transcribe_image_ids_to_database_unknown_name_changes_nothing`; COLMAP's
+TranscribeImageIdsToDatabase test passes 1:1.
