@@ -12,6 +12,8 @@ mod absolute_pose;
 mod generalized_absolute_pose;
 #[path = "estimators/poselib_utils.rs"]
 mod poselib_utils;
+#[path = "estimators/quaternion_utils.rs"]
+mod quaternion_utils;
 #[path = "estimators/rust_only_camera_pose.rs"]
 mod rust_only_camera_pose;
 #[path = "estimators/rust_only_gen_relpose_6pt.rs"]
@@ -34,6 +36,10 @@ mod rust_only_relpose_6pt_focal;
 mod rust_only_sturm;
 #[path = "estimators/similarity_transform.rs"]
 mod similarity_transform;
+#[path = "estimators/tiny_manifold.rs"]
+mod tiny_manifold;
+#[path = "estimators/tiny_sampson_error.rs"]
+mod tiny_sampson_error;
 
 /// gtest's `EXPECT_NEAR(a, b, tol)`.
 pub fn expect_near(a: f64, b: f64, tol: f64) {

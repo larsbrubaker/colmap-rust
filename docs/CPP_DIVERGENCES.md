@@ -1510,6 +1510,32 @@ unit norm and satisfies the five epipolar constraints to 1e-8, and the true E is
 solutions up to sign. colmap-sharp's 1:1 `EssentialMatrixFivePointEstimatorTests_Nominal`
 cases pass on the same construction. Not compared against C++ PoseLib intermediates.
 
+## 251. TinySphereManifold's tangent basis uses Hughes & Moller, not Eigen's unitOrthogonal()
+
+**What differs.** COLMAP's `SphereManifold<3>` (`estimators/cost_functions/tiny_manifold.h`)
+builds the tangent basis at x as `b1 = x_hat.unitOrthogonal()`, `b2 = x_hat.cross(b1)`.
+`estimators/cost_functions/tiny_manifold.rs` (`TinySphereManifold`) builds `b1` with the
+construction of Hughes & Moller, "Building an Orthonormal Basis from a Unit Vector" (JGT 4(4),
+1999): zero the component of smallest magnitude (the first on a tie), swap the other two and
+negate one, normalize. `b2` is the same cross product. The two constructions can pick a
+different unit vector in the tangent plane, so the tangent coordinates of a step, and with them
+TinySolver's Jacobi scaling and iterates, can differ from COLMAP's while spanning the same
+plane.
+
+**Why.** Eigen documents only that `unitOrthogonal()` returns some unit vector orthogonal to
+the input; its choice for 3-vectors is an implementation detail of MPL-2.0 code we may not
+transcribe (CLAUDE.md contract 2). Any orthonormal tangent basis gives a valid retraction and
+Plus Jacobian; TinySolver is Tier C, so what must agree is the converged result, which does not
+depend on the basis. Same as colmap-sharp entry 19.
+
+**Evidence.** `tests/estimators/tiny_manifold.rs`, the 1:1
+`sphere_manifold_plus_stays_on_unit_sphere` and `sphere_manifold_plus_jacobian_matches_finite_diff`
+(orthogonality to x within 1e-12, the finite-difference Jacobian within 1e-6) and the product
+manifold tests pass. colmap-sharp records the downstream effect of the same basis: where
+TinySolver stops before converging (the 25-iteration cap of
+`EssentialMatrixTangentSampsonEstimator`'s refinement, LO-RANSAC's ten refit rounds), the
+relative poses its global-SfM oracle test re-estimates agree with pycolmap to 6.5e-7 deg.
+
 ## 255. The six-point focal relative pose solvers take their null space from unpivoted Householder QR
 
 **What differs.** PoseLib's `relpose_6pt_shared_focal` and `relpose_6pt_onesided_focal` (the

@@ -23,8 +23,8 @@
 //!   `None`.
 //! - The Eigen LDLT linear solver is [`Ldlt`], with its `info()` checked as C++ checks it.
 //!   Buffers are allocated once per residual count and reused across solves.
-//! - Only the Euclidean manifold lives here; the others (`estimators/cost_functions/
-//!   tiny_manifold.h`) arrive with the estimators that use them.
+//! - Only the Euclidean manifold lives here; the others (`tiny_manifold.h`) are in
+//!   `estimators/cost_functions/tiny_manifold.rs`.
 //!
 //! Result tier: C (iterative). Scalar steps match the C++ line for line, but the Eigen
 //! products and LDLT are replaced, so iterates agree to rounding, not bit for bit.

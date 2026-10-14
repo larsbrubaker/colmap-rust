@@ -107,6 +107,30 @@ pub fn hypot(x: f64, y: f64) -> f64 {
     libm::hypot(x, y)
 }
 
+/// C++17's three-argument `std::hypot(x, y, z)` as libc++ computes it (the library the
+/// macOS pycolmap wheel links; libm has no three-argument form): sqrt(x^2 + y^2 + z^2) on
+/// arguments pre-scaled by a power of two when the largest magnitude could overflow (above
+/// 2^512) or underflow (below 2^-512) the squares. Power-of-two scaling is exact, so in range
+/// this is the plain square root of the left-to-right sum of squares. Ceres' rotation
+/// conversions (`AngleAxisToQuaternion`, `QuaternionToAngleAxis`) call it. Port of
+/// colmap-sharp's `ScalarMath.Hypot`.
+pub fn hypot3(x: f64, y: f64, z: f64) -> f64 {
+    // numeric_limits<double>::max_exponent / 2 = 1024 / 2. Exact powers of two, built from
+    // their bits: 2^512 and 2^-(512 + 20).
+    let overflow_threshold = f64::from_bits((1023 + 512) << 52);
+    let overflow_scale = f64::from_bits((1023 - 532) << 52);
+    let max_abs = x.abs().max(y.abs()).max(z.abs());
+    let scale = if max_abs > overflow_threshold {
+        overflow_scale
+    } else if max_abs < 1.0 / overflow_threshold {
+        1.0 / overflow_scale
+    } else {
+        1.0
+    };
+    let (x, y, z) = (x * scale, y * scale, z * scale);
+    sqrt(x * x + y * y + z * z) / scale
+}
+
 /// `std::sinh`.
 #[inline]
 pub fn sinh(x: f64) -> f64 {
