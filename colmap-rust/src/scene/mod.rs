@@ -14,6 +14,8 @@
 //!   between all images;
 //! - [`frame`]: `frame.h` / `frame.cc`, a posed instance of a rig with its measurements;
 //! - [`image`]: `image.h` / `image.cc`, one exposure: its features, camera and frame;
+//! - [`reconstruction`]: `reconstruction.h` / `.cc`, the owner of the rigs, cameras, frames,
+//!   images and 3D points of a model, with [`reconstruction_queries`] its whole-model queries;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
 //! - [`visibility_pyramid`]: `visibility_pyramid.h` / `.cc`, how evenly points cover an image;
 //! - [`two_view_geometry`]: `two_view_geometry.h` / `.cc`, the verified geometry of an image
@@ -26,6 +28,8 @@ pub mod image;
 pub mod point2d;
 pub mod point3d;
 pub mod projection;
+pub mod reconstruction;
+pub mod reconstruction_queries;
 pub mod track;
 pub mod two_view_geometry;
 pub mod visibility_pyramid;

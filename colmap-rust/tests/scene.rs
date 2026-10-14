@@ -18,10 +18,16 @@ mod point2d;
 mod point3d;
 #[path = "scene/projection.rs"]
 mod projection;
+#[path = "scene/reconstruction.rs"]
+mod reconstruction;
+#[path = "scene/reconstruction_queries.rs"]
+mod reconstruction_queries;
 #[path = "scene/rust_only_correspondence_graph.rs"]
 mod rust_only_correspondence_graph;
 #[path = "scene/rust_only_frame_image.rs"]
 mod rust_only_frame_image;
+#[path = "scene/rust_only_reconstruction.rs"]
+mod rust_only_reconstruction;
 #[path = "scene/rust_only_scene_types.rs"]
 mod rust_only_scene_types;
 #[path = "scene/rust_only_two_view_geometry.rs"]

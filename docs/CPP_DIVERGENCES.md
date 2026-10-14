@@ -1248,3 +1248,81 @@ the inflated totals.
 **Evidence.** `tests/scene/rust_only_correspondence_graph.rs`
 `rust_only_correspondence_graph_rejected_duplicate_pair_leaves_graph_unchanged` and
 `rust_only_correspondence_graph_missing_image_is_out_of_range`.
+
+## 213. Reconstruction iterates its objects in ascending id order
+
+**What differs.** COLMAP's `Reconstruction` keeps rigs, cameras, frames, images and 3D points
+in `NodeHashMap`s, whose iteration order is unspecified (it depends on the hash-map backend and
+its history). `scene/reconstruction.rs` keeps them in `BTreeMap`s, which iterate in ascending
+id order. Where that order reaches an output, the result can differ from a given COLMAP build:
+- `find_image_with_name` returns the smallest-id image when several share a name, and so
+  `find_common_reg_image_ids` pairs with that one.
+- `rigs()` / `cameras()` / `frames()` / `images()` / `points3d()` and `point3d_ids()` enumerate
+  in ascending id order for every caller; `compute_mean_reprojection_error` sums in that order.
+
+`reg_frame_ids()` and `reg_image_ids()` are COLMAP's vector, in registration order, unchanged.
+
+**Why.** CLAUDE.md requires deterministic iteration. COLMAP relies on no particular order (its
+tests only use order-free properties), so ascending id is the natural deterministic choice and
+needs no extra state. Same as colmap-sharp entry 21.
+
+**Evidence.** `tests/scene/reconstruction.rs` (`reconstruction_test.cc` 1:1 for the ported
+methods) passes; `tests/scene/rust_only_reconstruction.rs`
+`rust_only_reconstruction_iterates_in_ascending_id_order` pins the order.
+
+## 214. Changing an attached image's or frame's ids is caught by IsValid, not by the setter
+
+**What differs.** In COLMAP, `Image::SetCameraId` and `Frame::SetRigId` throw once the object is
+bound to a camera / rig pointer (`THROW_CHECK(!HasCameraPtr())`), so the image or frame inside a
+reconstruction cannot be moved to another camera or rig by accident; `SetFrameId` has no such
+guard. `Reconstruction::image_mut` / `frame_mut` hand out `&mut Image` / `&mut Frame`, and the
+setters (entry 170) do not know the object is in a reconstruction, so such a change is not
+rejected when made. `Reconstruction::is_valid` reports it (the camera, rig or frame must exist
+and hold the object), and every owner-taking method of `Frame` / `Image` rejects mismatched
+objects, so a broken association never yields a wrong pose silently.
+
+**Why.** With ids into owning maps there is no pointer to guard; a guarded mutable view (a
+wrapper type forwarding every safe setter) would double the `Image` / `Frame` API for a
+mistake no COLMAP code makes (COLMAP's own code changes these ids only on objects outside a
+reconstruction, or in `SetRigsAndFrames`, which re-verifies them). Flagged for review: if a
+later port needs the guard, `image_mut` becomes that view.
+
+**Evidence.** `tests/scene/rust_only_reconstruction.rs`
+`rust_only_reconstruction_changed_ids_are_invalid`; `tests/scene/reconstruction.rs`
+`reconstruction_is_valid` (the "empty frame pointer" case clears the image's frame id).
+
+## 215. DeleteAllPoints2DAndPoints3D resets each image's triangulated count
+
+**What differs.** COLMAP's `DeleteAllPoints2DAndPoints3D` clears the 3D points and calls
+`image.SetPoints2D(std::vector<Eigen::Vector2d>(0))`, which resizes the image points but does not
+touch `num_points3D_`, so every image that had triangulated points keeps a stale count: its
+`NumPoints3D()` is still non-zero with no points left, and `IsValid()` is false.
+`Reconstruction::delete_all_points2d_and_points3d` leaves each image's count at 0.
+
+**Why.** A count of triangulated points on an image without points is a bug; it makes the
+reconstruction fail its own validity check and inflates `ComputeNumObservations`. Nothing
+relies on the stale value.
+
+**Evidence.** `tests/scene/rust_only_reconstruction.rs`
+`rust_only_reconstruction_delete_all_points2d_and_points3d_resets_counts` (COLMAP would leave
+`num_points3d` at 1 and `is_valid` false).
+
+## 216. Rejected Reconstruction operations leave the reconstruction unchanged
+
+**What differs.** Several COLMAP `Reconstruction` operations throw part-way, after they changed
+something:
+- `AddPoint3D(point3D_id, point3D)` raises `max_point3D_id_` and marks the track's image points
+  one by one before it fails on a missing image, an image point observing another 3D point, or
+  an id already in use.
+- `AddObservation` marks the image point before it looks up the 3D point.
+- `DeletePoint3D` resets image points one by one before it fails on a missing track image.
+
+Here each checks everything it can fail on first, so an `Err` leaves the reconstruction as it
+was (including the next id `add_point3d` hands out).
+
+**Why.** A failed call that half-applies is a bug: afterwards image points claim a 3D point
+that does not exist (or no longer claim one that does), and `IsValid()` is false. No caller
+relies on the partial state.
+
+**Evidence.** `tests/scene/rust_only_reconstruction.rs`
+`rust_only_reconstruction_failed_operations_leave_it_unchanged`.
