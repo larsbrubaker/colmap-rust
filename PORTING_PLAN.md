@@ -21,7 +21,8 @@ visible in the app so the web build is the integration test.
 - Phase 3: all of sensor/.
 - Phase 4: point2d, point3d, track, camera, frame, image, projection, visibility_pyramid,
   two_view_geometry, correspondence_graph, the reconstruction core (bounds, Normalize,
-  Transform, Crop), binary + text reconstruction I/O, and synthetic datasets without a database.
+  Transform, Crop), binary + text reconstruction I/O, synthetic datasets without a database, the
+  in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
 - Phase 5: all of optim/ (RANSAC family, sparse_cholesky, least_absolute_deviations,
   tiny_solver).
 - Phase 6: `SimilarityTransformEstimator`, `poselib_utils`, the PoseLib CameraPose,
@@ -51,7 +52,7 @@ After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balan
 
 **Next slices** (start each from `main`):
 - Phase 6 — the fundamental Sampson refiner, GR8P, and the estimators (see Phase 6 below).
-- Phase 4 — the in-memory `Database`, then what waits on it (see Phase 4 below).
+- Phase 4 — what waits on the database (see Phase 4 below).
 - Phase 9 — the covariant extractor and `util/cache.h`.
 - Phase 7 — the Ceres replacement.
 
@@ -94,8 +95,8 @@ and a camera-model undistortion preview.
 
 ### Phase 4 — Scene
 Remaining:
-- In-memory `database`, then `database_cache`, and what needs a database: the scene `rig`
-  config helpers, `Reconstruction::Load`, `TranscribeImageIdsToDatabase`, the `SetRigsAndFrames*`
+- What needs a database: the scene `rig` config helpers, `Reconstruction::Load` (over
+  `DatabaseCache`), `TranscribeImageIdsToDatabase`, the `SetRigsAndFrames*`
   tests, and synthetic's database branch.
 - Synthetic: `SynthesizeNoise`, `SynthesizeImages`.
 - Reconstruction: PLY import/export (`ConvertToPLY`, `ImportPLYFromVector`; needs Phase 1's PLY
@@ -174,6 +175,11 @@ browser.
 Mirror colmap-sharp's "Skipped tests" list as each module is ported (bitmap file I/O,
 SQLite files, Ceres internals not ported, CUDA/GPU, SiftGPU, ONNX, vocabulary tree), adapting
 reasons to Rust. Every skipped COLMAP test is listed here by name when its file is ported.
+
+### scene/
+- `database_test.cc` ParameterizedDatabaseTests.{OpenFile,OpenCloseFile,OpenFileWithNonASCIIPath}:
+  they need SQLite database files, which are out of scope (the database is in memory, divergence
+  265).
 
 ### sensor/
 - `bitmap_test.cc` ReadWriteAsRGB, ReadWriteUnicodePath, ReadWriteAsGrey,
@@ -260,6 +266,12 @@ Fix each one in agg-gui, then remove its workaround here:
   pose estimators, `estimators/solvers/absolute_pose.rs`).
 - **`fast_expn` is a constant table** of correctly rounded `exp` values (divergence 202), an
   exception to the `math::fns` rule.
+- **The database is one in-memory type** (`scene::database::Database`, divergence 265): no
+  path-keyed factory; `Database::new()` stands for COLMAP's in-memory path. Methods take `&self`
+  with the tables behind a `Mutex`, so it is shared as `Arc<Database>`; every method returns
+  `Result` and fails after `close()`. SQLite's ids (AUTOINCREMENT), UNIQUE indices, foreign keys
+  and cascades are reproduced; a write that breaks a constraint stores nothing (266).
+  `DatabaseCache` keeps its objects in id order (267) and is returned by value.
 - **The core is single-threaded for now** (no rayon): `num_threads` is validated and otherwise
   ignored, so results never depend on it.
 - **colmap-rust will be published to crates.io** once the core is usable (crate `colmap-rust`,
