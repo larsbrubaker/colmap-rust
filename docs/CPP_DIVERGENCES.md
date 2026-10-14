@@ -2235,3 +2235,52 @@ gives the same bits on every target, native and wasm. Same as colmap-sharp entry
 sphere's poles) checks Plus/Minus round trips to 1e-12 and the Jacobians against finite
 differences to 1e-8; `tests/solver/ceres_polynomial.rs` (Ceres' `polynomial_test.cc`) passes at
 Ceres' own tolerances.
+
+## 306. A Problem owns its parameter values and names blocks by id
+
+**What differs.** Ceres' `Problem` keys a parameter block by the user's `double*`, reads the
+user's memory during evaluation and writes the solution back into it. `colmap_rust::solver::Problem`
+copies the values into one arena when a block is added (`add_parameter_block` returns a
+`ParameterBlockId`), evaluates and solves on that arena, and the caller reads the result back
+with `Problem::parameter_block`. Every other call that takes a `double*` in Ceres takes the id.
+Consequences: blocks cannot alias or be re-added with another size, so Ceres' aliasing and
+same-pointer checks do not exist; `AddResidualBlock` does not add unknown blocks on the fly (a
+residual block names ids the problem handed out, an unknown id is an error);
+`GetParameterBlocks` lists blocks in the order they were added, not in address order (the one
+COLMAP caller, `GetOtherParams` in `estimators/covariance.cc`, uses that order only to lay out
+the factorization; same as colmap-sharp entry 53); messages that print a block's pointer print
+its id. Cost functions, losses and manifolds are `Arc`s, so the ownership options
+(`Problem::Options::*_ownership`) have nothing to control. Where Ceres CHECK-fails or
+`LOG(FATAL)`s (unknown block, duplicate blocks, size mismatch, a manifold of the wrong size),
+the call returns the error with Ceres' message. Block removal, `EvaluateResidualBlock` and the
+evaluation callback are not ported: COLMAP never calls them.
+
+**Why.** Rust gives a block no stable address to key on without `unsafe`, and a problem that
+borrowed the caller's arrays would need every block borrowed mutably for the problem's whole
+life, which COLMAP's shared camera and rig blocks rule out. Owning the values costs one copy in
+and one copy out per solve (Ceres copies them into its state vector anyway) and keeps the
+solver free of lifetimes. Insertion order is deterministic, where address order is an accident
+of the allocator.
+
+**Evidence.** `tests/solver/problem.rs` (Ceres' `problem_test.cc`, the cases that apply; the
+skipped ones are listed in its header with their reason) and `tests/solver/problem_evaluate.rs`
+(`ProblemEvaluateTest`, exact values) pass.
+
+## 307. A ParameterBlockOrdering lists a group's blocks in the order they were added to the problem
+
+**What differs.** Ceres' `ParameterBlockOrdering` (`OrderedGroups<double*>`) keeps each group
+in a `std::set<double*>`, so a group's blocks come out in heap-address order, and the Schur
+solvers lay out the eliminated blocks (and the reduced camera system's columns) in that order.
+`colmap_rust::solver::OrderedGroups` is Ceres' class over `ParameterBlockId`, so a group's
+blocks come out in id order: the order they were added to the problem. Groups are still visited
+in increasing id order, and every other rule (moving an element, `Reverse`'s numbering, the
+counts) is Ceres'. colmap-sharp keeps each group in the order its blocks were added to the
+group (its entry 36); id order is the same wherever a caller adds blocks to the problem and to
+the ordering in the same order, as COLMAP's `GlobalPositioner` does.
+
+**Why.** Address order is an accident of the allocator, so no run-to-run order exists to match;
+the ids make Ceres' own `std::set` rule deterministic. The effect on results is rounding-level
+(the order of additions into the reduced system), within the Tier C outcome bar.
+
+**Evidence.** `tests/solver/ordered_groups.rs` (Ceres' `ordered_groups_test.cc`, unchanged
+values) passes; none of its cases depends on the order inside a group.

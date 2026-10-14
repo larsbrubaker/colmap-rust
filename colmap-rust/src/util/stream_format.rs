@@ -90,3 +90,22 @@ fn layout(negative: bool, digits: &[u8], exponent: i32, significant: usize) -> S
     }
     out
 }
+
+/// printf's `%.{precision}e` (Ceres' `StringPrintf("%e", ...)` in its error messages): one
+/// digit, the point, `precision` digits, and an exponent with a sign and at least two digits
+/// (`1.000000e+00`). NaN and infinities print as printf does on macOS (`nan`, `inf`, `-inf`).
+pub fn format_exponential(value: f64, precision: usize) -> String {
+    if value.is_nan() {
+        return "nan".to_string();
+    }
+    if value.is_infinite() {
+        return if value < 0.0 { "-inf" } else { "inf" }.to_string();
+    }
+    // Rust's `{:.N e}` rounds exactly like printf (see the module comment) but writes the
+    // exponent bare (`1.000000e0`); only the exponent's layout is rewritten.
+    let text = format!("{value:.precision$e}");
+    let (mantissa, exponent) = text.split_once('e').unwrap_or((&text, "0"));
+    let exponent: i32 = exponent.parse().unwrap_or(0);
+    let sign = if exponent < 0 { '-' } else { '+' };
+    format!("{mantissa}e{sign}{:02}", exponent.unsigned_abs())
+}

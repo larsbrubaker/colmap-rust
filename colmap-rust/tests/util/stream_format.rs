@@ -4,7 +4,7 @@
 // from Python's '%g' % v and '%.17g' % v (C printf semantics: correctly rounded from the
 // exact binary value, half-even on exact ties). Tier A.
 
-use colmap_rust::util::stream_format::{format_double, DEFAULT_PRECISION};
+use colmap_rust::util::stream_format::{format_double, format_exponential, DEFAULT_PRECISION};
 
 #[test]
 fn rust_only_format_double_matches_printf() {
@@ -64,4 +64,24 @@ fn rust_only_format_double_large_precision() {
     // %g treats precision 0 as 1.
     assert_eq!(format_double(2.5, 0), "2");
     assert_eq!(format_double(3.5, 0), "4");
+}
+
+// printf's %e, the layout of Ceres' bound messages: expected strings from Python's '%e' % v
+// (C printf semantics).
+#[test]
+fn rust_only_format_exponential_matches_printf() {
+    let cases: [(f64, &str); 9] = [
+        (0.0, "0.000000e+00"),
+        (1.0, "1.000000e+00"),
+        (-2.0, "-2.000000e+00"),
+        (123456789.0, "1.234568e+08"),
+        (0.000123, "1.230000e-04"),
+        (f64::MAX, "1.797693e+308"),
+        (-f64::MAX, "-1.797693e+308"),
+        (f64::INFINITY, "inf"),
+        (f64::NAN, "nan"),
+    ];
+    for (value, expected) in cases {
+        assert_eq!(format_exponential(value, 6), expected, "{value}");
+    }
 }

@@ -16,6 +16,18 @@ mod ceres_polynomial;
 mod corrector;
 #[path = "solver/loss_function.rs"]
 mod loss_function;
+#[path = "solver/ordered_groups.rs"]
+mod ordered_groups;
+#[path = "solver/parameter_block.rs"]
+mod parameter_block;
+#[path = "solver/problem.rs"]
+mod problem;
+#[path = "solver/problem_evaluate.rs"]
+mod problem_evaluate;
+#[path = "solver/program.rs"]
+mod program;
+#[path = "solver/residual_block.rs"]
+mod residual_block;
 #[path = "solver/rust_only_autodiff_cost_function.rs"]
 mod rust_only_autodiff_cost_function;
 #[path = "solver/rust_only_block_random_access_matrix.rs"]
@@ -24,6 +36,8 @@ mod rust_only_block_random_access_matrix;
 mod rust_only_jet;
 #[path = "solver/rust_only_manifold.rs"]
 mod rust_only_manifold;
+#[path = "solver/rust_only_program_evaluator.rs"]
+mod rust_only_program_evaluator;
 #[path = "solver/rust_only_small_blas.rs"]
 mod rust_only_small_blas;
 #[path = "solver/rust_only_small_blas_fixed.rs"]

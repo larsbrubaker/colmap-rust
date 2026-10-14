@@ -30,7 +30,13 @@
 //!   [`Cell`], [`CompressedRow`], [`CompressedRowBlockStructure`], [`BlockSparseMatrix`]);
 //! - `block_random_access_matrix.rs`, `block_random_access_sparse_matrix.rs`: the reduced
 //!   camera matrix the Schur solvers accumulate into ([`BlockRandomAccessMatrix`], dense,
-//!   sparse and diagonal).
+//!   sparse and diagonal);
+//! - the problem model: `parameter_block.rs` ([`ParameterBlock`]), `residual_block.rs`
+//!   ([`ResidualBlock`]), `problem.rs` ([`Problem`], which owns the parameter values and hands
+//!   out [`ParameterBlockId`]s), `problem_evaluate.rs` ([`Problem::evaluate`]), `program.rs`
+//!   ([`Program`]), `ordered_groups.rs` ([`ParameterBlockOrdering`]);
+//! - `block_jacobian_layout.rs` ([`BlockJacobianLayout`]) and `program_evaluator.rs`
+//!   ([`ProgramEvaluator`]): a program's cost, residuals, gradient and Jacobian.
 //!
 //! Users: the camera models (`sensor::models`, generic over [`Scalar`]; the iterative
 //! undistortion differentiates on `Jet<2>`), the quaternion utilities and Sampson cost
@@ -40,9 +46,12 @@
 //! from colmap-sharp's C#-only `JetTests` and `AutoDiffCostFunctionTests`; Ceres' own loss,
 //! corrector and polynomial tests; colmap-sharp's C#-only `ManifoldTests`). The matrix tests
 //! there port Ceres' `small_blas_test.cc` and
-//! `block_random_access_{dense,sparse,diagonal}_matrix_test.cc` via colmap-sharp.
+//! `block_random_access_{dense,sparse,diagonal}_matrix_test.cc` via colmap-sharp; the problem
+//! model's port Ceres' `parameter_block_test.cc`, `residual_block_test.cc`, `program_test.cc`,
+//! `ordered_groups_test.cc` and `problem_test.cc`.
 
 pub mod autodiff_cost_function;
+pub mod block_jacobian_layout;
 pub mod block_random_access_matrix;
 pub mod block_random_access_sparse_matrix;
 pub mod block_sparse_matrix;
@@ -52,7 +61,14 @@ pub mod corrector;
 pub mod jet;
 pub mod loss_function;
 pub mod manifold;
+pub mod ordered_groups;
+pub mod parameter_block;
+pub mod problem;
+pub mod problem_evaluate;
 pub mod product_manifold;
+pub mod program;
+pub mod program_evaluator;
+pub mod residual_block;
 pub mod rotation;
 pub mod scalar;
 pub mod small_blas;
@@ -62,6 +78,7 @@ pub mod sphere_manifold;
 pub mod tiny_solver_autodiff_function;
 
 pub use autodiff_cost_function::{AutoDiffCostFunction, AutoDiffFunctor, CostFunction};
+pub use block_jacobian_layout::BlockJacobianLayout;
 pub use block_random_access_matrix::{
     BlockRandomAccessDenseMatrix, BlockRandomAccessDiagonalMatrix, BlockRandomAccessMatrix,
     CellLocation,
@@ -78,7 +95,14 @@ pub use loss_function::{
 pub use manifold::{
     EigenQuaternionManifold, EuclideanManifold, Manifold, QuaternionManifold, SubsetManifold,
 };
+pub use ordered_groups::{OrderedGroups, ParameterBlockOrdering};
+pub use parameter_block::ParameterBlock;
+pub use problem::{ParameterBlockId, Problem, ProblemBlocks, ResidualBlockId};
+pub use problem_evaluate::{CrsMatrix, EvaluateOptions};
 pub use product_manifold::ProductManifold;
+pub use program::Program;
+pub use program_evaluator::{EvaluatorJacobian, ProgramEvaluator};
+pub use residual_block::{ParameterValues, ResidualBlock};
 pub use scalar::{fmax, fmin, Scalar};
 pub use sparse_matrix::{DenseSparseMatrix, LinearOperator, SparseMatrix};
 pub use sphere_manifold::SphereManifold;
