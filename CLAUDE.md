@@ -147,7 +147,8 @@ Plus the gates that run with net 1:
   `normalized()` of a zero vector returns zero. Match documented behavior, don't port Eigen.
 - **Value types.** `Vector3d`, `Matrix3d`, `Rigid3d`, `Quaterniond` are `Copy` structs with
   operator impls. Hot loops don't allocate.
-- **Threading.** Parallelism uses rayon behind the `parallel` feature, only where each worker
+- **Threading.** The core is single-threaded for now (PORTING_PLAN.md, Decisions). When
+  parallelism comes, it uses rayon behind a `parallel` feature, only where each worker
   writes its own slot. Sequential and parallel runs give identical results; wasm runs
   sequential.
 - **Errors.** `THROW_CHECK*` → `check!`-style macros that return `Err` with COLMAP's
