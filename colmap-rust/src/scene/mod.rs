@@ -12,6 +12,11 @@
 //! - [`camera`]: `camera.h` / `camera.cc`, a camera model with its parameters;
 //! - [`correspondence_graph`]: `correspondence_graph.h` / `.cc`, the feature correspondences
 //!   between all images;
+//! - [`database`]: `database.h` / `database.cc`, the in-memory store of rigs, cameras,
+//!   frames, images, pose priors, features, matches and two-view geometries, with its queries;
+//!   [`database_write`] its writes, updates, deletes and clears, and [`database_merge`]
+//!   `Merge`, `LoadRandomDatabaseDescriptors` and the keypoint/match blobs;
+//! - [`database_cache`]: `database_cache.h` / `.cc`, what a mapper loads from a database;
 //! - [`frame`]: `frame.h` / `frame.cc`, a posed instance of a rig with its measurements;
 //! - [`image`]: `image.h` / `image.cc`, one exposure: its features, camera and frame;
 //! - [`reconstruction`]: `reconstruction.h` / `.cc`, the owner of the rigs, cameras, frames,
@@ -30,6 +35,10 @@
 
 pub mod camera;
 pub mod correspondence_graph;
+pub mod database;
+pub mod database_cache;
+pub mod database_merge;
+pub mod database_write;
 pub mod frame;
 pub mod image;
 pub mod point2d;

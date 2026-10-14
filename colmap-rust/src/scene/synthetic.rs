@@ -17,7 +17,8 @@
 //! - Iteration order: COLMAP visits `Reconstruction::Points3D()` in hash order; here it is
 //!   ascending id order (entries 213 and 240).
 //! - The `Database*` argument and the options only it reads (feature type, matches, two-view
-//!   geometries, pose priors) are not ported yet: they land with the database (Phase 4).
+//!   geometries, pose priors) are not ported yet; they write into
+//!   [`crate::scene::database::Database`] (Phase 4).
 //!   `SynthesizeNoise` and `SynthesizeImages` follow in the same later slice.
 
 use std::collections::BTreeSet;

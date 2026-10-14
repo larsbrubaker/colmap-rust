@@ -1648,3 +1648,83 @@ as colmap-sharp entry 24.
 `fundamental_seven_point_estimator_reference` (COLMAP's Matlab reference values, 1e-6) and
 `fundamental_seven_point_estimator_nominal` (100 random problems, at least one model equal to
 the true F up to scale) pass 1:1.
+
+## 265. The database is one in-memory type, not a factory over SQLite files
+
+**What differs.** COLMAP's `Database` (scene/database.h) is an abstract class whose only
+implementation is `SqliteDatabase` (database_sqlite.cc), opened through a path-keyed factory
+registry (`Database::Open`, `Database::Register`); `kInMemorySqliteDatabasePath` opens an
+in-memory SQLite database. `colmap_rust::scene::database::Database` is one concrete type that
+keeps its tables in memory: `Database::new()` stands for `Open(kInMemorySqliteDatabasePath)`,
+and there is no `Open(path)`, no `Register` and no file. Its methods take `&self` (the tables
+sit behind a mutex, so a database can be shared between threads like COLMAP's `shared_ptr`) and
+return `Result`, so a closed database fails every call as COLMAP's does. `BeginTransaction` /
+`EndTransaction` only check that the database is open: every call is applied at once, and
+COLMAP never rolls a transaction back. `DatabaseTransaction` still holds the transaction lock,
+so only one is active at a time.
+
+**Why.** SQLite database files are out of scope (PORTING_PLAN.md: SQLite is native code), and a
+trait with a single implementation would only add indirection. Everything the SQLite schema
+makes observable is reproduced: AUTOINCREMENT ids for rigs, cameras, frames and images (one more
+than the largest id the table ever held, explicit ids included; clearing does not reset it), the
+pose priors' plain INTEGER PRIMARY KEY (one more than the largest current id), the UNIQUE
+indices (image names, a sensor in at most one rig as reference and one as non-reference sensor,
+a data id in at most one frame, one pose prior per data id, one keypoints / descriptors /
+matches / two-view geometry row per image or pair), the foreign keys with their cascades
+(clearing rigs drops their frames, clearing images their keypoints and descriptors, clearing
+cameras fails while images exist), rows read in id order and pairs in pair id order, UPDATE of a
+missing row doing nothing, reads of a missing row returning defaults, and the two-view geometry
+columns (`tri_angle` is not stored, so a read returns its default).
+
+**Evidence.** `tests/scene/database.rs` (database_test.cc 1:1; the three `OpenFile*` cases are
+skipped as file-based) and `tests/scene/rust_only_database.rs`. Same as colmap-sharp's
+`InMemoryDatabase` (its `Scene/InMemoryDatabase.cs` header).
+
+## 266. A database write that violates a constraint stores nothing
+
+**What differs.** COLMAP's `WriteRig` / `UpdateRig` and `WriteFrame` / `UpdateFrame` issue one
+INSERT for the rig or frame row and then one per sensor or data id, each in SQLite's autocommit
+mode; when a later INSERT violates a constraint (say, a sensor already in another rig), COLMAP
+throws after the earlier rows were committed, leaving a rig or frame with part of its sensors or
+data. Here every write checks all constraints first, so a failing call leaves the database
+unchanged. Consequences:
+- On successful writes the assigned ids, what is stored and every read are the same.
+- After such a partially failed write COLMAP has consumed the new id (the row exists), so its
+  next automatic id is one higher; here the id was never used and the next write gets it.
+- The same calls fail, but the messages differ: COLMAP's `std::runtime_error` reads "SQLite
+  error: constraint failed" (`sqlite3_errstr`); here it is `ErrorKind::RuntimeError` worded like
+  SQLite's extended messages ("SQLite error: UNIQUE constraint failed: images.name", "SQLite
+  error: FOREIGN KEY constraint failed"). `THROW_CHECK` sites keep COLMAP's check messages.
+- An automatic id past `u32::MAX` fails ("the next id does not fit a 32-bit id") where COLMAP
+  truncates SQLite's 64-bit rowid to the 32-bit id.
+
+**Why.** The partially written state is an accident of statement-at-a-time execution, not
+behavior any COLMAP caller relies on (all of them treat the exception as fatal), and reproducing
+it would mean emulating SQLite's statement boundaries. A truncated id would silently alias an
+existing row.
+
+**Evidence.** `tests/scene/rust_only_database.rs` `rust_only_failed_rig_write_stores_nothing`
+and `rust_only_image_names_are_unique_and_need_a_camera`; database_test.cc's cases that expect a
+constraint violation to fail (`PosePrior`, `TwoViewGeometry`) pass. Same as colmap-sharp entry
+23.
+
+## 267. DatabaseCache iterates its objects in ascending id order
+
+**What differs.** COLMAP's `DatabaseCache` keeps rigs, cameras, frames and images in
+`NodeHashMap`s, whose iteration order depends on the hash-map backend of the build.
+`colmap_rust::scene::database_cache::DatabaseCache` keeps them in `BTreeMap`s, so `rigs()`,
+`cameras()`, `frames()` and `images()` enumerate in ascending id order, like `Reconstruction`
+(entry 213). Where that order reaches an output: `find_image_with_name` returns the
+smallest-id image when several share a name (possible only through `add_image`; database names
+are unique), and the correspondence graph receives its images in ascending id order (the order
+of `AddImage` calls is not observable). Pairs are added in the database's pair id order in
+`load` and in the source graph's insertion order (entry 210) in `create_from_cache`, both as in
+COLMAP. `Load` keeps COLMAP's `emplace` semantics: an object already in the cache is not
+replaced.
+
+**Why.** CLAUDE.md requires deterministic iteration. COLMAP relies on no particular order here
+(its tests use order-free properties), so ascending id is the natural choice.
+
+**Evidence.** `tests/scene/database_cache.rs` (database_cache_test.cc 1:1) passes with COLMAP's
+expectations; `rust_only_create_from_cache_keeps_whole_frames` pins the filtering. Same as
+colmap-sharp entry 33.

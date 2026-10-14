@@ -1,6 +1,6 @@
 // COLMAP's `Rigid3dNear` (geometry/rigid3_matchers.h) and `Sim3dNear`
 // (geometry/sim3_matchers.h) gmock matchers as predicates (test support, not a test), shared by
-// the `geometry` and `estimators` test binaries. Port of colmap-sharp's
+// the `geometry`, `estimators` and `scene` test binaries. Port of colmap-sharp's
 // `ColmapSharp.Tests/Rigid3dMatchers.cs` and `Sim3dMatchers.cs`.
 //
 // Faithful to an upstream slip, as colmap-sharp is: COLMAP's Sim3dNearMatcher initializes its

@@ -4,10 +4,17 @@
 //
 // Run: `cargo test -p colmap-rust --test scene`.
 
+#[path = "support/transform_matchers.rs"]
+mod transform_matchers;
+
 #[path = "scene/camera.rs"]
 mod camera;
 #[path = "scene/correspondence_graph.rs"]
 mod correspondence_graph;
+#[path = "scene/database.rs"]
+mod database;
+#[path = "scene/database_cache.rs"]
+mod database_cache;
 #[path = "scene/frame.rs"]
 mod frame;
 #[path = "scene/image.rs"]
@@ -30,6 +37,8 @@ mod reconstruction_synthetic;
 mod reconstruction_transform;
 #[path = "scene/rust_only_correspondence_graph.rs"]
 mod rust_only_correspondence_graph;
+#[path = "scene/rust_only_database.rs"]
+mod rust_only_database;
 #[path = "scene/rust_only_frame_image.rs"]
 mod rust_only_frame_image;
 #[path = "scene/rust_only_reconstruction.rs"]
