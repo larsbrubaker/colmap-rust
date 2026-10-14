@@ -13,8 +13,8 @@ use super::ply::{
     tokens, trimmed, PlyBytes, PlyMeshFace, PlyMeshVertex, PlyTexturedMesh, MAX_INITIAL_CAPACITY,
     MAX_PLY_ELEMENTS,
 };
-use crate::scene::reconstruction_io_utils::open_read;
 use crate::util::check::{ColmapError, ErrorKind, Result};
+use crate::util::file::open_read;
 use crate::util::line_tokens::LineTokens;
 use crate::util::string::{string_split, string_to_double};
 

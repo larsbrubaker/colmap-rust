@@ -12,6 +12,7 @@
 //! - [`endian`]: `endian.h` — byte order and little-endian binary stream I/O.
 //! - [`line_tokens`]: `std::getline` and `istream >>` token parsing for the text readers.
 //! - [`file`](mod@file): the path-string helpers of `file.h` (extensions).
+//!   It also opens files for reading and writing and creates directories, as `file.h` does.
 //! - [`timer`]: `timer.h` — the pausable stopwatch, with a host clock on wasm.
 //! - [`threading`]: `GetEffectiveNumThreads` of `threading.h`.
 //! - [`json`]: a small JSON reader (written here) standing in for `boost::property_tree`'s

@@ -1,10 +1,14 @@
-//! The path-string helpers of COLMAP's `src/colmap/util/file.h/.cc` that need no file
-//! system: `HasFileExtension`, `AddFileExtension` and `SplitFileExtension` (the undistorters
-//! and image readers name their outputs with them). The file-system functions (`ExistsFile`,
-//! `CreateDirIfNotExists`, `GetRecursiveFileList`, downloads, ...) are not ported here: the
-//! core crate reads and writes through host-supplied streams so that it runs in the browser.
+//! The helpers of COLMAP's `src/colmap/util/file.h/.cc` that the library needs: the path-string
+//! helpers `HasFileExtension`, `AddFileExtension` and `SplitFileExtension` (the undistorters
+//! and image readers name their outputs with them), and the file-system helpers the model,
+//! PLY and feature readers and writers share: [`open_read`] / [`open_write`] with COLMAP's
+//! `THROW_CHECK_FILE_OPEN` message, and `CreateDirIfNotExists` ([`create_dir_if_not_exists`]).
+//! The other file-system functions (`ExistsFile`, `GetRecursiveFileList`, downloads, ...) are
+//! not ported: the browser build reads and writes through host-supplied streams, and native
+//! callers use `std::fs` directly.
 //! Port of colmap-sharp's `ColmapSharp/Util/FileUtils.cs`, plus `SplitFileExtension`.
-//! Tests: `tests/util/file.rs` (the matching `file_test.cc` cases).
+//! Tests: `tests/util/file.rs` (the matching `file_test.cc` cases); the file-system helpers
+//! are exercised through the readers and writers that use them.
 //!
 //! Tier A (exact): `std::filesystem::path::extension()` is reproduced by hand: the
 //! extension starts at the file name's last '.', except that a name whose only '.' is its
@@ -12,7 +16,12 @@
 //! components, as for `std::filesystem::path` on POSIX; COLMAP on Windows also splits at
 //! '\\', so hosts must pass '/'-normalized names. `docs/CPP_DIVERGENCES.md` entry 63.
 
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use std::path::Path;
+
 use super::check::Result;
+use super::check::{ColmapError, ErrorKind};
 use super::string::string_split;
 
 /// `path.filename()` for a POSIX path string: everything after the last '/'.
@@ -71,4 +80,45 @@ pub fn split_file_extension(path: &str) -> Result<(String, String)> {
         format!(".{last}")
     };
     Ok((root, ext))
+}
+
+/// `THROW_CHECK_FILE_OPEN(file, path)`'s message.
+fn file_open_error(path: &Path) -> ColmapError {
+    ColmapError::new(
+        ErrorKind::InvalidArgument,
+        format!(
+            "Check failed: (file).is_open() Could not open \"{}\". Is the path a directory or \
+             does the parent dir not exist?",
+            path.display()
+        ),
+    )
+}
+
+/// Opens `path` for reading, failing with COLMAP's `THROW_CHECK_FILE_OPEN` message.
+pub(crate) fn open_read(path: &Path) -> Result<BufReader<File>> {
+    File::open(path)
+        .map(BufReader::new)
+        .map_err(|_| file_open_error(path))
+}
+
+/// Creates (truncating) `path` for writing, failing with COLMAP's `THROW_CHECK_FILE_OPEN`
+/// message.
+pub(crate) fn open_write(path: &Path) -> Result<BufWriter<File>> {
+    File::create(path)
+        .map(BufWriter::new)
+        .map_err(|_| file_open_error(path))
+}
+
+/// Port of `CreateDirIfNotExists(dir)` (not recursive): nothing if `dir` is a directory,
+/// else creates it, failing if the parent does not exist.
+pub(crate) fn create_dir_if_not_exists(dir: &Path) -> Result<()> {
+    if dir.is_dir() {
+        return Ok(());
+    }
+    std::fs::create_dir(dir).map_err(|error| {
+        ColmapError::new(
+            ErrorKind::RuntimeError,
+            format!("Could not create directory {}: {error}", dir.display()),
+        )
+    })
 }

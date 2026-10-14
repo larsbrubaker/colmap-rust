@@ -22,8 +22,8 @@
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
-use crate::scene::reconstruction_io_utils::open_read;
 use crate::util::check::{ColmapError, ErrorKind, Result};
+use crate::util::file::open_read;
 use crate::util::string::{string_split, string_to_double, string_trim, C_ISSPACE};
 
 pub use super::ply_write::{

@@ -11,8 +11,8 @@ use std::io::Write;
 use std::path::Path;
 
 use super::ply::{ply_io_error, PlyPoint, PlyTexturedMesh};
-use crate::scene::reconstruction_io_utils::open_write;
 use crate::util::check::Result;
+use crate::util::file::open_write;
 use crate::util::stream_format::{format_double, DEFAULT_PRECISION};
 
 /// `file << value` for a float.

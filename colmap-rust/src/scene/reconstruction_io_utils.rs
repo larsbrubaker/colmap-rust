@@ -1,8 +1,9 @@
 //! Port of `colmap/scene/reconstruction_io_utils.h` / `.cc` (and colmap-sharp's
 //! `Scene/ReconstructionIOUtils.cs`): the helpers the binary and text model readers share —
 //! the one-rig-per-camera and one-frame-per-image setup for legacy models written before
-//! rigs and frames existed, the image-to-frame lookup — plus the file and stream error
-//! plumbing of [`super::reconstruction_io_binary`] and [`super::reconstruction_io_text`].
+//! rigs and frames existed, the image-to-frame lookup — plus the stream error plumbing of
+//! [`super::reconstruction_io_binary`] and [`super::reconstruction_io_text`]. The file
+//! openers live in [`crate::util::file`].
 //! Tests: `tests/scene/reconstruction_io.rs`.
 //!
 //! Translation notes:
@@ -13,8 +14,6 @@
 //!   ([`extract_image_to_frame_id`], entry 170).
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
 use crate::geometry::rigid3::Rigid3d;
@@ -88,32 +87,9 @@ pub(crate) fn sensor_type_from_i32(value: i32) -> Result<SensorType> {
     }
 }
 
-/// `THROW_CHECK_FILE_OPEN(file, path)`'s message.
-fn file_open_error(path: &Path) -> ColmapError {
-    ColmapError::new(
-        ErrorKind::InvalidArgument,
-        format!(
-            "Check failed: (file).is_open() Could not open \"{}\". Is the path a directory or \
-             does the parent dir not exist?",
-            path.display()
-        ),
-    )
-}
-
-/// Opens `path` for reading, failing with COLMAP's `THROW_CHECK_FILE_OPEN` message.
-pub(crate) fn open_read(path: &Path) -> Result<BufReader<File>> {
-    File::open(path)
-        .map(BufReader::new)
-        .map_err(|_| file_open_error(path))
-}
-
-/// Creates (truncating) `path` for writing, failing with COLMAP's `THROW_CHECK_FILE_OPEN`
-/// message.
-pub(crate) fn open_write(path: &Path) -> Result<BufWriter<File>> {
-    File::create(path)
-        .map(BufWriter::new)
-        .map_err(|_| file_open_error(path))
-}
+/// The file openers moved to [`crate::util::file`] (the PLY readers in `util` use them too);
+/// re-exported here for the readers that import them with the stream helpers below.
+pub(crate) use crate::util::file::{open_read, open_write};
 
 /// A stream read or write that failed part-way (COLMAP's unchecked stream state; entry 61).
 pub(crate) fn stream_error(error: std::io::Error) -> ColmapError {

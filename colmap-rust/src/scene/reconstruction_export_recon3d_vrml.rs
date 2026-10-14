@@ -18,9 +18,9 @@ use crate::scene::reconstruction::Reconstruction;
 use crate::scene::reconstruction_export::{
     cam_from_world, drop_last, extra_param, is_pinhole, num, num6, put,
 };
-use crate::scene::reconstruction_io_utils::{open_write, stream_error};
+use crate::scene::reconstruction_io_utils::stream_error;
 use crate::sensor::models::{CameraModelId, RadialCameraModel, SimpleRadialCameraModel};
-use crate::util::check::{ColmapError, ErrorKind};
+use crate::util::file::{create_dir_if_not_exists, open_write};
 use crate::util::types::ImageId;
 use crate::Result;
 
@@ -41,19 +41,6 @@ fn eigen_matrix_text(rows: &[Vec<f64>]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-/// `CreateDirIfNotExists(dir)` (not recursive).
-fn create_dir_if_not_exists(dir: &Path) -> Result<()> {
-    if dir.is_dir() {
-        return Ok(());
-    }
-    std::fs::create_dir(dir).map_err(|error| {
-        ColmapError::new(
-            ErrorKind::RuntimeError,
-            format!("Could not create directory {}: {error}", dir.display()),
-        )
-    })
 }
 
 fn matrix_rows(m: &Matrix3d) -> Vec<Vec<f64>> {
