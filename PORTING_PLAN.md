@@ -57,7 +57,7 @@ After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balan
 **Next slices** (start each from `main`):
 - Phase 6 — the estimators layer (see Phase 6 below).
 - Phase 4 — what waits on the database (see Phase 4 below).
-- Phase 9 — the covariant extractor and `util/cache.h`.
+- Phase 9 — the covariant extractor (covdet's detector and shape, then the extractor).
 - Phase 7 — the Ceres replacement.
 
 **Other open items:**
@@ -84,8 +84,7 @@ wasm32, and its app view covered by a headless UI test.
 
 ### Phase 1 — Math, linear algebra, util
 - The rest of `util/` that later phases need: `IdMap`, the libc++ `unordered_map` emulation,
-  `enum_utils`, `timestamp` (port each when its first user lands;
-  `util/cache.h` is under Phase 9).
+  `enum_utils`, `timestamp` (port each when its first user lands).
 - `colmap-web` installs `util::timer::set_clock_source` from `performance.now()`.
 
 ### Phase 2 — Geometry
@@ -150,10 +149,15 @@ App: run BA on a loaded model with live cost plot and progress/cancel.
 
 ### Phase 9 — Features
 Remaining:
-- The covariant extractor (`CovariantSiftCPUFeatureExtractor`: VLFeat's covdet, its scale space
-  and raw descriptor), then `CreateSiftFeatureExtractor` and the five `Covariant*` rows of
-  `sift_test.cc`'s `SiftCpuExtractionTest.Nominal`.
-- `util/cache.h` (`LRUCache`, `ThreadSafeLRUCache`) with `cache_test.cc`.
+- The covariant extractor. On main: VLFeat's scale space, `vl_imsmooth_f`, image gradients,
+  `mathop.c`'s 2x2 SVD and Gaussian elimination, and `vl_sift_calc_raw_descriptor`. Left, in
+  order: `VlCovDet`'s detector (colmap-sharp `VlCovDet.cs`: DoG cornerness, `Detect`,
+  refinement, thresholds, suppression); its shape (`VlCovDet.Shape.cs`: patches, affine
+  adaptation, orientations); `CovariantSiftCPUFeatureExtractor` (`CovariantSift.cs`), then
+  `CreateSiftFeatureExtractor` and the five `Covariant*` rows of `sift_test.cc`'s
+  `SiftCpuExtractionTest.Nominal`; and colmap-sharp's bit-exact oracle
+  (`covariant_sift_vlfeat.json`, `oracle/fixture_covariant_sift.py`, `sift_harness.c`'s covdet
+  mode) with `VlCovDetTests`, which pins the pieces already on main too.
 
 App: keypoint overlay on images; match viewer between two images.
 
@@ -275,7 +279,7 @@ Fix each one in agg-gui, then remove its workaround here:
   taking a `CancelToken`.
 - **faiss is replaced by an exact nearest-neighbour search** (divergence 231). The descriptor
   index cache is `Option<Arc<dyn FeatureDescriptorIndexCache>>`, which Phase 11's matcher cache
-  implements; it stands in for `ThreadSafeLRUCache` until `util/cache.h` is ported.
+  implements; `ThreadSafeLRUCache<ImageId, dyn FeatureDescriptorIndex>` (`util/cache.rs`) implements it.
 - **`ImgFromCamFunc` is `Arc<dyn Fn(Vector3d) -> Option<Vector2d> + Send + Sync>`** (the absolute
   pose estimators, `estimators/solvers/absolute_pose.rs`).
 - **`fast_expn` is a constant table** of correctly rounded `exp` values (divergence 202), an
