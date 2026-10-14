@@ -2028,3 +2028,87 @@ a long run of equal counts could differ.
 **Evidence.** `tests/scene/rust_only_reconstruction_manager.rs`
 `rust_only_write_orders_by_point_count_then_index` writes models with point counts 1, 2, 1, 2
 and reads back sources 1, 3, 0, 2.
+
+## 284. Scene and reconstruction clustering break sort ties deterministically
+
+**What differs.** Three `std::sort` calls leave equal keys in an unspecified order:
+`SceneClustering::PartitionHierarchicalCluster` sorts the overlap-candidate edges of each
+child by descending weight, `SceneClustering::PartitionFlatCluster` sorts each image's
+related images by descending weight (scene_clustering.cc), and `EstablishStrongClusters`
+(reconstruction_clustering.cc) sorts the union-find clusters by descending size after
+collecting them from a `NodeHashMap`, so equal-size clusters are numbered in hash order.
+`colmap_rust::scene::scene_clustering` keeps equal weights in edge order (a stable sort), and
+`colmap_rust::scene::reconstruction_clustering` numbers equal-size clusters by ascending
+smallest frame id. When a weight tie straddles the overlap budget, a different overlap image
+can be chosen; equal-size reconstruction clusters can get swapped ids. Same as colmap-sharp
+entry 93.
+
+**Why.** The translation rules require an explicit, deterministic tie-break wherever tie
+order reaches an output. Edge order is what the macOS SDK's libc++ `std::sort` gives for short
+lists: lengths 2-5 go through `__sort3/4/5`, which never reorder equal elements under these
+`>` comparators; lengths 6-23 go through insertion sort, which is stable; lengths of 24 or more
+go through pdqsort, which is not. So an overlap list or related-image list of 24+ entries with
+tied weights can come out in a different order than COLMAP's; every such list in COLMAP's tests
+has at most 12 entries. Reproducing pdqsort and absl's or Boost's hash order would tie the
+result to one library version.
+
+**Evidence.** All eight `scene_clustering_test.cc` cases (`tests/scene/scene_clustering.rs`)
+and all nine `reconstruction_clustering_test.cc` cases
+(`tests/scene/reconstruction_clustering.rs`) pass;
+`tests/scene/rust_only_reconstruction_clustering.rs`
+`rust_only_equal_size_clusters_numbered_by_smallest_frame_id` pins the cluster numbering (and
+fails when the tie-break is reversed).
+
+## 290. Flat scene clusters are ordered by size, then smallest image id
+
+**What differs.** `SceneClustering::PartitionFlatCluster` sorts the child clusters with the
+comparator `size(a) >= size(b) && min(a) < min(b)`, which is not a strict weak ordering
+(`std::sort` then has undefined behavior) and dereferences `min_element` of an empty cluster.
+`colmap_rust::scene::scene_clustering` orders the children by what COLMAP's comment says it
+intends: descending size, then ascending smallest image id, with empty clusters last (stable
+among themselves). Only the order of `root_cluster().child_clusters` / `leaf_clusters()` is
+affected; each child's overlap images depend only on its own members. In practice the orders do
+differ: with 3-5 children libc++'s `__sort3/4/5` only swap when the comparator says so, so a
+child of size 2 with smallest id 1 stays ahead of a child of size 3 with smallest id 5 (neither
+compares "less" than the other), while the port puts the larger child first. The flat overlap
+loop also stops once `j` passes the longest related-image list of the child, where COLMAP keeps
+counting up to `num_image_matches` (a negative value, "no limit" as `size_t`, would spin for
+2^64 rounds); those rounds cannot add an image, so the result is the same. Same as colmap-sharp
+entry 94.
+
+**Why.** Undefined behavior cannot be ported; the comment states the intent.
+
+**Evidence.** `tests/scene/rust_only_scene_clustering.rs`
+`rust_only_flat_child_clusters_ordered_by_size_then_smallest_id` pins the order;
+`scene_clustering_three_flat_clusters` and `_three_flat_clusters_two_overlap` (1:1,
+order-insensitive as in COLMAP) pass.
+
+## 291. SceneClustering::create hands the image pairs over in Boost hash order
+
+**What differs.** COLMAP's `SceneClustering::Create` builds the edge list by iterating the
+`NodeHashMap` from `NumMatchesBetweenAllImages()`, so the edges come in hash order.
+`colmap_rust::scene::scene_clustering::SceneClustering::create` models the order of COLMAP's
+default backend, which CMake picks when Boost >= 1.84 is found (`cmake/FindDependencies.cmake`):
+`boost::unordered_node_map` with the identity `std::hash<uint64_t>`. Boost marks that hash
+non-avalanching (`hash_traits.hpp`), so its table mixes it with `mulx(h) = lo ^ hi` of
+`h * 0x9E3779B97F4A7C15` (`detail/mulx.hpp`, ported under BSL-1.0, `THIRD_PARTY_NOTICES.md`),
+puts the key in group `mix >> size_index` and iterates groups in ascending order. The port
+orders the pairs by that mixed value (then by pair id) instead of the correspondence graph's
+order, which is ascending pair id. This is Boost's order up to the order of the keys that share
+a group (Boost keeps insertion order within a group and moves overflow to later groups), which
+depends on the table size and the insertion history. Same as colmap-sharp entry 120.
+
+**Why.** The edge order decides every weight tie: the vertex numbering of the graph cut
+(entry 46) and which overlap images each child cluster gets (entry 284). COLMAP relies, without
+saying so, on that order being unrelated to image ids. In ascending order every tie breaks
+toward the same few low image ids, and a database numbers the images of one rig frame
+consecutively, so sibling clusters can overlap in a single frame. A zero-baseline rig's images
+of one frame share a projection center, so the two halves have too few distinct centers in
+common to estimate the similarity that merges them (colmap-sharp's hierarchical pipeline test
+on a panoramic rig ended with two reconstructions until this order). Modelling the default
+Boost backend reproduces the property, and most of the order, and stays deterministic.
+
+**Evidence.** Tier C. `tests/scene/rust_only_scene_clustering.rs`
+`rust_only_create_spreads_tied_overlap_across_frames` gets at least three shared frames with
+the Boost order and fails with the ascending order (two shared frames, 1 and 11). The ported
+`scene_clustering_test.cc` cases call `partition` directly and are unaffected.

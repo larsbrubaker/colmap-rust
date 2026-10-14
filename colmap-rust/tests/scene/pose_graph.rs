@@ -284,10 +284,10 @@ fn pose_graph_load() {
 
     // Create pairs (1,2) and (2,3)
     database
-        .write_matches(1, 2, &vec![FeatureMatch::default(); 10])
+        .write_matches(1, 2, &[FeatureMatch::default(); 10])
         .unwrap();
     database
-        .write_matches(2, 3, &vec![FeatureMatch::default(); 10])
+        .write_matches(2, 3, &[FeatureMatch::default(); 10])
         .unwrap();
     database.write_two_view_geometry(1, 2, &two_view).unwrap();
     database.write_two_view_geometry(2, 3, &two_view).unwrap();

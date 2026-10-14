@@ -31,6 +31,8 @@ mod pose_graph;
 mod projection;
 #[path = "scene/reconstruction.rs"]
 mod reconstruction;
+#[path = "scene/reconstruction_clustering.rs"]
+mod reconstruction_clustering;
 #[path = "scene/reconstruction_database.rs"]
 mod reconstruction_database;
 #[path = "scene/reconstruction_io.rs"]
@@ -59,6 +61,8 @@ mod rust_only_frame_image;
 mod rust_only_pose_graph;
 #[path = "scene/rust_only_reconstruction.rs"]
 mod rust_only_reconstruction;
+#[path = "scene/rust_only_reconstruction_clustering.rs"]
+mod rust_only_reconstruction_clustering;
 #[path = "scene/rust_only_reconstruction_io.rs"]
 mod rust_only_reconstruction_io;
 #[path = "scene/rust_only_reconstruction_manager.rs"]
@@ -69,10 +73,14 @@ mod rust_only_reconstruction_ply;
 mod rust_only_reconstruction_pruning;
 #[path = "scene/rust_only_rig.rs"]
 mod rust_only_rig;
+#[path = "scene/rust_only_scene_clustering.rs"]
+mod rust_only_scene_clustering;
 #[path = "scene/rust_only_scene_types.rs"]
 mod rust_only_scene_types;
 #[path = "scene/rust_only_two_view_geometry.rs"]
 mod rust_only_two_view_geometry;
+#[path = "scene/scene_clustering.rs"]
+mod scene_clustering;
 #[path = "scene/synthetic.rs"]
 mod synthetic;
 #[path = "scene/synthetic_database.rs"]

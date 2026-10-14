@@ -39,6 +39,10 @@
 //! - [`rig`]: `rig.h` / `rig.cc`, rig configurations (`RigConfig`, `ReadRigConfig`), with
 //!   [`rig_apply`] `ApplyRigConfig`, which writes them into a database and reconstruction;
 //! - [`visibility_pyramid`]: `visibility_pyramid.h` / `.cc`, how evenly points cover an image;
+//! - [`scene_clustering`]: `scene_clustering.h` / `.cc`, the scene graph split into
+//!   overlapping image clusters by normalized graph cuts;
+//! - [`reconstruction_clustering`]: `reconstruction_clustering.h` / `.cc`, the frames of a
+//!   model grouped by covisibility;
 //! - [`synthetic`]: `synthetic.h` / `.cc`, synthetic datasets for tests, with
 //!   [`synthetic_matches`] the matches it writes to a database and [`synthetic_noise`]
 //!   `SynthesizeNoise` and `SynthesizeImages`;
@@ -58,6 +62,7 @@ pub mod point3d;
 pub mod pose_graph;
 pub mod projection;
 pub mod reconstruction;
+pub mod reconstruction_clustering;
 pub mod reconstruction_database;
 pub mod reconstruction_export;
 mod reconstruction_export_recon3d_vrml;
@@ -73,6 +78,7 @@ pub mod reconstruction_queries;
 pub mod reconstruction_transform;
 pub mod rig;
 pub mod rig_apply;
+pub mod scene_clustering;
 pub mod synthetic;
 pub mod synthetic_matches;
 pub mod synthetic_noise;

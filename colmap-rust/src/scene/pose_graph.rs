@@ -34,6 +34,9 @@ use crate::util::types::{
 };
 use crate::Result;
 
+/// `FrameGraph` (pose_graph.cc's anonymous namespace): the nodes and the edges.
+type FrameGraph = (Vec<FrameId>, Vec<(FrameId, FrameId)>);
+
 /// Port of `PoseGraph::Edge`: minimal relative pose data for a pose graph edge.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PoseGraphEdge {
@@ -284,7 +287,7 @@ impl PoseGraph {
         // COLMAP's std::sort by size is unstable; the stable sort keeps equally large
         // components in the order find_connected_components gives them, which is by
         // smallest frame id since the nodes are sorted.
-        components.sort_by(|a, b| b.len().cmp(&a.len()));
+        components.sort_by_key(|component| std::cmp::Reverse(component.len()));
         Ok(components
             .into_iter()
             .map(|component| component.into_iter().collect())
@@ -356,7 +359,7 @@ impl PoseGraph {
         &self,
         reconstruction: &Reconstruction,
         filter_unregistered: bool,
-    ) -> Result<(Vec<FrameId>, Vec<(FrameId, FrameId)>)> {
+    ) -> Result<FrameGraph> {
         let mut nodes = BTreeSet::new();
         let mut edges = Vec::new();
         for (&pair_id, _) in self.valid_edges() {

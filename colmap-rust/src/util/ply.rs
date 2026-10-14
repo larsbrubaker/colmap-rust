@@ -1,7 +1,7 @@
 //! Port of COLMAP's `src/colmap/util/ply.h/.cc`, part 1 (and colmap-sharp's `Util/Ply.cs`,
 //! `Util/Ply.Mesh.cs`, `Util/PlyTypes.cs`): the PLY data types and the readers — `ReadPly`
 //! (point clouds), `ReadPlyMesh` (triangle meshes, optionally textured) and
-//! `HasPlyMeshFaces`. The writers are in `util/ply_write.rs`. `scene::reconstruction_ply`
+//! `HasPlyMeshFaces`. The writers are in `util::ply_write`. `scene::reconstruction_ply`
 //! (`ConvertToPLY` / `ImportPLY`) builds on both. Tests: `tests/util/ply.rs` (`ply_test.cc`).
 //!
 //! Every reader takes a `Read` stream, with a `_path` form that opens the file, as the

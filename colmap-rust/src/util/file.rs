@@ -1,8 +1,8 @@
 //! The helpers of COLMAP's `src/colmap/util/file.h/.cc` that the library needs: the path-string
 //! helpers `HasFileExtension`, `AddFileExtension` and `SplitFileExtension` (the undistorters
 //! and image readers name their outputs with them), and the file-system helpers the model,
-//! PLY and feature readers and writers share: [`open_read`] / [`open_write`] with COLMAP's
-//! `THROW_CHECK_FILE_OPEN` message, and `CreateDirIfNotExists` ([`create_dir_if_not_exists`]).
+//! PLY and feature readers and writers share: `open_read` / `open_write` with COLMAP's
+//! `THROW_CHECK_FILE_OPEN` message, and `CreateDirIfNotExists` (`create_dir_if_not_exists`).
 //! The other file-system functions (`ExistsFile`, `GetRecursiveFileList`, downloads, ...) are
 //! not ported: the browser build reads and writes through host-supplied streams, and native
 //! callers use `std::fs` directly.

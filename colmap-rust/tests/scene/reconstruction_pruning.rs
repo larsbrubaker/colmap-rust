@@ -157,7 +157,7 @@ fn find_redundant_points3d_varying_spatial_distribution() {
             .element(idx);
         let image = reconstruction.image_mut(track_el.image_id).unwrap();
         let point2d = image.point2d_mut(track_el.point2d_idx);
-        point2d.xy = point2d.xy * 2.0;
+        point2d.xy *= 2.0;
     };
 
     // Make sure point 3 has the largest coverage and selected first.
