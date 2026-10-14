@@ -5,87 +5,14 @@
 // Port of the eigen/LU half of colmap-sharp's `ColmapSharp.Tests/LinearAlgebra/SpectralTests.cs`
 // (the SVD half is rust_only_spectral_svd.rs). Tier B where a tolerance appears; exact where
 // the value is exactly representable. The random inputs use a port of .NET's seeded
-// `System.Random` (`NetRandom` below), so they are colmap-sharp's matrices.
+// `System.Random` (`tests/support/net_random.rs`), so they are colmap-sharp's matrices.
 
 use colmap_rust::linalg::{
     Complex, ComputationInfo, EigenSolver, FullPivLu, HouseholderQr, MatrixXd,
     SelfAdjointEigenSolver,
 };
 
-/// .NET's `new Random(seed)` (the seeded, Knuth subtractive generator .NET keeps for
-/// compatibility) and its `NextDouble()`.
-struct NetRandom {
-    seed_array: [i32; 56],
-    inext: usize,
-    inextp: usize,
-}
-
-impl NetRandom {
-    fn new(seed: i32) -> Self {
-        const MSEED: i32 = 161_803_398;
-        let mut seed_array = [0_i32; 56];
-        let subtraction = if seed == i32::MIN {
-            i32::MAX
-        } else {
-            seed.abs()
-        };
-        let mut mj = MSEED - subtraction;
-        seed_array[55] = mj;
-        let mut mk = 1_i32;
-        let mut ii = 0;
-        for _ in 1..55 {
-            ii += 21;
-            if ii >= 55 {
-                ii -= 55;
-            }
-            seed_array[ii] = mk;
-            mk = mj - mk;
-            if mk < 0 {
-                mk += i32::MAX;
-            }
-            mj = seed_array[ii];
-        }
-        for _ in 1..5 {
-            for i in 1..56 {
-                let mut n = i + 30;
-                if n >= 55 {
-                    n -= 55;
-                }
-                seed_array[i] = seed_array[i].wrapping_sub(seed_array[1 + n]);
-                if seed_array[i] < 0 {
-                    seed_array[i] += i32::MAX;
-                }
-            }
-        }
-        Self {
-            seed_array,
-            inext: 0,
-            inextp: 21,
-        }
-    }
-
-    fn next_double(&mut self) -> f64 {
-        let mut next = self.inext + 1;
-        if next >= 56 {
-            next = 1;
-        }
-        let mut nextp = self.inextp + 1;
-        if nextp >= 56 {
-            nextp = 1;
-        }
-        let mut value = self.seed_array[next].wrapping_sub(self.seed_array[nextp]);
-        if value == i32::MAX {
-            value -= 1;
-        }
-        if value < 0 {
-            value += i32::MAX;
-        }
-        self.seed_array[next] = value;
-        self.inext = next;
-        self.inextp = nextp;
-        value as f64 * (1.0 / i32::MAX as f64)
-    }
-}
+use crate::net_random::NetRandom;
 
 #[test]
 fn rust_only_self_adjoint_eigen_solver_reads_lower_triangle_and_sorts_ascending() {

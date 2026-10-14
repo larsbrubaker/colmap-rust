@@ -284,7 +284,9 @@ Source: http://ceres-solver.org (https://github.com/ceres-solver/ceres-solver)
 
 Ported from Ceres 2.2.0 (via colmap-sharp's `ColmapSharp/Solver/Jet.cs`): the dual-number
 arithmetic and elementary-function rules of `ceres::Jet` (`include/ceres/jet.h`) in
-`colmap-rust/src/sensor/models/jet.rs`.
+`colmap-rust/src/sensor/models/jet.rs`; and COLMAP's customized copy of `ceres::TinySolver`
+(`src/colmap/optim/tiny_solver.h`, via colmap-sharp's `ColmapSharp/Optim/TinySolver.cs`) in
+`colmap-rust/src/optim/tiny_solver.rs`.
 
 ```
 Ceres Solver - A fast non-linear least squares minimizer

@@ -248,6 +248,42 @@ bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion matrix,
 bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion matrix, and
 1e200-scaled input.
 
+## 33. Sparse Cholesky: simplicial LLT/LDLT with our AMD instead of CHOLMOD and Eigen
+
+**What differs.** `SparseCholeskyWithFallbackSolver`'s first stage is CHOLMOD's supernodal
+LLT in COLMAP and the simplicial LLT of `colmap-rust/src/linalg/simplicial_cholesky.rs` here;
+its fallback and `LeastAbsoluteDeviationSolver`'s `SimplicialLLT` are Eigen's simplicial
+factorizations in COLMAP and ours here. `LeastAbsoluteDeviationSolverType::SupernodalCholmodLlt`
+keeps its name but selects the fallback solver. The fill-reducing ordering is our AMD
+(`linalg/amd_ordering.rs`, from the Amestoy-Davis-Duff paper, without dense-row deferral,
+initial supervariable detection or mass elimination), so the permutation, and with it the
+order of floating-point operations and the last bits of every solution, differ from CHOLMOD's
+and Eigen's. Accept/reject decisions follow the same rules (LLT stops at the first pivot <= 0,
+LDLT at an exactly zero pivot), but a pivot within rounding of zero can land on the other side
+under a different ordering.
+
+Also, once the fallback solver has switched to LDLT, `analyze_pattern`/`compute` with a new
+pattern re-analyzes the LDLT stage here. COLMAP re-analyzes only the supernodal stage, so its
+next `ldlt_.factorize` runs on a stale symbolic analysis (an upstream bug with undefined
+results in Eigen). And the two `LOG(WARNING)`s (the LLT-to-LDLT fallback, and a failed A^T A
+factorization in the LAD solver) are not emitted, because the core library has no logger; the
+same facts are visible through `SparseCholeskyWithFallbackSolver::uses_ldlt` and
+`LeastAbsoluteDeviationSolver::valid`.
+
+**Why.** CHOLMOD and CSparse are GPL/LGPL and Eigen is MPL-2.0 (`docs/LICENSE_AUDIT.md`); none
+of them can be ported. A supernodal code is a performance refinement over the simplicial one,
+not a different result, and can replace it later behind the same API. Same as colmap-sharp
+entry 13.
+
+**Evidence.** `sparse_cholesky_test.cc` and `least_absolute_deviations_test.cc` pass 1:1
+(`tests/optim/sparse_cholesky.rs`, `tests/optim/least_absolute_deviations.rs`), including the
+singular, indefinite and ridge cases whose outcome depends on the pivot rules;
+`rust_only_compute_new_pattern_after_fallback` pins the re-analysis. The Rust-only
+`tests/linalg/rust_only_simplicial_cholesky.rs` pins the solutions to the dense LLT within 1e-10
+relative error, and `rust_only_100k_grid_laplacian_work_counts_match_colmap_sharp` shows the
+ordering and elimination are colmap-sharp's step for step (same nnz(L), AMD work and
+factorization work on a 100k-unknown grid Laplacian).
+
 ## 40. Real-valued random draws are not fused (no FMA), unlike the macOS pycolmap wheel
 
 **What differs.** `math::random::random_uniform_real` (for `min != 0`), `random_gaussian` and

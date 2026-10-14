@@ -31,12 +31,16 @@
 //! Dynamic-size matrices ([`MatrixXd`], [`VectorXd`]) and the row-major feature-data container
 //! ([`RowMajorMatrix`]) live here too, with the dense decompositions COLMAP calls (QR, LU,
 //! Cholesky, SVD, eigen), each ported from colmap-sharp's own implementation (written from
-//! Golub & Van Loan and the other published algorithms its file headers cite). Sparse
-//! matrices are not here. Tests: `colmap-rust/tests/linalg.rs`.
+//! Golub & Van Loan and the other published algorithms its file headers cite). The sparse
+//! side is [`SparseMatrixCsc`] (`Eigen::SparseMatrix<double>`), the [`amd_ordering`]
+//! fill-reducing ordering and [`SimplicialCholesky`] (`Eigen::SimplicialLLT/LDLT`, also
+//! standing in for CHOLMOD), ported from colmap-sharp's own implementations of the published
+//! algorithms. Tests: `colmap-rust/tests/linalg.rs`.
 
 #[macro_use]
 mod matrix_macros;
 mod aligned_box;
+pub mod amd_ordering;
 mod angle_axis;
 mod matrix3;
 mod matrix4;
@@ -46,6 +50,8 @@ mod matrix_x;
 mod matrix_x_ops;
 mod quaternion;
 mod row_major_matrix;
+mod simplicial_cholesky;
+mod sparse_matrix;
 mod vector;
 mod vector_x;
 
@@ -58,6 +64,8 @@ pub use matrix_small::{Matrix2d, Matrix2x3d, Matrix3x2d};
 pub use matrix_x::MatrixXd;
 pub use quaternion::Quaterniond;
 pub use row_major_matrix::RowMajorMatrix;
+pub use simplicial_cholesky::{SimplicialCholesky, SimplicialCholeskyKind, SparseOrdering};
+pub use sparse_matrix::{SparseMatrixCsc, SparseTriplet, SymmetricPart};
 pub use vector::{Vector2d, Vector3d, Vector3f, Vector3ub, Vector4d};
 pub use vector_x::VectorXd;
 
