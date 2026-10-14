@@ -3,6 +3,8 @@
 //! - [`affine_transform`]: [`AffineTransformEstimator`], [`estimate_affine2d`] and
 //!   [`estimate_affine2d_robust`].
 //! - [`translation_transform`]: [`TranslationTransformEstimator`] (2D).
+//! - [`fundamental_matrix`]: [`FundamentalMatrixSevenPointEstimator`] and
+//!   [`FundamentalMatrixEightPointEstimator`].
 //! - [`homography_matrix`]: [`HomographyMatrixEstimator`] and
 //!   [`HomographyMatrixRayEstimator`] (DLT between points or bearing rays).
 //! - [`absolute_pose`]: [`P3PEstimator`], [`P4PFEstimator`], [`Point2DWithRay`],
@@ -26,6 +28,7 @@ mod essential_matrix_coeffs;
 mod essential_matrix_poly1;
 mod essential_matrix_poly2;
 mod essential_matrix_poly3;
+pub mod fundamental_matrix;
 pub mod generalized_absolute_pose;
 pub mod homography_matrix;
 pub mod poselib;
@@ -44,6 +47,9 @@ pub use epnp::EPNPEstimator;
 pub use essential_matrix::{
     EssentialMatrixEightPointEstimator, EssentialMatrixFivePointEstimator,
     EssentialMatrixTangentSampsonEstimator,
+};
+pub use fundamental_matrix::{
+    FundamentalMatrixEightPointEstimator, FundamentalMatrixSevenPointEstimator,
 };
 pub use generalized_absolute_pose::{GP3PEstimator, GP3PObservation, GP3PResidualType};
 pub use homography_matrix::{
