@@ -25,6 +25,8 @@ mod image;
 mod point2d;
 #[path = "scene/point3d.rs"]
 mod point3d;
+#[path = "scene/pose_graph.rs"]
+mod pose_graph;
 #[path = "scene/projection.rs"]
 mod projection;
 #[path = "scene/reconstruction.rs"]
@@ -33,6 +35,8 @@ mod reconstruction;
 mod reconstruction_database;
 #[path = "scene/reconstruction_io.rs"]
 mod reconstruction_io;
+#[path = "scene/reconstruction_manager.rs"]
+mod reconstruction_manager;
 #[path = "scene/reconstruction_ply.rs"]
 mod reconstruction_ply;
 #[path = "scene/reconstruction_queries.rs"]
@@ -49,10 +53,14 @@ mod rust_only_correspondence_graph;
 mod rust_only_database;
 #[path = "scene/rust_only_frame_image.rs"]
 mod rust_only_frame_image;
+#[path = "scene/rust_only_pose_graph.rs"]
+mod rust_only_pose_graph;
 #[path = "scene/rust_only_reconstruction.rs"]
 mod rust_only_reconstruction;
 #[path = "scene/rust_only_reconstruction_io.rs"]
 mod rust_only_reconstruction_io;
+#[path = "scene/rust_only_reconstruction_manager.rs"]
+mod rust_only_reconstruction_manager;
 #[path = "scene/rust_only_reconstruction_ply.rs"]
 mod rust_only_reconstruction_ply;
 #[path = "scene/rust_only_rig.rs"]

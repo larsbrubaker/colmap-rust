@@ -29,6 +29,10 @@
 //!   [`reconstruction_io_text_write`] (writers) and [`reconstruction_io_utils`]:
 //!   `reconstruction_io_binary.*`, `reconstruction_io_text.*` and `reconstruction_io_utils.*`,
 //!   COLMAP's binary and text model files, and [`reconstruction_export`] its exporters;
+//! - [`pose_graph`]: `pose_graph.h` / `.cc`, relative poses between image pairs and their
+//!   connected frame components;
+//! - [`reconstruction_manager`]: `reconstruction_manager.h` / `.cc`, the models a mapper
+//!   produces, read from and written to model folders;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
 //! - [`rig`]: `rig.h` / `rig.cc`, rig configurations (`RigConfig`, `ReadRigConfig`), with
 //!   [`rig_apply`] `ApplyRigConfig`, which writes them into a database and reconstruction;
@@ -49,6 +53,7 @@ pub mod frame;
 pub mod image;
 pub mod point2d;
 pub mod point3d;
+pub mod pose_graph;
 pub mod projection;
 pub mod reconstruction;
 pub mod reconstruction_database;
@@ -59,6 +64,7 @@ pub mod reconstruction_io_binary;
 pub mod reconstruction_io_text;
 pub mod reconstruction_io_text_write;
 pub mod reconstruction_io_utils;
+pub mod reconstruction_manager;
 pub mod reconstruction_ply;
 pub mod reconstruction_queries;
 pub mod reconstruction_transform;

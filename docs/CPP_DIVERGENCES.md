@@ -1990,3 +1990,41 @@ Threading).
 (COLMAP's test with the deleted image file as a missing map entry) and
 `tests/scene/rust_only_reconstruction_ply.rs`
 `rust_only_extract_colors_for_image_colors_black_points_only`.
+
+## 282. PoseGraph orders equally large frame components by smallest frame id
+
+**What differs.** COLMAP's `PoseGraph::ConnectedFrameComponents` collects the frames of the
+valid edges in a `FlatHashSet`, finds the components (whose order follows that set, entry 42)
+and orders them with an unstable `std::sort` by descending size, so the order of equally large
+components is unspecified. `LargestConnectedFrameComponent` keeps the first strictly largest
+component in the same hash order. `colmap_rust::scene::pose_graph::PoseGraph` hands
+`find_connected_components` the frames in ascending id order and sorts stably, so equally large
+components come out by their smallest frame id, and `largest_connected_frame_component` returns
+that same first one. `connected_image_ids_for_frame_components` follows the same component
+order. The edges live in a `BTreeMap` (ascending pair id) where COLMAP's `NodeHashMap` has its
+hash order; no output of the pose graph itself depends on it. Same as colmap-sharp entry 38.
+
+**Why.** CLAUDE.md's stable-sort and hash-order rules: the tie order decides which component
+global SfM treats as the largest. COLMAP relies on no particular order: `pose_graph_test.cc`
+uses components of different sizes and compares sets.
+
+**Evidence.** `tests/scene/pose_graph.rs` (pose_graph_test.cc 1:1) passes with COLMAP's
+expectations; `tests/scene/rust_only_pose_graph.rs`
+`rust_only_equal_size_components_ordered_by_smallest_frame_id` pins the tie order and that the
+largest component equals the first one.
+
+## 283. ReconstructionManager::write breaks point-count ties by index
+
+**What differs.** COLMAP's `ReconstructionManager::Write` orders the models with `std::sort` by
+descending `NumPoints3D` and writes them to `0/`, `1/`, ...; the order of models with the same
+point count is unspecified. `colmap_rust::scene::reconstruction_manager::ReconstructionManager`
+sorts stably, so equal-sized models keep their manager order. Same as colmap-sharp entry 34.
+
+**Why.** CLAUDE.md's stable-sort rule: the tie order decides which folder a model lands in.
+libc++'s `std::sort` uses insertion sort for short ranges, which also keeps equal elements in
+order, so for the handful of models a mapper produces the result is the same as COLMAP's; only
+a long run of equal counts could differ.
+
+**Evidence.** `tests/scene/rust_only_reconstruction_manager.rs`
+`rust_only_write_orders_by_point_count_then_index` writes models with point counts 1, 2, 1, 2
+and reads back sources 1, 3, 0, 2.
