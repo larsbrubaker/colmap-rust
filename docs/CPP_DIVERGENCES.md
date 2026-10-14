@@ -1678,6 +1678,45 @@ records it in its file header, not as a numbered entry).
 (RANSAC over 16 correspondences finds the true `rig2_from_rig1` within rtol and ttol 1e-2 in
 one of ten trials). Not compared against C++ Eigen.
 
+## 262. IsPanoramicRig compares rig camera origins to the smallest camera index
+
+**What differs.** `IsPanoramicRig` (estimators/generalized_pose.cc) decides whether all
+cameras used by a set of correspondences share one optical center: it puts the camera indices
+in a `FlatHashSet`, takes the set's first element as the reference, and checks every other
+camera's origin in the rig with `isApprox(reference, 1e-6)`. The set's iteration order is
+unspecified. `estimators/generalized_pose.rs` takes the smallest camera index as the
+reference. Same as colmap-sharp entry 46.
+
+**Why.** Hash iteration order is not reproducible across containers (CLAUDE.md, hash
+iteration order). The reference only matters when the origins agree to about 1e-6 relative
+with one camera but not with another (`isApprox` is not transitive), which never happens for a
+real rig, whose cameras are either co-centered (panoramic) or centimeters apart.
+
+**Evidence.** `tests/estimators/generalized_pose.rs`: COLMAP's
+`EstimateGeneralizedRelativePose.Nominal`, which covers panoramic and non-panoramic rigs, and
+`EstimateStructureLessAbsolutePose.PanoramicWorldCameras` pass 1:1.
+
+## 263. The generalized pose estimators return no pose for empty or misaligned input
+
+**What differs.** In estimators/generalized_pose.cc, `ThrowCheckCameras` dereferences
+`std::minmax_element` of the camera index list, and `EstimateStructureLessAbsolutePose` calls
+`IsPanoramicRig`, which dereferences the first element of the index set: both are undefined
+behavior for an empty list. `EstimateGeneralizedRelativePose` also reads `camera_idxs1[i]` and
+`camera_idxs2[i]` for every point without checking their lengths. In
+`estimators/generalized_pose.rs`, an empty index list has nothing to check,
+`estimate_structure_less_absolute_pose` returns `Ok(None)` (COLMAP's `false`) for no
+correspondences, as the other two estimators already do, and
+`estimate_generalized_relative_pose` fails a check (`camera_idxs1.len() == num_points`) when
+an index list is shorter or longer than the points.
+
+**Why.** An out-of-range read is a bug, not behavior to reproduce. Returning "no pose" for no
+correspondences matches what COLMAP's other two estimators do, and colmap-sharp makes the same
+choice (in comments, not as a numbered entry). Results for valid input are unchanged.
+
+**Evidence.** `tests/estimators/rust_only_generalized_pose.rs`
+(`rust_only_generalized_pose_empty_correspondences_find_no_pose`,
+`rust_only_generalized_relative_pose_short_camera_idxs_is_an_error`).
+
 ## 265. The database is one in-memory type, not a factory over SQLite files
 
 **What differs.** COLMAP's `Database` (scene/database.h) is an abstract class whose only

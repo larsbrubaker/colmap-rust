@@ -22,6 +22,8 @@ mod fundamental_matrix;
 mod fundamental_matrix_degensac;
 #[path = "estimators/generalized_absolute_pose.rs"]
 mod generalized_absolute_pose;
+#[path = "estimators/generalized_pose.rs"]
+mod generalized_pose;
 #[path = "estimators/generalized_relative_pose.rs"]
 mod generalized_relative_pose;
 #[path = "estimators/homography_matrix.rs"]
@@ -44,6 +46,8 @@ mod rust_only_fundamental_matrix_degensac_oracle;
 mod rust_only_fundamental_matrix_sampson;
 #[path = "estimators/rust_only_gen_relpose_6pt.rs"]
 mod rust_only_gen_relpose_6pt;
+#[path = "estimators/rust_only_generalized_pose.rs"]
+mod rust_only_generalized_pose;
 #[path = "estimators/rust_only_gp3p.rs"]
 mod rust_only_gp3p;
 #[path = "estimators/rust_only_p3p.rs"]
