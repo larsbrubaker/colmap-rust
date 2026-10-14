@@ -21,8 +21,9 @@ visible in the app so the web build is the integration test.
 - Phase 3: all of sensor/.
 - Phase 4: point2d, point3d, track, camera, frame, image, projection, visibility_pyramid,
   two_view_geometry, correspondence_graph, the reconstruction core (bounds, Normalize,
-  Transform, Crop), binary + text reconstruction I/O, synthetic datasets without a database, the
-  in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
+  Transform, Crop), binary + text reconstruction I/O, synthetic datasets (with and without a
+  database, SynthesizeNoise, SynthesizeImages), `Reconstruction::Load`,
+  `TranscribeImageIdsToDatabase`, the in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
 - Phase 5: all of optim/ (RANSAC family, sparse_cholesky, least_absolute_deviations,
   tiny_solver).
 - Phase 6: `SimilarityTransformEstimator`, `poselib_utils`, the PoseLib CameraPose,
@@ -95,10 +96,8 @@ and a camera-model undistortion preview.
 
 ### Phase 4 — Scene
 Remaining:
-- What needs a database: the scene `rig` config helpers, `Reconstruction::Load` (over
-  `DatabaseCache`), `TranscribeImageIdsToDatabase`, the `SetRigsAndFrames*`
-  tests, and synthetic's database branch.
-- Synthetic: `SynthesizeNoise`, `SynthesizeImages`.
+- The scene `rig` config helpers: `ReadRigConfig` (over a small JSON reader, see Decisions) and
+  `ApplyRigConfig`, with `rig_test.cc`.
 - Reconstruction: PLY import/export (`ConvertToPLY`, `ImportPLYFromVector`; needs Phase 1's PLY
   I/O), `ExtractColors*`, `CreateImageDirs`.
 - `reconstruction_io.cc`'s exporters: NVM, Cam, Recon3D, Bundler, PLY, VRML.
@@ -272,6 +271,12 @@ Fix each one in agg-gui, then remove its workaround here:
   `Result` and fails after `close()`. SQLite's ids (AUTOINCREMENT), UNIQUE indices, foreign keys
   and cascades are reproduced; a write that breaks a constraint stores nothing (266).
   `DatabaseCache` keeps its objects in id order (267) and is returned by value.
+- **Optional `Database*` arguments become two functions** (`synthesize_dataset` and
+  `synthesize_dataset_with_database`; the same for `synthesize_noise`). `synthesize_images` hands
+  each bitmap to a sink (divergence 268): the core has no image encoder.
+- **JSON in the core is a small reader written here** (`util/`), not serde_json: the core stays
+  std-only (plus `libm`), and COLMAP's Boost property_tree is replaced by Rust written here.
+  It takes a `&str`; the host reads files.
 - **The core is single-threaded for now** (no rayon): `num_threads` is validated and otherwise
   ignored, so results never depend on it.
 - **colmap-rust will be published to crates.io** once the core is usable (crate `colmap-rust`,
