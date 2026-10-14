@@ -94,7 +94,9 @@ pub fn estimate_shared_focal_two_view_geometry(
 
     let best_inlier_mask: &[bool];
     let num_inliers: usize;
-    if sf_report.success && sf_num >= min_num_inliers && h_sf_inlier_ratio <= options.max_h_inlier_ratio
+    if sf_report.success
+        && sf_num >= min_num_inliers
+        && h_sf_inlier_ratio <= options.max_h_inlier_ratio
     {
         // Shared-focal configuration. Labeled UNCALIBRATED (the focal is estimated, not a
         // trusted prior); the estimated intrinsics are surfaced via camera1/camera2 so

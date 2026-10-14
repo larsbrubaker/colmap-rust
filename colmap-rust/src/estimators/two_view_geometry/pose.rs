@@ -382,7 +382,7 @@ pub fn maybe_decompose_relative_poses(database_cache: &mut DatabaseCache) -> Res
             if let Some(cam2_from_cam1) = two_view_geometry.cam2_from_cam1.as_mut() {
                 let norm = cam2_from_cam1.translation.norm();
                 if norm > 1e-12 {
-                    cam2_from_cam1.translation = cam2_from_cam1.translation / norm;
+                    cam2_from_cam1.translation /= norm;
                 }
                 database_cache
                     .correspondence_graph_mut()

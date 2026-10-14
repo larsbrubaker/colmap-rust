@@ -23,9 +23,10 @@
 //! Translation notes:
 //! - `THROW_CHECK*` failures are `Err`; every entry point returns `Result`.
 //! - `static_cast<size_t>(options.min_num_inliers)` keeps C++'s conversion (a negative value
-//!   wraps to a huge count), see [`min_num_inliers`].
+//!   wraps to a huge count), see `min_num_inliers`.
 //! - COLMAP's `LOG(WARNING)` / `LOG(INFO)` lines are not emitted (the core has no logger), and
-//!   the `Timer` of `MaybeDecomposeRelativePoses`, which only fed the log, is dropped.
+//!   the `Timer` of `MaybeDecomposeRelativePoses`, which only fed the log, is dropped
+//!   (docs/CPP_DIVERGENCES.md entry 264).
 //! - Inlier masks are `Vec<bool>` (COLMAP's `std::vector<char>`).
 
 mod calibrated;
@@ -34,7 +35,9 @@ mod pose;
 mod rig;
 
 pub use calibrated::estimate_calibrated_two_view_geometry;
-pub use focal::{estimate_one_sided_focal_two_view_geometry, estimate_shared_focal_two_view_geometry};
+pub use focal::{
+    estimate_one_sided_focal_two_view_geometry, estimate_shared_focal_two_view_geometry,
+};
 pub use pose::{estimate_two_view_geometry_pose, maybe_decompose_relative_poses};
 pub use rig::{estimate_rig_two_view_geometries, ImagePairGeometry, ImagePairMatches};
 
@@ -326,9 +329,7 @@ pub fn estimate_two_view_geometry(
         estimate_shared_focal_two_view_geometry(camera1, points1, points2, &matches, options)
     } else if camera1.has_prior_focal_length && camera2.has_prior_focal_length {
         // Both focals are known, so the pair reduces to the relative pose.
-        estimate_calibrated_two_view_geometry(
-            camera1, points1, camera2, points2, &matches, options,
-        )
+        estimate_calibrated_two_view_geometry(camera1, points1, camera2, points2, &matches, options)
     } else if !camera1.is_perspective_pinhole() || !camera2.is_perspective_pinhole() {
         // Without a focal-length prior, the only remaining option is the
         // fundamental-matrix path below, which assumes a pinhole projection that a fisheye
@@ -370,8 +371,7 @@ fn estimate_multiple_two_view_geometries(
 
         remaining_matches = extract_outlier_matches(&remaining_matches, &geometry.inlier_matches)?;
 
-        if !options.multiple_ignore_watermark || geometry.config != ConfigurationType::Watermark
-        {
+        if !options.multiple_ignore_watermark || geometry.config != ConfigurationType::Watermark {
             geometries.push(geometry);
         }
     }
@@ -452,12 +452,14 @@ pub fn detect_watermark_matches(
     ransac_options.max_error = options.watermark_detection_max_error;
     ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
-    let mut ransac: LoRansac<TranslationTransformEstimator, EstimateAsLocal<TranslationTransformEstimator>> =
-        LoRansac::new(
-            &ransac_options,
-            TranslationTransformEstimator,
-            EstimateAsLocal(TranslationTransformEstimator),
-        )?;
+    let mut ransac: LoRansac<
+        TranslationTransformEstimator,
+        EstimateAsLocal<TranslationTransformEstimator>,
+    > = LoRansac::new(
+        &ransac_options,
+        TranslationTransformEstimator,
+        EstimateAsLocal(TranslationTransformEstimator),
+    )?;
     let report = ransac.estimate(&inlier_points1, &inlier_points2)?;
 
     let inlier_ratio = report.support.num_inliers as f64 / num_inliers as f64;

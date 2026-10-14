@@ -16,8 +16,7 @@ use crate::estimators::fundamental_matrix_degensac_estimator::{
 use crate::estimators::solvers::{
     CamRayWithImgPoint, EssentialMatrixTangentSampsonEstimator,
     FundamentalMatrixEightPointEstimator, FundamentalMatrixSampsonEstimator,
-    FundamentalMatrixSevenPointEstimator, HomographyMatrixEstimator,
-    HomographyMatrixRayEstimator,
+    FundamentalMatrixSevenPointEstimator, HomographyMatrixEstimator, HomographyMatrixRayEstimator,
 };
 use crate::feature::types::FeatureMatch;
 use crate::geometry::pose::CamRayWithJac;

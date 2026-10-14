@@ -3,6 +3,13 @@
 //! ([`crate::estimators::generalized_pose::estimate_generalized_relative_pose`]), then split
 //! the inliers back into one `CALIBRATED_RIG` (or, for two panoramic rigs, `CALIBRATED`)
 //! geometry per image pair. Re-exported from `mod.rs`.
+//!
+//! COLMAP takes the images and cameras as `NodeHashMap`s; they are only looked up, so the
+//! function takes the ordered maps the scene types hold ([`DatabaseCache::images`],
+//! [`Reconstruction::images`]).
+//!
+//! [`DatabaseCache::images`]: crate::scene::database_cache::DatabaseCache::images
+//! [`Reconstruction::images`]: crate::scene::reconstruction::Reconstruction::images
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -17,9 +24,7 @@ use crate::scene::image::Image;
 use crate::scene::two_view_geometry::{ConfigurationType, TwoViewGeometry};
 use crate::sensor::rig::Rig;
 use crate::util::check::{ColmapError, ErrorKind};
-use crate::util::types::{
-    image_pair_to_pair_id, CameraId, ImageId, Point2DIdx, RigId,
-};
+use crate::util::types::{image_pair_to_pair_id, CameraId, ImageId, Point2DIdx, RigId};
 use crate::{check, check_eq, Result};
 
 /// One image pair's matches: `std::pair<std::pair<image_t, image_t>, FeatureMatches>`.
@@ -36,10 +41,8 @@ fn at<'a, K: Ord, V>(map: &'a BTreeMap<K, V>, key: &K) -> Result<&'a V> {
 
 /// The pose of `camera`'s sensor in `rig`: identity for the reference sensor.
 fn cam_from_rig(rig: &Rig, camera_id: CameraId) -> Result<Rigid3d> {
-    let sensor_id = crate::util::types::SensorId::new(
-        crate::util::types::SensorType::Camera,
-        camera_id,
-    );
+    let sensor_id =
+        crate::util::types::SensorId::new(crate::util::types::SensorType::Camera, camera_id);
     if rig.is_ref_sensor(sensor_id) {
         Ok(Rigid3d::identity())
     } else {
@@ -49,7 +52,8 @@ fn cam_from_rig(rig: &Rig, camera_id: CameraId) -> Result<Rigid3d> {
 
 /// Port of `colmap::EstimateRigTwoViewGeometries`: estimate the two-view geometries of all
 /// image pairs between two rigs from their matches, jointly through the generalized relative
-/// pose. Every image of a pair's first image must belong to `rig1`, of its second to `rig2`.
+/// pose. The first image of every pair must show a camera of `rig1`, the second one of
+/// `rig2`.
 ///
 /// Returns one geometry per input pair: those with inliers first, in image-pair order, then
 /// a default (`UNDEFINED`) geometry for every input pair without inliers, in input order. An
@@ -77,7 +81,11 @@ pub fn estimate_rig_two_view_geometries(
     let mut maybe_add_camera = |rig: &Rig, camera: &Camera| -> Result<usize> {
         if let Some(&(rig_id, camera_idx)) = camera_id_to_rig_and_camera_idx.get(&camera.camera_id)
         {
-            check_eq!(rig_id, rig.rig_id(), "The same camera is assigned to both rigs");
+            check_eq!(
+                rig_id,
+                rig.rig_id(),
+                "The same camera is assigned to both rigs"
+            );
             return Ok(camera_idx);
         }
         let camera_idx = cameras_vec.len();

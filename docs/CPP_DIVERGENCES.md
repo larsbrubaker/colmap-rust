@@ -1717,6 +1717,25 @@ choice (in comments, not as a numbered entry). Results for valid input are uncha
 (`rust_only_generalized_pose_empty_correspondences_find_no_pose`,
 `rust_only_generalized_relative_pose_short_camera_idxs_is_an_error`).
 
+## 264. Two-view geometry estimation does not log
+
+**What differs.** COLMAP's `EstimateTwoViewGeometry` emits a one-time `LOG_FIRST_N(WARNING)`
+when it marks a pair degenerate because `force_H_use` was asked of a non-pinhole camera, and
+another when it marks an uncalibrated fisheye pair degenerate (asking for a focal length prior);
+`MaybeDecomposeRelativePoses` logs `LOG(INFO)` lines with its decomposed and failed counts and
+its run time. `colmap_rust::estimators::two_view_geometry` returns the same geometries without
+these lines, and drops the `Timer` that only fed the last one.
+
+**Why.** The core crate has no logging facility yet (COLMAP's glog is not ported); the lines are
+diagnostic only and every returned geometry, configuration and stored pose is unchanged. When a
+logger lands, this entry goes away (as entries 84 and 211).
+
+**Evidence.** `tests/estimators/two_view_geometry.rs`
+`estimate_two_view_geometry_uncalibrated_fisheye_is_degenerate` and
+`estimate_two_view_geometry_force_h_use_with_fisheye_is_degenerate`, and
+`tests/estimators/two_view_geometry_misc.rs` `maybe_decompose_relative_poses_*`
+(`two_view_geometry_test.cc` 1:1) pass.
+
 ## 265. The database is one in-memory type, not a factory over SQLite files
 
 **What differs.** COLMAP's `Database` (scene/database.h) is an abstract class whose only

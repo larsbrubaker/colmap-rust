@@ -337,8 +337,7 @@ fn estimate_two_view_geometry_pose_planar_or_panoramic() {
             )
             .unwrap());
             assert_eq!(geometry.config, config);
-            if !check_equal_two_view_geometry(&geometry, &data.geometry, 1e-3, 1e-6, 1e-6, false)
-            {
+            if !check_equal_two_view_geometry(&geometry, &data.geometry, 1e-3, 1e-6, 1e-6, false) {
                 num_failures += 1;
             }
         }
@@ -477,8 +476,10 @@ fn fisheye_options(has_prior_focal_length: bool) -> SyntheticDatasetOptions {
 #[test]
 fn estimate_two_view_geometry_uncalibrated_fisheye_is_degenerate() {
     set_prng_seed(0);
-    let data =
-        create_two_view_geometry_test_data(&fisheye_options(false), &SyntheticNoiseOptions::default());
+    let data = create_two_view_geometry_test_data(
+        &fisheye_options(false),
+        &SyntheticNoiseOptions::default(),
+    );
     assert!(data.camera1.is_perspective_fisheye());
     assert!(!data.camera1.has_prior_focal_length);
 
@@ -493,8 +494,10 @@ fn estimate_two_view_geometry_uncalibrated_fisheye_is_degenerate() {
 #[test]
 fn estimate_two_view_geometry_calibrated_fisheye_is_estimated() {
     set_prng_seed(0);
-    let data =
-        create_two_view_geometry_test_data(&fisheye_options(true), &SyntheticNoiseOptions::default());
+    let data = create_two_view_geometry_test_data(
+        &fisheye_options(true),
+        &SyntheticNoiseOptions::default(),
+    );
     assert!(data.camera1.is_perspective_fisheye());
     assert!(data.camera1.has_prior_focal_length);
 
@@ -509,8 +512,10 @@ fn estimate_two_view_geometry_calibrated_fisheye_is_estimated() {
 #[test]
 fn estimate_two_view_geometry_force_h_use_with_fisheye_is_degenerate() {
     set_prng_seed(0);
-    let data =
-        create_two_view_geometry_test_data(&fisheye_options(true), &SyntheticNoiseOptions::default());
+    let data = create_two_view_geometry_test_data(
+        &fisheye_options(true),
+        &SyntheticNoiseOptions::default(),
+    );
     assert!(data.camera1.is_perspective_fisheye());
 
     // A homography only relates two images of a plane under a pinhole projection, so it is
