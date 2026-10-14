@@ -1135,3 +1135,22 @@ the same way (`FeatureKeypoints.KeypointsFromMatrix` / `MatchesFromMatrix`).
 
 **Evidence.** `tests/feature/rust_only_feature_types.rs`
 `rust_only_feature_matrix_conversions_check_columns`.
+
+## 200. ExtractTopScaleFeatures keeps equal-scale keypoints in input order
+
+**What differs.** COLMAP's `ExtractTopScaleFeatures` (feature/utils.cc) selects the largest
+scales with `std::partial_sort`, which leaves keypoints of equal scale in an unspecified,
+implementation-defined order (libc++'s heap-based selection). `extract_top_scale_features`
+(`feature/utils.rs`) sorts by scale, largest first, with the input index as the tie-break
+(`f32::total_cmp`, so a NaN scale also has a fixed place, where COLMAP's `>` comparator is not
+a strict weak order).
+
+**Why.** Equal scales are common: the SIFT extractor emits one keypoint per orientation, and
+all of them share the scale. Reproducing libc++'s heap order would tie the result to one
+standard library; the index tie-break is deterministic and stable. Only the order among equal
+scales differs, and *which* keypoints are kept differs only when a tie straddles the cut,
+where COLMAP's choice is arbitrary too. Same as colmap-sharp entry 40.
+
+**Evidence.** `tests/feature/utils.rs` `extract_top_scale_features_nominal` (1:1, distinct
+scales) passes unchanged; `tests/feature/rust_only_feature_utils.rs`
+`rust_only_extract_top_scale_features_ties_keep_input_order`.

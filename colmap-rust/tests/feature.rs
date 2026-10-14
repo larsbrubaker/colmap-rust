@@ -6,5 +6,9 @@
 
 #[path = "feature/rust_only_feature_types.rs"]
 mod rust_only_feature_types;
+#[path = "feature/rust_only_feature_utils.rs"]
+mod rust_only_feature_utils;
 #[path = "feature/types.rs"]
 mod types;
+#[path = "feature/utils.rs"]
+mod utils;
