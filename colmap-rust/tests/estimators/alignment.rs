@@ -1,5 +1,6 @@
 // Port of COLMAP's src/colmap/estimators/alignment_test.cc (same values and tolerances).
-// Tier C (LO-RANSAC) for the robust alignments, Tier B for AlignmentErrorSummary.
+// Tier C (LO-RANSAC) for the robust alignments, Tier B for AlignmentErrorSummary and
+// ComputeImageAlignmentError (pinned by the Rust-only case at the end).
 //
 // Each test starts with set_prng_seed(0), as COLMAP's gtest_main does. The Rust
 // Reconstruction iterates its objects in ascending id order where COLMAP iterates hash maps
@@ -400,4 +401,54 @@ fn alignment_error_summary_multiple_errors() {
     near(summary.proj_center_errors.mean, 0.3);
     near(summary.proj_center_errors.p90, 0.46);
     near(summary.proj_center_errors.p99, 0.496);
+}
+
+// ComputeImageAlignmentError has no case of its own in alignment_test.cc (COLMAP exercises
+// it through the ReconstructionNear test matcher), so this pins it: zero error under the
+// true transform, and the known rotation / projection center offsets under a perturbed one.
+#[test]
+fn rust_only_compute_image_alignment_error() {
+    use colmap_rust::estimators::alignment::compute_image_alignment_error;
+    use colmap_rust::linalg::Quaterniond;
+    use colmap_rust::math::fns;
+    use colmap_rust::math::utils::deg_to_rad;
+
+    set_prng_seed(0);
+    let (src_reconstruction, tgt_reconstruction, gt_tgt_from_src) = transformed_pair();
+
+    let errors =
+        compute_image_alignment_error(&src_reconstruction, &tgt_reconstruction, &gt_tgt_from_src)
+            .unwrap();
+    assert_eq!(errors.len(), 20);
+    for (error, image_id) in errors
+        .iter()
+        .zip(src_reconstruction.reg_image_ids().unwrap())
+    {
+        assert_eq!(
+            error.image_name,
+            src_reconstruction.image(image_id).unwrap().name()
+        );
+        assert!(error.rotation_error_deg.abs() < 1e-6);
+        assert!(error.proj_center_error < 1e-6);
+    }
+
+    // Shift the target world by 0.5 along x after the true transform: every projection
+    // center moves by 0.5 and no orientation changes. A 3 degree turn about z on top of the
+    // true transform changes every camera orientation by 3 degrees.
+    let shifted =
+        Sim3d::new(1.0, Quaterniond::identity(), Vector3d::new(0.5, 0.0, 0.0)) * gt_tgt_from_src;
+    for error in
+        compute_image_alignment_error(&src_reconstruction, &tgt_reconstruction, &shifted).unwrap()
+    {
+        assert!(error.rotation_error_deg.abs() < 1e-6);
+        assert!((error.proj_center_error - 0.5).abs() < 1e-9);
+    }
+    let half_angle = deg_to_rad(3.0) / 2.0;
+    let turn = Quaterniond::new(fns::cos(half_angle), 0.0, 0.0, fns::sin(half_angle));
+    let turned = Sim3d::new(1.0, turn, Vector3d::new(0.0, 0.0, 0.0)) * gt_tgt_from_src;
+    for error in
+        compute_image_alignment_error(&src_reconstruction, &tgt_reconstruction, &turned).unwrap()
+    {
+        assert!((error.rotation_error_deg - 3.0).abs() < 1e-6);
+    }
 }

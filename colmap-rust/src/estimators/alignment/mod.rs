@@ -6,7 +6,8 @@
 //! [`align_reconstructions_via_reprojections`] is in [`reprojection_estimator`]. The
 //! similarity transforms come from [`crate::estimators::solvers::similarity_transform`].
 //! Port of colmap-sharp's `Estimators/Alignment.cs`.
-//! Tests: `tests/estimators/alignment.rs` (`alignment_test.cc` 1:1).
+//! Tests: `tests/estimators/alignment.rs` (`alignment_test.cc` 1:1, plus
+//! `rust_only_compute_image_alignment_error`).
 //!
 //! Tier C (outcome) for the robust alignments (LO-RANSAC); Tier B for
 //! [`compute_image_alignment_error`] and [`AlignmentErrorSummary::compute`] (scalar, but
