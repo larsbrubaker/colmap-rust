@@ -1,7 +1,7 @@
 // Rust-only tests for colmap_rust::scene::reconstruction_ply: `ExtractColorsForImage`, which
 // reconstruction_test.cc does not cover (only black points are colored; a missing image
 // returns false), the stream form of `ImportPLY` round-tripping `ConvertToPLY`, and the line
-// layout of `ExportNVM` (scene::reconstruction_export).
+// layouts of `ExportNVM` and `ExportRecon3D` (scene::reconstruction_export).
 
 use std::io::Cursor;
 
@@ -103,4 +103,29 @@ fn rust_only_export_nvm_layout() {
         assert_eq!(tokens.len(), 7 + 4 * num_obs);
     }
     assert_eq!(lines[17], "");
+}
+
+#[test]
+fn rust_only_export_recon3d_aligns_matrix_columns() {
+    let reconstruction = synthetic();
+    let dir = std::env::temp_dir().join(format!("colmap_rust_recon3d_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        colmap_rust::scene::reconstruction_export::export_recon3d_path(
+            &reconstruction,
+            &dir,
+            false
+        )
+        .unwrap()
+    );
+    let synth = std::fs::read_to_string(dir.join("Recon").join("synth_0.out")).unwrap();
+    let lines: Vec<&str> = synth.split('\n').collect();
+    assert_eq!(lines[0], "colmap 1.0");
+    assert_eq!(lines[1], "2 10");
+    // Eigen's default IOFormat pads every coefficient to the widest one, so the rotation
+    // rows have equal length and every cell of a row is right-aligned to that width.
+    let rows = &lines[3..6];
+    assert!(rows.iter().all(|row| row.len() == rows[0].len()));
+    assert_eq!(lines[6].split(' ').filter(|t| !t.is_empty()).count(), 3);
+    std::fs::remove_dir_all(&dir).unwrap();
 }

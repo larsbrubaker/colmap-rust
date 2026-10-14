@@ -7,9 +7,8 @@
 // written to and then read from the start. TextIO.LocaleIndependentRoundtrip sets a global
 // C++ locale with a comma decimal point first; Rust formatting and parsing have no locale,
 // so the port keeps the test's checks (dots, no commas, the roundtrip) without that setup.
-// The ExportNVM, ExportCam, ExportBundler and ExportPLY tests exercise
-// colmap_rust::scene::reconstruction_export. The ExportRecon3D and ExportVRML tests land with
-// those exporters (PORTING_PLAN.md, Phase 4).
+// The Export* tests (NVM, Cam, Recon3D, Bundler, PLY and VRML) exercise
+// colmap_rust::scene::reconstruction_export.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -438,4 +437,42 @@ fn export_cam_unsupported_camera_model() {
     let reconstruction = export_scene(1, 5, CameraModelId::FullOpenCV);
     let test_dir = create_test_dir();
     assert!(!export::export_cam_path(&reconstruction, &test_dir, false).unwrap());
+}
+
+#[test]
+fn export_recon3d_nominal() {
+    let reconstruction = export_scene(3, 15, CameraModelId::SimpleRadial);
+    let test_dir = create_test_dir();
+    assert!(export::export_recon3d_path(&reconstruction, &test_dir, false).unwrap());
+    let recon_dir = test_dir.join("Recon");
+    assert!(recon_dir.join("synth_0.out").exists());
+    assert!(recon_dir.join("urd-images.txt").exists());
+    assert!(recon_dir.join("imagemap_0.txt").exists());
+}
+
+#[test]
+fn export_recon3d_unsupported_camera_model() {
+    let reconstruction = export_scene(1, 5, CameraModelId::FullOpenCV);
+    let test_dir = create_test_dir();
+    assert!(!export::export_recon3d_path(&reconstruction, &test_dir, false).unwrap());
+}
+
+#[test]
+fn export_vrml_nominal() {
+    let reconstruction = export_scene(3, 25, CameraModelId::SimpleRadial);
+    let test_dir = create_test_dir();
+    let images_path = test_dir.join("images.wrl");
+    let points3d_path = test_dir.join("points3D.wrl");
+    let image_scale = 1.0;
+    let image_rgb = [1.0, 0.0, 0.0];
+    export::export_vrml_path(
+        &reconstruction,
+        &images_path,
+        &points3d_path,
+        image_scale,
+        image_rgb,
+    )
+    .unwrap();
+    assert!(images_path.exists());
+    assert!(points3d_path.exists());
 }

@@ -53,6 +53,7 @@ pub mod projection;
 pub mod reconstruction;
 pub mod reconstruction_database;
 pub mod reconstruction_export;
+mod reconstruction_export_recon3d_vrml;
 pub mod reconstruction_files;
 pub mod reconstruction_io_binary;
 pub mod reconstruction_io_text;

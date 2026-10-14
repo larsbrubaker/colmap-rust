@@ -4,8 +4,8 @@
 //! little-endian PLY point cloud, positions and colors, no normals), on `Write` streams or on
 //! paths. The PLY points come from [`Reconstruction::convert_to_ply`]
 //! (`scene::reconstruction_ply`) and the file from [`crate::util::ply`]. Tests:
-//! `tests/scene/reconstruction_io.rs` (the `Export*` cases). COLMAP's Recon3D and VRML exporters
-//! are not ported yet (PORTING_PLAN.md, Phase 4).
+//! `tests/scene/reconstruction_io.rs` (the `Export*` cases). `ExportRecon3D` and
+//! `ExportVRML` are in `reconstruction_export_recon3d_vrml.rs`, re-exported here.
 //!
 //! Tier A (exact): COLMAP streams the main file at `precision(17)` and each point's
 //! observation line through a fresh `std::ostringstream` at the default precision 6, both
@@ -33,29 +33,31 @@ use crate::util::stream_format::{format_double, DEFAULT_PRECISION};
 use crate::util::types::ImageId;
 use crate::Result;
 
+pub use super::reconstruction_export_recon3d_vrml::{export_recon3d_path, export_vrml_path};
+
 /// The main files' `precision(17)`.
-fn num(value: f64) -> String {
+pub(super) fn num(value: f64) -> String {
     format_double(value, 17)
 }
 
 /// A fresh `std::ostringstream`'s default precision 6.
-fn num6(value: f64) -> String {
+pub(super) fn num6(value: f64) -> String {
     format_double(value, DEFAULT_PRECISION)
 }
 
 /// `image.CamFromWorld()` through the image's frame and rig.
-fn cam_from_world(reconstruction: &Reconstruction, image: &Image) -> Result<Rigid3d> {
+pub(super) fn cam_from_world(reconstruction: &Reconstruction, image: &Image) -> Result<Rigid3d> {
     let frame = reconstruction.frame(image.frame_id())?;
     let rig = reconstruction.rig(frame.rig_id())?;
     image.cam_from_world(frame, rig)
 }
 
 /// `camera.params[Model::extra_params_idxs[i]]`.
-fn extra_param<M: CameraModel>(camera: &Camera, i: usize) -> f64 {
+pub(super) fn extra_param<M: CameraModel>(camera: &Camera, i: usize) -> f64 {
     camera.params[M::EXTRA_PARAMS_IDXS[i]]
 }
 
-fn is_pinhole(camera: &Camera) -> bool {
+pub(super) fn is_pinhole(camera: &Camera) -> bool {
     matches!(
         camera.model_id,
         CameraModelId::SimplePinhole | CameraModelId::Pinhole
@@ -63,12 +65,12 @@ fn is_pinhole(camera: &Camera) -> bool {
 }
 
 /// `line_string.substr(0, line_string.size() - 1)`.
-fn drop_last(mut line: String) -> String {
+pub(super) fn drop_last(mut line: String) -> String {
     line.pop();
     line
 }
 
-fn put<W: std::io::Write + ?Sized>(stream: &mut W, text: &str) -> Result<()> {
+pub(super) fn put<W: std::io::Write + ?Sized>(stream: &mut W, text: &str) -> Result<()> {
     stream.write_all(text.as_bytes()).map_err(stream_error)
 }
 
