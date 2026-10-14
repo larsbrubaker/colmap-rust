@@ -28,8 +28,10 @@ visible in the app so the web build is the integration test.
   PoseLibCamera, `ImagePair`, essential (motion from E, cheirality), sturm, re3q3, p3p, gp3p,
   p4pf, relpose_5pt, relpose_6pt_shared_focal, relpose_6pt_onesided_focal and gen_relpose_6pt
   solvers, and COLMAP's
-  `absolute_pose` (P3P, P4Pf, EPnP, `ComputeSquaredReprojectionError`) and
-  `generalized_absolute_pose` (GP3P).
+  `absolute_pose` (P3P, P4Pf, EPnP, `ComputeSquaredReprojectionError`),
+  `generalized_absolute_pose` (GP3P) and `essential_matrix` (five-point, eight-point, tangent
+  Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
+  quaternion_utils (double forms).
 - Phase 9: feature types and utils, VLFeat's CPU SIFT, `SiftCPUFeatureExtractor`, the
   `FeatureExtractor` / `FeatureMatcher` traits, the exact k-NN descriptor index,
   `SiftCPUFeatureMatcher` with guided matching, and the SIFT text loader.
@@ -45,8 +47,8 @@ Divergence-log merges: keep both sides' entries in numeric order (entries are in
 After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balanced.
 
 **Next slices** (start each from `main`):
-- Phase 6b (a): `estimators/cost_functions` tiny_manifold and tiny_sampson_error, then (b)
-  COLMAP's `essential_matrix` (see Phase 6 below).
+- Phase 6 — COLMAP's `relpose_shared_focal` / `relpose_one_sided_focal`, the other solvers and
+  the estimators (see Phase 6 below).
 - Phase 4 — the in-memory `Database`, then what waits on it (see Phase 4 below).
 - Phase 9 — the covariant extractor and `util/cache.h`.
 - Phase 7 — the Ceres replacement.
@@ -105,14 +107,9 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 
 ### Phase 6 — Minimal solvers and estimators
 Remaining:
-- 6b (a): `estimators/cost_functions/tiny_manifold` (`EigenQuaternionManifold`,
-  `SphereManifold<3>`, `ProductManifold`) and `tiny_sampson_error`, with
-  `tiny_manifold_test.cc` and `tiny_sampson_error_test.cc`.
-- 6b (b), after (a): COLMAP's `essential_matrix` solvers: FivePoint (its over-determined path
-  needs the generated `essential_matrix_poly` / `essential_matrix_coeffs`, colmap-sharp's
-  `EssentialMatrixPolynomials`), EightPoint and TangentSampson, with `essential_matrix_test.cc`.
-- After (a): COLMAP's `relpose_shared_focal` and `relpose_one_sided_focal` (their `Refine` needs
-  the tiny manifolds and the focal Sampson functors), with their tests.
+- COLMAP's `relpose_shared_focal` and `relpose_one_sided_focal`, with their tests. The shared
+  focal `Refine` needs `TinyFocalSampsonErrorCostFunctor`, which C++ has only as an autodiff
+  template (Phase 7) unless it can be written in closed form.
 - The other `estimators/solvers/*`: `affine_transform`, `euclidean_transform`,
   `translation_transform`, `fundamental_matrix`, `homography_matrix`,
   `generalized_relative_pose`.
@@ -126,9 +123,13 @@ Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without 
 ### Phase 7 — Nonlinear least squares (Ceres replacement)
 Port colmap-sharp's `Solver/` (Jets, residual blocks, manifolds, losses, LM trust region,
 Schur dense/sparse/iterative, summary). Riskiest phase; Tier C against pycolmap BA.
-This phase also ports `tiny_solver_test.cc` ManifoldConvergesAndStaysOnManifold, deferred to it
-because it needs Ceres' `TinySolverAutoDiffFunction` over the general Jet (and
-`SphereManifold<3>`, Phase 6b (a)).
+It also ports what waits on the general Jet and Ceres autodiff: `tiny_solver_test.cc`
+ManifoldConvergesAndStaysOnManifold (`TinySolverAutoDiffFunction`; `TinySphereManifold` is on
+main); `TinyFocalSampsonErrorCostFunctor`, the Jet forms of the angle-axis wrappers and of the
+one-sided focal functor; and three `tiny_sampson_error_test.cc` tests,
+`TinyTangentSampsonErrorCostFunctor.MatchesAutodiffCostFunctor`,
+`TinyFocalSampsonErrorCostFunctor.MatchesSquaredSampsonError` and
+`TinyOneSidedFocalTangentSampsonErrorCostFunctor.MatchesAutodiffFunction`.
 
 ### Phase 8 — Bundle adjustment
 `estimators/bundle_adjustment*` (CPU), `cost_functions/*`, `ceres_loss_function`, `covariance`.
