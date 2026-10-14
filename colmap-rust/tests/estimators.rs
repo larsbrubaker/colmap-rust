@@ -6,6 +6,8 @@
 #[path = "support/transform_matchers.rs"]
 mod transform_matchers;
 
+#[path = "estimators/rust_only_sturm.rs"]
+mod rust_only_sturm;
 #[path = "estimators/similarity_transform.rs"]
 mod similarity_transform;
 

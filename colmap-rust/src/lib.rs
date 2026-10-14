@@ -25,7 +25,8 @@
 //!   [`optim::Sampler`] traits, the random, PROSAC and combination samplers, support
 //!   measurement, [`optim::Ransac`], [`optim::LoRansac`] and SPRT.
 //! - [`estimators`]: COLMAP's `estimators/` — the similarity and rigid transform
-//!   estimators of [`estimators::solvers`], with `EstimateRigid3d` / `EstimateSim3d`.
+//!   estimators of [`estimators::solvers`], with `EstimateRigid3d` / `EstimateSim3d`, and
+//!   PoseLib's Sturm-sequence root finder ([`estimators::solvers::poselib`]).
 //! - [`scene`]: COLMAP's `scene/` data types — 2D and 3D points, tracks, cameras,
 //!   reprojection errors and the visibility pyramid.
 //! - [`feature`]: COLMAP's `feature/` — keypoints, descriptors, matches and the feature
