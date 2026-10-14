@@ -1,8 +1,8 @@
 //! Port of `vl_imconvcol_vf` from VLFeat's `imopv.c`: the separable column convolution SIFT's
 //! Gaussian smoothing runs twice per level ([`super::sift_filter`]). Only the float
 //! instantiation is ported; it is the only one COLMAP's SIFT calls. Port of colmap-sharp's
-//! `Feature/VLFeat/VlImOpv.cs` (its `VlImOpv.Smooth.cs`, used by the covariant detector only,
-//! is not ported yet).
+//! `Feature/VLFeat/VlImOpv.cs`. The smoothing and gradients built on it are in
+//! [`super::imopv_smooth`].
 //!
 //! Tier A (exact). This is the scalar (non-SSE2) path, which is what COLMAP compiles on arm64.
 //! Each output column is one sequential float accumulation in VLFeat's order. The columns run

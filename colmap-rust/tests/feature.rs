@@ -22,6 +22,10 @@ mod rust_only_feature_utils;
 mod rust_only_sift;
 #[path = "feature/rust_only_sift_text.rs"]
 mod rust_only_sift_text;
+#[path = "feature/rust_only_vl_linear.rs"]
+mod rust_only_vl_linear;
+#[path = "feature/rust_only_vl_scalespace.rs"]
+mod rust_only_vl_scalespace;
 #[path = "feature/rust_only_vl_sift_filter.rs"]
 mod rust_only_vl_sift_filter;
 #[path = "feature/sift.rs"]

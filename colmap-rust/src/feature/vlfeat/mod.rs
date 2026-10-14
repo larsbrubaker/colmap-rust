@@ -3,6 +3,9 @@
 //! VLFeat; notice in `THIRD_PARTY_NOTICES.md`). VLFeat is C, so it is ported, not wrapped.
 //! - [`mathop`]: the `mathop.h` approximations SIFT uses and `sift.c`'s `fast_expn` table.
 //! - [`imopv`]: `vl_imconvcol_vf`, the separable column convolution of the Gaussian smoothing.
+//! - [`imopv_smooth`]: `vl_imsmooth_f` and the image gradients, for the covariant detector.
+//! - [`linear`]: `mathop.c`'s 2x2 SVD and small Gaussian elimination, for the covariant detector.
+//! - [`scalespace`]: `VlScaleSpace`, the Gaussian scale space of the covariant detector.
 //! - [`sift_filter`]: `VlSiftFilt` and its Gaussian scale space (`vl_sift_new`,
 //!   `vl_sift_process_first_octave` / `_next_octave`); [`sift_detect`] holds `vl_sift_detect`
 //!   and [`sift_descriptor`] the gradients, orientations and descriptors.
@@ -12,7 +15,10 @@
 //! (`tests/feature/rust_only_vl_sift_filter.rs`, fixture `sift_vlfeat.json`).
 
 pub mod imopv;
+pub mod imopv_smooth;
+pub mod linear;
 pub mod mathop;
+pub mod scalespace;
 pub mod sift_descriptor;
 pub mod sift_detect;
 pub mod sift_filter;

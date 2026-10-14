@@ -58,7 +58,8 @@ pub fn vl_floor_d(x: f64) -> i64 {
     }
 }
 
-/// Port of `vl_fast_atan2_f`: a cubic approximation of atan2 (max error about 0.004 rad).
+/// Port of `vl_fast_atan2_f`: a cubic approximation of atan2 (VLFeat documents a maximum error
+/// of 0.0061 rad).
 pub fn vl_fast_atan2_f(y: f32, x: f32) -> f32 {
     const C3: f32 = 0.1821;
     const C1: f32 = 0.9675;
