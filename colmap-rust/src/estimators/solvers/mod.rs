@@ -5,6 +5,7 @@
 //! - [`translation_transform`]: [`TranslationTransformEstimator`] (2D).
 //! - [`fundamental_matrix`]: [`FundamentalMatrixSevenPointEstimator`] and
 //!   [`FundamentalMatrixEightPointEstimator`].
+//! - [`generalized_relative_pose`]: [`GR6PEstimator`] and its [`GRNPObservation`].
 //! - [`homography_matrix`]: [`HomographyMatrixEstimator`] and
 //!   [`HomographyMatrixRayEstimator`] (DLT between points or bearing rays).
 //! - [`absolute_pose`]: [`P3PEstimator`], [`P4PFEstimator`], [`Point2DWithRay`],
@@ -30,6 +31,7 @@ mod essential_matrix_poly2;
 mod essential_matrix_poly3;
 pub mod fundamental_matrix;
 pub mod generalized_absolute_pose;
+pub mod generalized_relative_pose;
 pub mod homography_matrix;
 pub mod poselib;
 pub mod poselib_utils;
@@ -52,6 +54,7 @@ pub use fundamental_matrix::{
     FundamentalMatrixEightPointEstimator, FundamentalMatrixSevenPointEstimator,
 };
 pub use generalized_absolute_pose::{GP3PEstimator, GP3PObservation, GP3PResidualType};
+pub use generalized_relative_pose::{GR6PEstimator, GRNPObservation};
 pub use homography_matrix::{
     CamRayWithImgPoint, HomographyMatrixEstimator, HomographyMatrixRayEstimator,
 };

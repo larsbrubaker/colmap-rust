@@ -18,6 +18,8 @@ mod essential_matrix;
 mod fundamental_matrix;
 #[path = "estimators/generalized_absolute_pose.rs"]
 mod generalized_absolute_pose;
+#[path = "estimators/generalized_relative_pose.rs"]
+mod generalized_relative_pose;
 #[path = "estimators/homography_matrix.rs"]
 mod homography_matrix;
 #[path = "estimators/poselib_utils.rs"]
