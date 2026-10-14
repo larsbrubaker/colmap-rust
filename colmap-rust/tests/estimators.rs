@@ -50,6 +50,8 @@ mod rust_only_relpose_5pt;
 mod rust_only_relpose_6pt_focal;
 #[path = "estimators/rust_only_sturm.rs"]
 mod rust_only_sturm;
+#[path = "estimators/rust_only_triangulation.rs"]
+mod rust_only_triangulation;
 #[path = "estimators/similarity_transform.rs"]
 mod similarity_transform;
 #[path = "estimators/tiny_manifold.rs"]
