@@ -20,7 +20,7 @@ const SIFT_FIXTURE: &str = include_str!("../data/oracle/sift.json");
 const VLFEAT_FIXTURE: &str = include_str!("../data/oracle/sift_vlfeat.json");
 
 /// Standard base64 (with `=` padding), as Python's `base64.b64encode` writes it.
-fn decode_base64(text: &str) -> Vec<u8> {
+pub(crate) fn decode_base64(text: &str) -> Vec<u8> {
     fn value(c: u8) -> u32 {
         match c {
             b'A'..=b'Z' => u32::from(c - b'A'),

@@ -8,12 +8,18 @@
 #[path = "support/oracle_json.rs"]
 mod oracle_json;
 
+#[path = "feature/extractor.rs"]
+mod extractor;
 #[path = "feature/rust_only_feature_types.rs"]
 mod rust_only_feature_types;
 #[path = "feature/rust_only_feature_utils.rs"]
 mod rust_only_feature_utils;
+#[path = "feature/rust_only_sift.rs"]
+mod rust_only_sift;
 #[path = "feature/rust_only_vl_sift_filter.rs"]
 mod rust_only_vl_sift_filter;
+#[path = "feature/sift.rs"]
+mod sift;
 #[path = "feature/types.rs"]
 mod types;
 #[path = "feature/utils.rs"]

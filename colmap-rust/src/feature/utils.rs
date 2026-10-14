@@ -105,7 +105,7 @@ pub fn extract_top_scale_features(
 }
 
 /// `row.normalize()` inside `rowwise().normalize()`: divide by the norm unconditionally.
-fn l2_normalize_row(row: &mut [f32]) {
+pub(crate) fn l2_normalize_row(row: &mut [f32]) {
     let norm = fns::sqrtf(eigen_row_sum(row, true));
     for v in row.iter_mut() {
         *v /= norm;
@@ -113,7 +113,7 @@ fn l2_normalize_row(row: &mut [f32]) {
 }
 
 /// `row *= 1 / row.lpNorm<1>(); row = row.array().sqrt();`.
-fn l1_root_normalize_row(row: &mut [f32]) {
+pub(crate) fn l1_root_normalize_row(row: &mut [f32]) {
     let scale = 1.0f32 / eigen_row_sum(row, false);
     for v in row.iter_mut() {
         *v = fns::sqrtf(*v * scale);
@@ -123,7 +123,7 @@ fn l1_root_normalize_row(row: &mut [f32]) {
 /// One element of [`feature_descriptors_to_unsigned_byte`]: `TruncateCast<float,
 /// uint8_t>(std::round(512.0f * value))`. `f32::round` rounds halfway cases away from zero,
 /// like `std::round`.
-fn quantize_descriptor_value(value: f32) -> u8 {
+pub(crate) fn quantize_descriptor_value(value: f32) -> u8 {
     let scaled_value = (512.0f32 * value).round();
     truncate_cast::<f32, u8>(scaled_value)
 }

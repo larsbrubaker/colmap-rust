@@ -1380,3 +1380,22 @@ other samples. Same as colmap-sharp entry 29.
 harness: it returns the same four poses for `std::srand` seeds 1..5 on a fixed three-ray
 input, agreeing to about 1e-10 across seeds. `tests/estimators/rust_only_gp3p.rs`,
 `rust_only_matches_poselib_solution_set` returns those same four poses to 1e-8.
+
+## 230. CPU SIFT matches the macOS pycolmap wheel within FMA drift, not bit for bit
+
+**What differs.** COLMAP's `SiftCPUFeatureExtractor` runs VLFeat, which the macOS arm64
+pycolmap wheel compiles with Apple clang's default `-ffp-contract=on`: multiply-adds in the
+Gaussian convolution, the DoG refinement and the descriptor binning are fused into FMAs that
+round once. colmap-rust never fuses (CLAUDE.md "No FMA"), so against that wheel the extractor
+(`feature/sift/cpu_extractor.rs`) gives the same keypoints, in the same order and count, with
+last-bit drift: keypoint values differ by up to about 1e-3 and descriptor bytes by at most one
+grey level, on at most 0.1% of the bytes.
+
+**Why.** Fusing depends on the compiler and target, so it cannot be reproduced on every
+platform (wasm has no guaranteed FMA); unfused VLFeat is the portable reference, and against it
+the port is bit-exact. Same as colmap-sharp entry 41.
+
+**Evidence.** `tests/feature/rust_only_vl_sift_filter.rs`: bit-exact against VLFeat compiled
+with `-ffp-contract=off` (fixture `sift_vlfeat.json`). `tests/feature/rust_only_sift.rs`
+`rust_only_sift_matches_pycolmap_*`: the nine `sift.json` cases against the wheel within
+2e-3 per keypoint value, 1 per descriptor byte and 0.1% mismatched bytes.
