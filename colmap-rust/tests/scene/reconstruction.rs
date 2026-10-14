@@ -2,9 +2,8 @@
 // checks) for the ported methods of colmap_rust::scene::reconstruction::Reconstruction: the
 // add, delete and register tests, and the test's helpers. The query and statistics tests are
 // in reconstruction_queries.rs, the bounds and transform tests in reconstruction_transform.rs,
-// and the tests that synthesize their scene in reconstruction_synthetic.rs. Tests of methods
-// not yet ported (they need the database, PLY, image colors or image directories) land with
-// those methods. COLMAP's `ExpectValidPtrs` (every frame's rig
+// the tests that synthesize their scene in reconstruction_synthetic.rs, and the PLY, color and
+// image-directory tests in reconstruction_ply.rs. COLMAP's `ExpectValidPtrs` (every frame's rig
 // pointer and every image's camera and frame pointers point into the reconstruction) is
 // `expect_valid_ptrs`: the ids it guards resolve and pass the `verify_*` checks
 // (docs/CPP_DIVERGENCES.md entry 170). `EXPECT_ANY_THROW` is `is_err()`; a `try` / `catch`

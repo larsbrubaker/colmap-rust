@@ -23,11 +23,12 @@
 //!   images and 3D points of a model, with [`reconstruction_queries`] its whole-model queries
 //!   and [`reconstruction_transform`] its bounds, normalization, transform and crop,
 //!   [`reconstruction_files`] its model-folder read and write, and [`reconstruction_database`]
-//!   `Load` from a database cache and `TranscribeImageIdsToDatabase`;
+//!   `Load` from a database cache and `TranscribeImageIdsToDatabase`, and
+//!   [`reconstruction_ply`] its PLY import/export, color extraction and `CreateImageDirs`;
 //! - [`reconstruction_io_binary`], [`reconstruction_io_text`] (readers),
 //!   [`reconstruction_io_text_write`] (writers) and [`reconstruction_io_utils`]:
 //!   `reconstruction_io_binary.*`, `reconstruction_io_text.*` and `reconstruction_io_utils.*`,
-//!   COLMAP's binary and text model files;
+//!   COLMAP's binary and text model files, and [`reconstruction_export`] its exporters;
 //! - [`projection`]: `projection.h` / `projection.cc`, reprojection errors and cheirality;
 //! - [`rig`]: `rig.h` / `rig.cc`, rig configurations (`RigConfig`, `ReadRigConfig`), with
 //!   [`rig_apply`] `ApplyRigConfig`, which writes them into a database and reconstruction;
@@ -51,11 +52,13 @@ pub mod point3d;
 pub mod projection;
 pub mod reconstruction;
 pub mod reconstruction_database;
+pub mod reconstruction_export;
 pub mod reconstruction_files;
 pub mod reconstruction_io_binary;
 pub mod reconstruction_io_text;
 pub mod reconstruction_io_text_write;
 pub mod reconstruction_io_utils;
+pub mod reconstruction_ply;
 pub mod reconstruction_queries;
 pub mod reconstruction_transform;
 pub mod rig;

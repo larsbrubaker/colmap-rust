@@ -17,6 +17,8 @@
 //!   `read_json`, with [`ptree_translate`] ptree's `bool`/`double` value translators.
 //! - [`cancellation`]: `cancellation.h` — [`cancellation::CancelToken`] and the
 //!   [`cancellation::Progress`] callback type.
+//! - [`ply`]: `ply.h` — PLY point clouds and meshes, text and binary (readers in `ply` and
+//!   `ply_mesh_read`, writers in `ply_write`).
 
 pub mod cancellation;
 pub mod check;
@@ -25,6 +27,9 @@ pub mod file;
 pub mod json;
 pub mod line_tokens;
 pub mod misc;
+pub mod ply;
+mod ply_mesh_read;
+mod ply_write;
 pub mod ptree_translate;
 pub mod stream_format;
 pub mod string;

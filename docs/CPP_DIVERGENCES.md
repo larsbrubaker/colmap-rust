@@ -1897,3 +1897,44 @@ counts of rigs, frames and registered frames, none of which depends on the order
 `tests/scene/rust_only_rig.rs`
 `rust_only_apply_rig_config_derives_sensor_from_rig_from_reconstruction` pins the ascending
 registration order.
+
+## 280. Reading a truncated binary PLY mesh fails inside the texcoord lists
+
+**What differs.** COLMAP's `ReadPlyMesh` (util/ply.cc) checks `file.good()` after every vertex,
+face count and face index it reads from a binary file, but not after a face's texcoord count
+or its six UVs. A file cut there leaves those values indeterminate: usually the count is not 6
+and the read fails with "Expected 6 texture coordinates per triangular face", a cut inside a
+middle face's UVs fails at the next face, and a cut inside the last face's UVs loads the mesh
+with garbage UVs and no error. `colmap_rust::util::ply::read_ply_mesh` checks the count and
+every UV and fails with "Unexpected end of PLY file at face i" for the face whose texcoords are
+cut, in all three cases. Same as colmap-sharp entry 113.
+
+**Why.** The same robustness gap as entry 61: a half-written mesh must not load with garbage
+texture coordinates, and the error should name the cause and the face. Well-formed files read
+identically.
+
+**Evidence.** Reading of ply.cc (the unchecked `file.read` calls for `num_texcoords` and `uv`).
+`tests/util/rust_only_ply.rs` `rust_only_truncated_binary_texcoords_fail` cuts a one-face
+textured mesh before the texcoord count and after two of its six UVs (the last-face case); the
+ported `ply_test.cc` cases, which read complete files, pass unchanged.
+
+## 281. The color extractors take images from the host instead of reading image files
+
+**What differs.** COLMAP's `Reconstruction::ExtractColorsForImage(image_id, path)` and
+`ExtractColorsForAllImages(path, num_threads)` read each image from `path / image.Name()` with
+`Bitmap::Read(..., as_rgb = true)` (OpenImageIO); a file that cannot be read makes the first
+return `false` and is skipped (with a log warning) by the second.
+`colmap_rust::scene::reconstruction_ply` takes a `load_image(name) -> Option<Bitmap>` callback
+instead: `None` is the unreadable file. `extract_colors_for_all_images` has no `num_threads`
+and accumulates each point's color sum in registered-image order, which is COLMAP's result
+with one thread (with more, COLMAP adds per-thread partial sums in a scheduling-dependent
+order, which can move a mean that lands near a rounding tie).
+
+**Why.** Image file decoding is not ported: the host owns image I/O, natively and in the
+browser (as for `SynthesizeImages`, entry 268). The core is single-threaded (CLAUDE.md,
+Threading).
+
+**Evidence.** `tests/scene/reconstruction_ply.rs` `reconstruction_extract_colors_for_all_images`
+(COLMAP's test with the deleted image file as a missing map entry) and
+`tests/scene/rust_only_reconstruction_ply.rs`
+`rust_only_extract_colors_for_image_colors_black_points_only`.

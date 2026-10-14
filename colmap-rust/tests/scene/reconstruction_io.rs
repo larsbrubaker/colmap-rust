@@ -7,8 +7,8 @@
 // written to and then read from the start. TextIO.LocaleIndependentRoundtrip sets a global
 // C++ locale with a comma decimal point first; Rust formatting and parsing have no locale,
 // so the port keeps the test's checks (dots, no commas, the roundtrip) without that setup.
-// The Export* tests (reconstruction_io.cc's NVM, Cam, Recon3D, Bundler, PLY and VRML
-// exporters) land with those exporters (PORTING_PLAN.md, Phase 4).
+// ExportPLY.Nominal tests colmap_rust::scene::reconstruction_export. The other Export* tests
+// (NVM, Cam, Recon3D, Bundler and VRML) land with those exporters (PORTING_PLAN.md, Phase 4).
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -329,4 +329,24 @@ fn text_io_locale_independent_roundtrip() {
     assert_eq!(orig.images(), test.images());
     rw.read(POINTS3D, &mut test);
     assert_eq!(orig.points3d(), test.points3d());
+}
+
+#[test]
+fn export_ply_nominal() {
+    let mut reconstruction = Reconstruction::new();
+    let synthetic_dataset_options = SyntheticDatasetOptions {
+        num_rigs: 1,
+        num_cameras_per_rig: 1,
+        num_frames_per_rig: 2,
+        num_points3d: 50,
+        ..SyntheticDatasetOptions::default()
+    };
+    synthesize_dataset(&synthetic_dataset_options, &mut reconstruction).unwrap();
+
+    let test_dir = create_test_dir();
+    let ply_path = test_dir.join("points.ply");
+
+    colmap_rust::scene::reconstruction_export::export_ply_path(&reconstruction, &ply_path).unwrap();
+    assert!(ply_path.exists());
+    assert!(std::fs::metadata(&ply_path).unwrap().len() > 0);
 }

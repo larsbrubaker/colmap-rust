@@ -33,6 +33,8 @@ mod reconstruction;
 mod reconstruction_database;
 #[path = "scene/reconstruction_io.rs"]
 mod reconstruction_io;
+#[path = "scene/reconstruction_ply.rs"]
+mod reconstruction_ply;
 #[path = "scene/reconstruction_queries.rs"]
 mod reconstruction_queries;
 #[path = "scene/reconstruction_synthetic.rs"]
@@ -51,6 +53,8 @@ mod rust_only_frame_image;
 mod rust_only_reconstruction;
 #[path = "scene/rust_only_reconstruction_io.rs"]
 mod rust_only_reconstruction_io;
+#[path = "scene/rust_only_reconstruction_ply.rs"]
+mod rust_only_reconstruction_ply;
 #[path = "scene/rust_only_rig.rs"]
 mod rust_only_rig;
 #[path = "scene/rust_only_scene_types.rs"]

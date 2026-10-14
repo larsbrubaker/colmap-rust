@@ -13,8 +13,12 @@ mod file;
 mod logging;
 #[path = "util/misc.rs"]
 mod misc;
+#[path = "util/ply.rs"]
+mod ply;
 #[path = "util/rust_only_json.rs"]
 mod rust_only_json;
+#[path = "util/rust_only_ply.rs"]
+mod rust_only_ply;
 #[path = "util/stream_format.rs"]
 mod stream_format;
 #[path = "util/string.rs"]
