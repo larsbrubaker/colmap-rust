@@ -1,6 +1,6 @@
-//! Port of PoseLib's `PoseLib/camera_pose.h` (`struct CameraPose`) and the two quaternion
-//! helpers of `PoseLib/misc/quaternion.h` it is built on (`rotmat_to_quat`, `quat_to_rotmat`)
-//! plus `quat_multiply` (BSD-3-Clause, Copyright (c) 2020 Viktor Larsson; see
+//! Port of PoseLib's `PoseLib/camera_pose.h` (`struct CameraPose`, `struct ImagePair`) and the
+//! two quaternion helpers of `PoseLib/misc/quaternion.h` it is built on (`rotmat_to_quat`,
+//! `quat_to_rotmat`) plus `quat_multiply` (BSD-3-Clause, Copyright (c) 2020 Viktor Larsson; see
 //! THIRD_PARTY_NOTICES.md; commit fa7280fee27f97aff31ae7f98bab7f583fac7d08, COLMAP 4.2.0's
 //! pin). Port of colmap-sharp's `Estimators/Solvers/PoseLib/CameraPose.cs`.
 //!
@@ -9,7 +9,11 @@
 //! and t, `R()`, `Rt()`); PoseLib's rotate/compose/center helpers are used only inside
 //! PoseLib's own refinement code, which COLMAP does not call. Tests:
 //! `tests/estimators/rust_only_camera_pose.rs`.
+//!
+//! [`ImagePair`] (a pose plus the two [`PoseLibCamera`]s it relates) is what the focal-length
+//! relative pose solvers return.
 
+use super::poselib_camera::PoseLibCamera;
 use crate::linalg::{Matrix3d, Matrix3x4d, Quaterniond, Vector3d, Vector4d};
 
 /// A camera pose `x_cam = R x_world + t` with the rotation as a unit quaternion. Port of
@@ -87,4 +91,29 @@ pub fn quat_multiply(qa: Vector4d, qb: Vector4d) -> Vector4d {
         qa1 * qb3 + qa3 * qb1 - qa2 * qb4 + qa4 * qb2,
         qa1 * qb4 + qa2 * qb3 - qa3 * qb2 + qa4 * qb1,
     )
+}
+
+/// Two cameras and their relative pose (`pose` maps camera 1 to camera 2), the output of
+/// PoseLib's relative pose solvers with unknown focal lengths
+/// ([`super::relpose_6pt_shared_focal`], [`super::relpose_6pt_onesided_focal`]). Port of
+/// `poselib::ImagePair` (`camera_pose.h`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImagePair {
+    /// The relative pose `cam2_from_cam1`.
+    pub pose: CameraPose,
+    /// The first camera.
+    pub camera1: PoseLibCamera,
+    /// The second camera.
+    pub camera2: PoseLibCamera,
+}
+
+impl ImagePair {
+    /// An image pair from its pose and cameras.
+    pub fn new(pose: CameraPose, camera1: PoseLibCamera, camera2: PoseLibCamera) -> Self {
+        Self {
+            pose,
+            camera1,
+            camera2,
+        }
+    }
 }

@@ -15,8 +15,15 @@
 //! - [`relpose_5pt`]: `solvers/relpose_5pt.cc`, the minimal five-point essential matrix
 //!   (its generated determinant polynomial is in a private sibling file).
 //! - [`poselib_camera`]: the camera description of `misc/camera_models.h`.
+//! - [`essential`]: `misc/essential.cc`'s `motion_from_essential` and `check_cheirality`.
+//! - [`relpose_6pt_shared_focal`]: `solvers/relpose_6pt_focal.cc`, the minimal relative pose
+//!   with a shared unknown focal length (generated coefficients and template in private
+//!   sibling files).
+//! - [`relpose_6pt_onesided_focal`]: `solvers/relpose_6pt_onesided_focal.cc`, the minimal
+//!   relative pose with one unknown focal length (likewise).
 
 pub mod camera_pose;
+pub mod essential;
 pub mod gp3p;
 pub mod p3p;
 pub mod p4pf;
@@ -26,7 +33,20 @@ mod re3q3_coeffs;
 mod re3q3_var_change;
 pub mod relpose_5pt;
 mod relpose_5pt_det;
+pub mod relpose_6pt_onesided_focal;
+mod relpose_6pt_onesided_focal_coeffs1;
+mod relpose_6pt_onesided_focal_coeffs2;
+mod relpose_6pt_onesided_focal_coeffs3;
+mod relpose_6pt_onesided_focal_coeffs4;
+mod relpose_6pt_onesided_focal_template;
+pub mod relpose_6pt_shared_focal;
+mod relpose_6pt_shared_focal_coeffs1;
+mod relpose_6pt_shared_focal_coeffs2;
+mod relpose_6pt_shared_focal_coeffs3;
+mod relpose_6pt_shared_focal_coeffs4;
+mod relpose_6pt_shared_focal_template;
 pub mod sturm;
 
 pub use camera_pose::CameraPose;
+pub use camera_pose::ImagePair;
 pub use poselib_camera::PoseLibCamera;
