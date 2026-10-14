@@ -9,7 +9,7 @@
 //! vectorized reductions: COLMAP's build sums a contiguous float row with two 4-lane packet
 //! accumulators (lanes `i mod 8 < 4` and `>= 4`), adds them, folds the packet as
 //! `(l0 + l2) + (l1 + l3)` (NEON's and SSE's `predux<Packet4f>`), then adds the tail left over
-//! after whole packets. [`eigen_row_sum`] repeats that order in scalar code, so the norms, and
+//! after whole packets. `eigen_row_sum` repeats that order in scalar code, so the norms, and
 //! the quantized descriptors, match bit for bit.
 //!
 //! Translation notes:

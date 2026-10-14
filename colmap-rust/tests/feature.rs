@@ -1,13 +1,19 @@
 // Integration-test binary for COLMAP's `feature/` module (layout convention: see the header of
-// `tests/math.rs`): one file per colmap/feature/*_test.cc, ported 1:1, plus
-// `feature/rust_only_feature_types.rs` (error paths and the documented divergences).
+// `tests/math.rs`): one file per colmap/feature/*_test.cc, ported 1:1, plus the `rust_only_*`
+// files (error paths, the documented divergences, and VLFeat's SIFT filter against its oracle
+// fixture, which has no COLMAP test of its own).
 //
 // Run: `cargo test -p colmap-rust --test feature`.
+
+#[path = "support/oracle_json.rs"]
+mod oracle_json;
 
 #[path = "feature/rust_only_feature_types.rs"]
 mod rust_only_feature_types;
 #[path = "feature/rust_only_feature_utils.rs"]
 mod rust_only_feature_utils;
+#[path = "feature/rust_only_vl_sift_filter.rs"]
+mod rust_only_vl_sift_filter;
 #[path = "feature/types.rs"]
 mod types;
 #[path = "feature/utils.rs"]

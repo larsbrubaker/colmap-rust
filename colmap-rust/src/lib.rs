@@ -30,7 +30,8 @@
 //! - [`scene`]: COLMAP's `scene/` data types — 2D and 3D points, tracks, cameras,
 //!   reprojection errors and the visibility pyramid.
 //! - [`feature`]: COLMAP's `feature/` — keypoints, descriptors, matches, the feature
-//!   type enums, and descriptor normalization, quantization and top-scale selection.
+//!   type enums, descriptor normalization, quantization and top-scale selection, and VLFeat's
+//!   SIFT filter (scale space, detection, orientations, descriptors).
 
 pub mod estimators;
 pub mod feature;

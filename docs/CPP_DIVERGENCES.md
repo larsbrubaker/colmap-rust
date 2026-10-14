@@ -1154,3 +1154,41 @@ where COLMAP's choice is arbitrary too. Same as colmap-sharp entry 40.
 **Evidence.** `tests/feature/utils.rs` `extract_top_scale_features_nominal` (1:1, distinct
 scales) passes unchanged; `tests/feature/rust_only_feature_utils.rs`
 `rust_only_extract_top_scale_features_ties_keep_input_order`.
+
+## 201. SIFT never reuses a previous image's gradient
+
+**What differs.** VLFeat caches the polar gradient of the current octave and records which
+octave it holds in `grad_o`, which only `vl_sift_new` resets. A filter reused for a second
+image of the same size keeps the first image's `grad_o`: when the first image's last octave
+with keypoints is the second image's first octave, VLFeat's orientations and descriptors of the
+second image's first octave are computed from the *first* image's gradient. COLMAP's
+`SiftCPUFeatureExtractor` reuses its filter across images of equal size, so its results can
+depend on the order images are processed. `VlSiftFilter::process_first_octave`
+(`feature/vlfeat/sift_filter.rs`) resets `grad_o`, so every image gets its own gradient.
+
+**Why.** It is a bug in VLFeat's reuse path: a feature's descriptor should depend only on its
+own image. A fresh filter (what VLFeat computes for the first image) is the correct result.
+Same as colmap-sharp entry 43 (the gradient part; its cancellation part is a Rust
+`CancelToken` here and changes no numbers).
+
+**Evidence.** `tests/feature/rust_only_vl_sift_filter.rs`
+`rust_only_vl_sift_filter_reused_filter_matches_fresh_one` (fails with the reset removed).
+
+## 202. SIFT's `fast_expn` table is a constant of correctly rounded values
+
+**What differs.** VLFeat fills its 257-entry `exp(-x)` interpolation table (`sift.c`'s
+`fast_expn_init`) by calling the platform `exp`. colmap-rust's rule (entry 1) routes every
+transcendental through the `libm` crate, whose `exp` is 1 ulp from the correctly rounded value
+for some of these 257 arguments. `feature/vlfeat/mathop.rs` instead holds the table as a
+constant: each entry the correctly rounded double of `exp(-k * 25 / 256)`, written as bits.
+
+**Why.** The table weights every orientation-histogram vote and descriptor sample, and a 1 ulp
+difference in it moved SIFT orientations by an ulp against the VLFeat fixture. Apple libm,
+which the pycolmap wheel and the fixture run, returns exactly the correctly rounded values for
+all 257 arguments (checked against Python's `decimal` at 80 digits), so the constant table gives
+VLFeat-on-macOS's bits on every target, native and wasm, which is what entry 1 aims for.
+
+**Evidence.** `tests/feature/rust_only_vl_sift_filter.rs`: the six
+`rust_only_vl_sift_filter_matches_unfused_vlfeat_*` tests are bit-exact with the table (with
+`libm`'s `exp`, four of them fail on an orientation's last bit);
+`rust_only_vl_sift_expn_table_is_exp` checks every entry within 1 ulp of `fns::exp`.
