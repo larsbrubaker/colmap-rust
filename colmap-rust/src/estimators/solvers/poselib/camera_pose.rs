@@ -1,6 +1,6 @@
 //! Port of PoseLib's `PoseLib/camera_pose.h` (`struct CameraPose`, `struct ImagePair`) and the
 //! two quaternion helpers of `PoseLib/misc/quaternion.h` it is built on (`rotmat_to_quat`,
-//! `quat_to_rotmat`) plus `quat_multiply` (BSD-3-Clause, Copyright (c) 2020 Viktor Larsson; see
+//! `quat_to_rotmat`) plus `quat_multiply`, `quat_exp` and `quat_step_pre` (BSD-3-Clause, Copyright (c) 2020 Viktor Larsson; see
 //! THIRD_PARTY_NOTICES.md; commit fa7280fee27f97aff31ae7f98bab7f583fac7d08, COLMAP 4.2.0's
 //! pin). Port of colmap-sharp's `Estimators/Solvers/PoseLib/CameraPose.cs`.
 //!
@@ -15,6 +15,7 @@
 
 use super::poselib_camera::PoseLibCamera;
 use crate::linalg::{Matrix3d, Matrix3x4d, Quaterniond, Vector3d, Vector4d};
+use crate::math::fns;
 
 /// A camera pose `x_cam = R x_world + t` with the rotation as a unit quaternion. Port of
 /// `poselib::CameraPose`.
@@ -91,6 +92,37 @@ pub fn quat_multiply(qa: Vector4d, qb: Vector4d) -> Vector4d {
         qa1 * qb3 + qa3 * qb1 - qa2 * qb4 + qa4 * qb2,
         qa1 * qb4 + qa2 * qb3 - qa3 * qb2 + qa4 * qb1,
     )
+}
+
+/// Port of `poselib::quat_exp` (`misc/quaternion.h`): the unit quaternion `(w, x, y, z)` of the
+/// rotation vector `w`, with a Taylor expansion at `|w| <= 1e-6`.
+pub fn quat_exp(w: Vector3d) -> Vector4d {
+    let theta2 = w.squared_norm();
+    let theta = fns::sqrt(theta2);
+    let theta_half = 0.5 * theta;
+
+    let (re, im) = if theta > 1e-6 {
+        (fns::cos(theta_half), fns::sin(theta_half) / theta)
+    } else {
+        // we are close to zero, use taylor expansion to avoid problems
+        // with zero divisors in sin(theta/2)/theta
+        let theta4 = theta2 * theta2;
+        let re = 1.0 - (1.0 / 8.0) * theta2 + (1.0 / 384.0) * theta4;
+        let im = 0.5 - (1.0 / 48.0) * theta2 + (1.0 / 3840.0) * theta4;
+
+        // for the linearized part we re-normalize to ensure unit length
+        // here s should be roughly 1.0 anyways, so no problem with zero div
+        let s = fns::sqrt(re * re + im * im * theta2);
+        (re / s, im / s)
+    };
+
+    Vector4d::new(re, im * w.x, im * w.y, im * w.z)
+}
+
+/// Port of `poselib::quat_step_pre` (`misc/quaternion.h`): `quat_multiply(quat_exp(w_delta), q)`,
+/// a rotation step applied before `q`.
+pub fn quat_step_pre(q: Vector4d, w_delta: Vector3d) -> Vector4d {
+    quat_multiply(quat_exp(w_delta), q)
 }
 
 /// Two cameras and their relative pose (`pose` maps camera 1 to camera 2), the output of

@@ -14,6 +14,8 @@ mod generalized_absolute_pose;
 mod poselib_utils;
 #[path = "estimators/rust_only_camera_pose.rs"]
 mod rust_only_camera_pose;
+#[path = "estimators/rust_only_gen_relpose_6pt.rs"]
+mod rust_only_gen_relpose_6pt;
 #[path = "estimators/rust_only_gp3p.rs"]
 mod rust_only_gp3p;
 #[path = "estimators/rust_only_p3p.rs"]

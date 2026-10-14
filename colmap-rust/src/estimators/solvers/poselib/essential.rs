@@ -1,14 +1,17 @@
-//! Port of the parts of PoseLib's `PoseLib/misc/essential.cc` that the focal-length relative
+//! Port of the parts of PoseLib's `PoseLib/misc/essential.cc` that the six-point relative
 //! pose solvers use (BSD-3-Clause, Copyright (c) 2020 Viktor Larsson; see
 //! THIRD_PARTY_NOTICES.md; commit fa7280fee27f97aff31ae7f98bab7f583fac7d08), through
 //! colmap-sharp's `Estimators/Solvers/PoseLib/Essential.cs`:
 //!
 //! - [`motion_from_essential`]: the SVD-free decomposition of an essential matrix into the
 //!   four candidate poses, each kept only if every correspondence passes cheirality;
-//! - [`check_cheirality`]: the central cheirality test;
+//! - [`check_cheirality`] and [`check_cheirality_generalized`]: the central and generalized
+//!   (ray origin plus direction) cheirality tests (the generalized one from colmap-sharp's
+//!   `GenRelpose6pt.cs`, which keeps it private);
 //! - [`quat_rotate`] from `misc/quaternion.h`, which the cheirality test rotates with.
 //!
-//! Callers: [`super::relpose_6pt_shared_focal`] and [`super::relpose_6pt_onesided_focal`].
+//! Callers: [`super::relpose_6pt_shared_focal`], [`super::relpose_6pt_onesided_focal`] and
+//! [`super::gen_relpose_6pt`].
 //! COLMAP itself decomposes its essential matrices with `geometry/essential_matrix`.
 //!
 //! Tier B: every step is scalar and follows PoseLib's operation order; the rotation goes
@@ -89,6 +92,35 @@ pub fn check_cheirality(pose: &CameraPose, x1: Vector3d, x2: Vector3d, min_depth
     let a = -rx1.dot(x2);
     let b1 = -rx1.dot(pose.t);
     let b2 = x2.dot(pose.t);
+
+    // Note that we drop the factor 1.0/(1-a*a) since it is always positive.
+    let lambda1 = b1 - a * b2;
+    let lambda2 = -a * b1 + b2;
+
+    let min_depth = min_depth * (1.0 - a * a);
+    lambda1 > min_depth && lambda2 > min_depth
+}
+
+/// Whether the depths along the rays `p1 + lambda1 x1` (rig 1) and `p2 + lambda2 x2` (rig 2)
+/// at their closest points under `pose` are both above `min_depth`. Port of the generalized
+/// `poselib::check_cheirality` overload.
+pub fn check_cheirality_generalized(
+    pose: &CameraPose,
+    p1: Vector3d,
+    x1: Vector3d,
+    p2: Vector3d,
+    x2: Vector3d,
+    min_depth: f64,
+) -> bool {
+    // This code assumes that x1 and x2 are unit vectors
+    let rx1 = quat_rotate(pose.q, x1);
+
+    // [1 a; a 1] * [lambda1; lambda2] = [b1; b2]
+    // [lambda1; lambda2] = [1 -a; -a 1] * [b1; b2] / (1 - a*a)
+    let rhs = pose.t + quat_rotate(pose.q, p1) - p2;
+    let a = -rx1.dot(x2);
+    let b1 = -rx1.dot(rhs);
+    let b2 = x2.dot(rhs);
 
     // Note that we drop the factor 1.0/(1-a*a) since it is always positive.
     let lambda1 = b1 - a * b2;

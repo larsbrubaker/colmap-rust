@@ -1509,3 +1509,59 @@ colmap-sharp entry 27.
 unit norm and satisfies the five epipolar constraints to 1e-8, and the true E is among the
 solutions up to sign. colmap-sharp's 1:1 `EssentialMatrixFivePointEstimatorTests_Nominal`
 cases pass on the same construction. Not compared against C++ PoseLib intermediates.
+
+## 255. The six-point focal relative pose solvers take their null space from unpivoted Householder QR
+
+**What differs.** PoseLib's `relpose_6pt_shared_focal` and `relpose_6pt_onesided_focal` (the
+minimal solvers of COLMAP's `RelativePoseSharedFocalEstimator` and
+`RelativePoseOneSidedFocalEstimator`) take the 3D null space of their six epipolar
+constraints from the last three columns of the full Q of
+`epipolar_constraints.fullPivHouseholderQr()` (a 9 x 6 matrix).
+`estimators/solvers/poselib/relpose_6pt_shared_focal.rs` (`null_space3`, used by both) takes
+the same three columns from an unpivoted Householder QR (`linalg::householder::factor_in_place`
+/ `apply_q`). Both are orthonormal bases of the same space; only the basis inside it differs,
+and with it the 280 (shared) or 190 (one-sided) template coefficients, the action matrix and
+its eigenvalues, which parametrize F = N0 + x N1 + y N2 in basis coordinates. The one-sided
+solver also orders its nine solutions by the eigenvalue order of `linalg::EigenSolver` (Schur
+order), which may differ from Eigen's.
+
+**Why.** Eigen (MPL-2.0) is not ported, and full-pivoting Householder QR has no published
+convention precise enough to reproduce Eigen's Q column for column (entry 250 is the same
+choice for the five-point solver). In exact arithmetic the solution set does not depend on the
+basis (apart from solutions whose F has no N0 component, which the affine parametrization
+cannot represent; a measure-zero configuration that moves with the basis). In floating point
+it can: the shared-focal solver brackets the real roots of an ill-conditioned degree-15
+characteristic polynomial with Sturm sequences, and which spurious (non-physical) real roots
+survive that bracketing depends on the basis, so extra models can appear or vanish on either
+side. The output order is not part of the contract: COLMAP treats the models as a set. What
+can differ is numerical conditioning near the solvers' thresholds (the Sturm bracketing
+tolerance, the 1e-8 tests on imaginary parts and on q = 1/f^2). Same as colmap-sharp entry 30.
+
+**Evidence.** `tests/estimators/rust_only_relpose_6pt_focal.rs`: on 50 random minimal problems
+each, both solvers return the true pose and focal (relative error below 1e-4; well-conditioned
+problems agree to 1e-12, one shared-focal problem was 5e-6 off). colmap-sharp's differential
+run against the real PoseLib (its entry 30) found the one-sided models identical and the
+shared-focal models matching except for spurious roots. Not compared against C++ PoseLib here.
+
+## 256. The generalized six-point solver returns its poses in Schur eigenvalue order
+
+**What differs.** PoseLib's `gen_relpose_6pt` (the minimal solver of COLMAP's `GR6PEstimator`)
+takes the real eigenvalues (|imag| < 1e-6) of its 64 x 64 action matrix from
+`Eigen::EigenSolver` and returns one pose per eigenvalue that passes cheirality, in Eigen's
+eigenvalue order. `estimators/solvers/poselib/gen_relpose_6pt.rs` takes them from
+`linalg::EigenSolver` (colmap-sharp's Hessenberg + Francis QR port), whose eigenvalue order
+(Schur order) and last-bit rounding may differ from Eigen's. It also computes
+`C0^-1 C1` column by column through `linalg::PartialPivLu` rather than colmap-sharp's fused
+augmented elimination, which colmap-sharp documents as bit-identical.
+
+**Why.** Eigen (MPL-2.0) is not ported. Only eigenvalues are used, never eigenvectors, so the
+eigenvector phase freedom cannot reach the result; the solution set is the same up to
+rounding. The order is not part of the contract (RANSAC treats the models as a set). What can
+differ is an eigenvalue whose imaginary part sits at the 1e-6 threshold, kept on one side and
+dropped on the other. Same choice as colmap-sharp's `GenRelpose6pt.cs` (which records it in
+its file header, not as a numbered entry).
+
+**Evidence.** `tests/estimators/rust_only_gen_relpose_6pt.rs`
+`rust_only_gen_relpose_6pt_recovers_true_pose`: on 50 random minimal problems between two
+generalized cameras the true metric pose is among the solutions to 1e-6. Not compared against
+C++ PoseLib.

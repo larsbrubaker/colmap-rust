@@ -16,6 +16,8 @@
 //!   (its generated determinant polynomial is in a private sibling file).
 //! - [`poselib_camera`]: the camera description of `misc/camera_models.h`.
 //! - [`essential`]: `misc/essential.cc`'s `motion_from_essential` and `check_cheirality`.
+//! - [`gen_relpose_6pt`]: `solvers/gen_relpose_6pt.cc`, the minimal generalized relative pose
+//!   (its generated equations and template are in private sibling files).
 //! - [`relpose_6pt_shared_focal`]: `solvers/relpose_6pt_focal.cc`, the minimal relative pose
 //!   with a shared unknown focal length (generated coefficients and template in private
 //!   sibling files).
@@ -24,6 +26,11 @@
 
 pub mod camera_pose;
 pub mod essential;
+pub mod gen_relpose_6pt;
+mod gen_relpose_6pt_coeff_matrix;
+mod gen_relpose_6pt_poly;
+mod gen_relpose_6pt_template0;
+mod gen_relpose_6pt_template1;
 pub mod gp3p;
 pub mod p3p;
 pub mod p4pf;

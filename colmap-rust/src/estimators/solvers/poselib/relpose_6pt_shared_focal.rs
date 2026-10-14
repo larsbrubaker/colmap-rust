@@ -19,7 +19,7 @@
 //! [`super::essential::motion_from_essential`].
 //!
 //! The null space comes from an unpivoted Householder QR instead of PoseLib's
-//! `fullPivHouseholderQr` (docs/CPP_DIVERGENCES.md entry 250): same space, different basis,
+//! `fullPivHouseholderQr` (docs/CPP_DIVERGENCES.md entry 255): same space, different basis,
 //! the same solution set in exact arithmetic, though spurious real roots of the
 //! ill-conditioned degree-15 polynomial can appear or vanish with the basis. Tier B. Tests:
 //! `tests/estimators/rust_only_relpose_6pt_focal.rs`.
