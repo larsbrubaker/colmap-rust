@@ -1917,6 +1917,39 @@ counts of rigs, frames and registered frames, none of which depends on the order
 `rust_only_apply_rig_config_derives_sensor_from_rig_from_reconstruction` pins the ascending
 registration order.
 
+## 277. Reconstruction alignment and merging use deterministic orders and do not log
+
+**What differs.** Three choices in `estimators/alignment.cc` depend on hash-map iteration order
+in COLMAP:
+- `AlignReconstructionsViaPoints` counts, per source 3D point, how often each target 3D point is
+  seen along its track in a `FlatHashMap` and takes `std::max_element` over it, so among target
+  points with the same count the hash order picks one.
+  `colmap_rust::estimators::alignment::align_reconstructions_via_points` keeps the counts in
+  first-seen order along the track and takes the first maximum.
+- `MergeReconstructions` copies the missing source images in the iteration order of a
+  `FlatHashSet`, which decides the order their frames are registered in the target
+  (`RegFrameIds()`). `estimators::alignment::merge_reconstructions` copies them in the source's
+  `RegImageIds()` order. It merges the source points in ascending id order (entry 213), which
+  decides the ids the new target points get.
+- `AlignReconstructionToOrigRigScales` sums the per-rig scales over a `NodeHashMap` of rigs;
+  `align_reconstruction_to_orig_rig_scales` takes a `BTreeMap` and sums in ascending rig id
+  order, so the floating-point sum is the same on every run.
+
+COLMAP's `LOG(WARNING)` (too few pose priors, no prior covariance), `LOG(ERROR)` (inconsistent
+image id and name in a merge), `LOG(INFO)` and `VLOG` lines are not emitted (the core has no
+logger); the return values are COLMAP's.
+
+**Why.** The hash orders are implementation-defined (they depend on the build's hash-map
+backend and its history), so there is no single COLMAP order to match, and CLAUDE.md requires a
+deterministic order. The selected point, the set of merged images and points and the scale
+mean do not depend on the order beyond ties and summation rounding. Same as colmap-sharp
+entry 49.
+
+**Evidence.** `tests/estimators/alignment.rs` (`alignment_test.cc` 1:1) passes with COLMAP's
+values and tolerances, including `MergeReconstructions`' counts of rigs, cameras, frames,
+images, points and observations and `AlignReconstructionToOrigRigScales`' recovered rig
+extrinsics.
+
 ## 280. Reading a truncated binary PLY mesh fails inside the texcoord lists
 
 **What differs.** COLMAP's `ReadPlyMesh` (util/ply.cc) checks `file.good()` after every vertex,

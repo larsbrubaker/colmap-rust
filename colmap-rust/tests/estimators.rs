@@ -14,6 +14,8 @@ mod transform_matchers;
 mod absolute_pose;
 #[path = "estimators/affine_transform.rs"]
 mod affine_transform;
+#[path = "estimators/alignment.rs"]
+mod alignment;
 #[path = "estimators/essential_matrix.rs"]
 mod essential_matrix;
 #[path = "estimators/fundamental_matrix.rs"]
