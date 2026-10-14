@@ -12,13 +12,13 @@
 //!   function returns `Result<Arc<V>>`: a C++ load function that throws is an `Err`, which
 //!   `Get` passes on with the cache left as it was (`LRUCache.ExceptionSafety`).
 //! - `std::list` + `NodeHashMap<key, list iterator>` is a slab-backed doubly linked list
-//!   ([`LruList`]) + a `HashMap<key, slot>`. Nothing iterates the map, so its random order
+//!   (`LruList`) + a `HashMap<key, slot>`. Nothing iterates the map, so its random order
 //!   cannot reach an output.
 //! - The constructors' `THROW_CHECK_GT(max, 0)` is an `Err`; `THROW_CHECK_NOTNULL(load_fn)` has
 //!   no counterpart (a Rust closure is never null), nor has `ThreadSafeLRUCache::Get`'s
 //!   `THROW_CHECK_NOTNULL` of the loaded value (an `Arc` is never null).
 //! - `ThreadSafeLRUCache`'s `shared_mutex` is a `Mutex` and its per-entry promise /
-//!   `shared_future` is an [`Entry`] (a mutex-guarded slot and a condvar): the first caller
+//!   `shared_future` is an `Entry` (a mutex-guarded slot and a condvar): the first caller
 //!   for a key loads it outside the cache lock, later callers for the same key block until the
 //!   same value (or the same error) is set. On `wasm32-unknown-unknown` (one thread) a waiter
 //!   never finds a load in flight, so the condvar is never waited on.

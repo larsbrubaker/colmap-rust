@@ -28,6 +28,8 @@ mod rust_only_vl_linear;
 mod rust_only_vl_scalespace;
 #[path = "feature/rust_only_vl_sift_filter.rs"]
 mod rust_only_vl_sift_filter;
+#[path = "feature/rust_only_vl_sift_raw_descriptor.rs"]
+mod rust_only_vl_sift_raw_descriptor;
 #[path = "feature/sift.rs"]
 mod sift;
 #[path = "feature/sift_guided_matching.rs"]

@@ -22,10 +22,10 @@
 //!   new scale space per image, so a scale space is never reused.
 
 use super::imopv_smooth::{vl_imsmooth_f_within, ImageRegion};
-use crate::check;
 use crate::math::fns;
 use crate::util::cancellation::CancelToken;
 use crate::util::check::Result;
+use crate::{check, check_ge};
 
 /// Port of `VlScaleSpaceGeometry`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -107,8 +107,8 @@ impl VlScaleSpace {
         check!(geom.first_octave <= geom.last_octave);
         check!(geom.octave_resolution >= 1);
         check!(geom.octave_first_subdivision <= geom.octave_last_subdivision);
-        check!(geom.base_scale >= 0.0);
-        check!(geom.nominal_scale >= 0.0);
+        check_ge!(geom.base_scale, 0.0);
+        check_ge!(geom.nominal_scale, 0.0);
         let num_sublevels =
             (geom.octave_last_subdivision - geom.octave_first_subdivision + 1) as usize;
         let mut space = Self {

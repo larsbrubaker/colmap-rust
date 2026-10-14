@@ -2,8 +2,8 @@
 //! `vl_sift_calc_keypoint_descriptor` from VLFeat's `sift.c`. Part of [`VlSiftFilter`] (scale
 //! space in [`super::sift_filter`], detection in [`super::sift_detect`]). Port of
 //! colmap-sharp's `Feature/VLFeat/VlSiftFilter.Descriptor.cs`; its `vl_sift_calc_raw_descriptor`
-//! (used only by the covariant extractor) is not ported yet, and `vl_sift_keypoint_init` is
-//! not ported because nothing in COLMAP calls it.
+//! (used only by the covariant extractor) is [`super::sift_raw_descriptor`], and
+//! `vl_sift_keypoint_init` is not ported because nothing in COLMAP calls it.
 //!
 //! Tier A (exact). Gradients and descriptor bins are float, orientation histograms double;
 //! every conversion between them is written out where the C converts implicitly (a float
@@ -302,7 +302,7 @@ impl VlSiftFilter {
 }
 
 /// Port of `normalize_histogram`: divides by the fast L2 norm (+ `VL_EPSILON_F`), returns it.
-fn normalize_histogram(hist: &mut [f32]) -> f32 {
+pub(super) fn normalize_histogram(hist: &mut [f32]) -> f32 {
     let mut norm = 0.0f32;
     for &v in hist.iter() {
         norm += v * v;
