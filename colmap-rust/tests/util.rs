@@ -3,6 +3,8 @@
 //
 // Run: `cargo test -p colmap-rust --test util`.
 
+#[path = "util/cache.rs"]
+mod cache;
 #[path = "util/cancellation.rs"]
 mod cancellation;
 #[path = "util/endian.rs"]

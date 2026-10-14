@@ -8,16 +8,12 @@
 // MatchSiftFeaturesGPU.*, MatchGuidedSiftFeaturesGPU.*, MatchSiftFeaturesCPUvsGPU and
 // MatchGuidedSiftFeaturesCPUvsGPUGuided (SiftGPU, excluded by licence).
 //
-// The descriptor-index cache helper (COLMAP's ThreadSafeLRUCache, not ported yet) is a
-// FeatureDescriptorIndexCache that builds each image's index on first use, as the LRU cache's
-// getter does; its capacity never matters to these tests.
 
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use colmap_rust::feature::index::{
-    create_feature_descriptor_index, FeatureDescriptorIndex, FeatureDescriptorIndexCache,
-    FeatureDescriptorIndexType,
+    create_feature_descriptor_index, FeatureDescriptorIndex, FeatureDescriptorIndexType,
 };
 use colmap_rust::feature::matcher::{FeatureMatcher, FeatureMatcherImage, FeatureMatchingOptions};
 use colmap_rust::feature::sift::cpu_matcher::create_sift_feature_matcher;
@@ -32,9 +28,10 @@ use colmap_rust::math::random::{libcxx, set_prng_seed, with_prng};
 use colmap_rust::scene::camera::Camera;
 use colmap_rust::scene::two_view_geometry::{ConfigurationType, TwoViewGeometry};
 use colmap_rust::sensor::models::CameraModelId;
+use colmap_rust::util::cache::ThreadSafeLRUCache;
 use colmap_rust::util::cancellation::CancelToken;
 use colmap_rust::util::types::ImageId;
-use colmap_rust::{ErrorKind, Result};
+use colmap_rust::ErrorKind;
 
 /// `CreateEmptyDescriptors()`: zero SIFT descriptors.
 pub(crate) fn create_empty_descriptors() -> FeatureDescriptors {
@@ -106,38 +103,23 @@ fn create_planar_two_view_geometry() -> TwoViewGeometry {
     }
 }
 
-/// `FeatureDescriptorIndexCacheHelper`: builds each image's index from its descriptors on
-/// first use.
-pub(crate) struct FeatureDescriptorIndexCacheHelper {
-    image_descriptors: BTreeMap<ImageId, FeatureDescriptors>,
-    indexes: Mutex<BTreeMap<ImageId, Arc<dyn FeatureDescriptorIndex>>>,
-}
-
-impl FeatureDescriptorIndexCacheHelper {
-    pub(crate) fn new(images: &[FeatureMatcherImage<'_>]) -> Arc<Self> {
-        let image_descriptors = images
-            .iter()
-            .map(|image| (image.image_id, image.descriptors.unwrap().clone()))
-            .collect();
-        Arc::new(Self {
-            image_descriptors,
-            indexes: Mutex::new(BTreeMap::new()),
-        })
-    }
-}
-
-impl FeatureDescriptorIndexCache for FeatureDescriptorIndexCacheHelper {
-    fn get(&self, image_id: ImageId) -> Result<Arc<dyn FeatureDescriptorIndex>> {
-        let mut indexes = self.indexes.lock().unwrap();
-        if let Some(index) = indexes.get(&image_id) {
-            return Ok(index.clone());
-        }
+/// `FeatureDescriptorIndexCacheHelper`: a `ThreadSafeLRUCache` of 100 indexes, each built from
+/// its image's descriptors on first use. Returns the cache itself (COLMAP's helper owns it as
+/// its `index_cache` member).
+pub(crate) fn feature_descriptor_index_cache_helper(
+    images: &[FeatureMatcherImage<'_>],
+) -> Arc<ThreadSafeLRUCache<ImageId, dyn FeatureDescriptorIndex>> {
+    let image_descriptors: BTreeMap<ImageId, FeatureDescriptors> = images
+        .iter()
+        .map(|image| (image.image_id, image.descriptors.unwrap().clone()))
+        .collect();
+    let cache = ThreadSafeLRUCache::new(100, move |image_id: &ImageId| {
         let mut index = create_feature_descriptor_index(FeatureDescriptorIndexType::Default, 1);
-        index.build(&self.image_descriptors[&image_id].to_float()?)?;
+        index.build(&image_descriptors[image_id].to_float()?)?;
         let index: Arc<dyn FeatureDescriptorIndex> = Arc::from(index);
-        indexes.insert(image_id, index.clone());
         Ok(index)
-    }
+    });
+    Arc::new(cache.unwrap())
 }
 
 /// The matcher factory of the `MatchGuidedSiftFeaturesCPU` tests: a CPU matcher over an index
@@ -146,7 +128,7 @@ pub(crate) fn create_cpu_matcher_with_index_cache(
     images: &[FeatureMatcherImage<'_>],
 ) -> Box<dyn FeatureMatcher> {
     let mut options = FeatureMatchingOptions::new(FeatureMatcherType::SiftBruteforce);
-    options.sift.cpu_descriptor_index_cache = Some(FeatureDescriptorIndexCacheHelper::new(images));
+    options.sift.cpu_descriptor_index_cache = Some(feature_descriptor_index_cache_helper(images));
     create_sift_feature_matcher(&options).unwrap()
 }
 
@@ -184,7 +166,7 @@ fn sift_cpu_feature_matcher_nominal() {
     let image1 = image(1, &camera, None, &descriptors1);
     let image2 = image(2, &camera, None, &descriptors2);
 
-    let index_cache_helper = FeatureDescriptorIndexCacheHelper::new(&[image0, image1, image2]);
+    let index_cache_helper = feature_descriptor_index_cache_helper(&[image0, image1, image2]);
 
     let mut options = FeatureMatchingOptions::new(FeatureMatcherType::SiftBruteforce);
     options.sift.cpu_brute_force_matcher = false;
@@ -292,7 +274,7 @@ fn test_faiss_vs_brute_force(
     let image1 = image(1, &camera, None, descriptors1);
     let image2 = image(2, &camera, None, descriptors2);
 
-    let index_cache_helper = FeatureDescriptorIndexCacheHelper::new(&[image0, image1, image2]);
+    let index_cache_helper = feature_descriptor_index_cache_helper(&[image0, image1, image2]);
 
     let mut matches_bf = FeatureMatches::new();
     let mut matches_faiss = FeatureMatches::new();
@@ -458,7 +440,7 @@ fn rust_only_sift_cpu_matcher_cancellation() {
         let mut options = FeatureMatchingOptions::new(FeatureMatcherType::SiftBruteforce);
         options.sift.cpu_brute_force_matcher = brute_force;
         options.sift.cpu_descriptor_index_cache =
-            Some(FeatureDescriptorIndexCacheHelper::new(&[image1, image2]));
+            Some(feature_descriptor_index_cache_helper(&[image1, image2]));
         let mut matcher = create_sift_feature_matcher(&options).unwrap();
         let mut matches = vec![Default::default(); 3];
         let error = matcher

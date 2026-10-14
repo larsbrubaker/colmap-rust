@@ -3,6 +3,7 @@
 //! is `format!`, `span`/`filter_view` are slices and `Iterator::filter`, `ThreadPool` is
 //! rayon at the call site).
 //!
+//! - [`cache`]: `cache.h` — the LRU caches (plain, thread-safe, memory-constrained).
 //! - [`check`]: the `THROW_CHECK` family of `logging.h` and [`check::ColmapError`].
 //! - [`stream_format`]: C++ `std::ostream` formatting of doubles (`%g`).
 //! - [`types`]: `types.h` — id types, `kInvalid*` sentinels, image-pair ids, `PairHash`.
@@ -20,6 +21,7 @@
 //! - [`ply`]: `ply.h` — PLY point clouds and meshes, text and binary (readers in `ply` and
 //!   `ply_mesh_read`, writers in `ply_write`).
 
+pub mod cache;
 pub mod cancellation;
 pub mod check;
 pub mod endian;

@@ -31,8 +31,10 @@
 //! - `Search` takes a [`CancelToken`], polled once per query row, because the matcher's
 //!   default path spends its time here (CLAUDE.md "Cancellation and progress").
 //! - Indexes are shared between matchers through [`FeatureDescriptorIndexCache`], the seam
-//!   for COLMAP's `ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>` (`util/cache.h`, not
-//!   ported yet): the cache builds each image's index once and hands out `Arc`s.
+//!   for COLMAP's `ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>`: the cache builds each
+//!   image's index once and hands out `Arc`s. [`ThreadSafeLRUCache`] over
+//!   `dyn FeatureDescriptorIndex` implements it, which is what COLMAP's option points at; the
+//!   trait keeps the matcher options independent of the cache's key and load-function types.
 
 use std::sync::Arc;
 
@@ -40,6 +42,7 @@ use super::sift::match_kernels::{dot_product, squared_norms, SIFT_DIM};
 use super::types::{FeatureDescriptorsFloat, FeatureExtractorType};
 use crate::check_eq;
 use crate::linalg::RowMajorMatrix;
+use crate::util::cache::ThreadSafeLRUCache;
 use crate::util::cancellation::CancelToken;
 use crate::util::check::Result;
 use crate::util::types::ImageId;
@@ -85,6 +88,13 @@ pub trait FeatureDescriptorIndex: Send + Sync {
 pub trait FeatureDescriptorIndexCache: Send + Sync {
     /// `Get(image_id)`: the image's index, built on first use.
     fn get(&self, image_id: ImageId) -> Result<Arc<dyn FeatureDescriptorIndex>>;
+}
+
+/// COLMAP's `ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>` itself.
+impl FeatureDescriptorIndexCache for ThreadSafeLRUCache<ImageId, dyn FeatureDescriptorIndex> {
+    fn get(&self, image_id: ImageId) -> Result<Arc<dyn FeatureDescriptorIndex>> {
+        ThreadSafeLRUCache::get(self, &image_id)
+    }
 }
 
 /// Port of `FeatureDescriptorIndex::Create`. `num_threads` is accepted for COLMAP's
