@@ -5,6 +5,8 @@
 
 #[path = "support/eigen_matchers.rs"]
 mod eigen_matchers;
+#[path = "support/oracle_json.rs"]
+mod oracle_json;
 #[path = "support/transform_matchers.rs"]
 mod transform_matchers;
 
@@ -16,6 +18,8 @@ mod affine_transform;
 mod essential_matrix;
 #[path = "estimators/fundamental_matrix.rs"]
 mod fundamental_matrix;
+#[path = "estimators/fundamental_matrix_degensac.rs"]
+mod fundamental_matrix_degensac;
 #[path = "estimators/generalized_absolute_pose.rs"]
 mod generalized_absolute_pose;
 #[path = "estimators/generalized_relative_pose.rs"]
@@ -32,6 +36,8 @@ mod relpose_one_sided_focal;
 mod relpose_shared_focal;
 #[path = "estimators/rust_only_camera_pose.rs"]
 mod rust_only_camera_pose;
+#[path = "estimators/rust_only_fundamental_matrix_degensac_oracle.rs"]
+mod rust_only_fundamental_matrix_degensac_oracle;
 #[path = "estimators/rust_only_gen_relpose_6pt.rs"]
 mod rust_only_gen_relpose_6pt;
 #[path = "estimators/rust_only_gp3p.rs"]
