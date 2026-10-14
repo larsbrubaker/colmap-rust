@@ -36,7 +36,7 @@ visible in the app so the web build is the integration test.
   `homography_matrix` (points and rays), `fundamental_matrix` (7- and 8-point, Sampson
   refiner), `generalized_relative_pose` (GR6P, GR8P), estimators `triangulation`,
   `fundamental_matrix_degensac`, `pose` (EstimateAbsolutePose, EstimateRelativePose) and
-  `generalized_pose` (absolute, relative, structure-less), `relpose_shared_focal`, `relpose_one_sided_focal` and
+  `generalized_pose` (absolute, relative, structure-less), `two_view_geometry` (all of it), `relpose_shared_focal`, `relpose_one_sided_focal` and
   `essential_matrix` (five-point, eight-point, tangent
   Sampson); `cost_functions` tiny_manifold, the closed-form tiny_sampson_error functors and
   quaternion_utils (double forms).
@@ -111,7 +111,8 @@ bundled sample model on the web page. The library side is ready (`Reconstruction
 
 ### Phase 6 — Minimal solvers and estimators
 Remaining:
-- `estimators/two_view_geometry` (colmap-sharp: 5 files, about 2000 lines; 30 tests).
+- A test that pins `MaybeDecomposeRelativePoses`' unit-length translation on a PLANAR pair
+  (nothing catches it today: essential decompositions are unit length already).
 - The estimators: `alignment`, `rotation_averaging`, `global_positioning`,
   `gravity_refinement`, `view_graph_calibration`.
 
