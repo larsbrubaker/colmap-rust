@@ -1,6 +1,7 @@
 // Rust-only tests for colmap_rust::scene::reconstruction_ply: `ExtractColorsForImage`, which
 // reconstruction_test.cc does not cover (only black points are colored; a missing image
-// returns false), and the stream form of `ImportPLY` round-tripping `ConvertToPLY`.
+// returns false), the stream form of `ImportPLY` round-tripping `ConvertToPLY`, and the line
+// layout of `ExportNVM` (scene::reconstruction_export).
 
 use std::io::Cursor;
 
@@ -75,4 +76,31 @@ fn rust_only_import_ply_stream_round_trips_convert_to_ply() {
     let mut imported = Reconstruction::new();
     imported.import_ply_stream(&mut Cursor::new(bytes)).unwrap();
     assert_eq!(imported.convert_to_ply(), points);
+}
+
+#[test]
+fn rust_only_export_nvm_layout() {
+    let reconstruction = synthetic();
+    let mut out = Vec::new();
+    assert!(colmap_rust::scene::reconstruction_export::export_nvm(
+        &reconstruction,
+        &mut out,
+        false
+    )
+    .unwrap());
+    let text = String::from_utf8(out).unwrap();
+    let lines: Vec<&str> = text.split('\n').collect();
+    // Header, one line per registered image, a blank line, the point count, the points.
+    assert_eq!(&lines[..3], &["NVM_V3 ", " ", "2  "]);
+    assert_eq!(lines[3].split(' ').count(), 11);
+    assert!(lines[3].ends_with(" 0"));
+    assert_eq!(lines[5], "");
+    assert_eq!(lines[6], "10");
+    for (line, point3d) in lines[7..17].iter().zip(reconstruction.points3d().values()) {
+        let tokens: Vec<&str> = line.split(' ').collect();
+        let num_obs: usize = tokens[6].parse().unwrap();
+        assert_eq!(num_obs, point3d.track.length());
+        assert_eq!(tokens.len(), 7 + 4 * num_obs);
+    }
+    assert_eq!(lines[17], "");
 }

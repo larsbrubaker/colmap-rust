@@ -7,17 +7,20 @@
 // written to and then read from the start. TextIO.LocaleIndependentRoundtrip sets a global
 // C++ locale with a comma decimal point first; Rust formatting and parsing have no locale,
 // so the port keeps the test's checks (dots, no commas, the roundtrip) without that setup.
-// ExportPLY.Nominal tests colmap_rust::scene::reconstruction_export. The other Export* tests
-// (NVM, Cam, Recon3D, Bundler and VRML) land with those exporters (PORTING_PLAN.md, Phase 4).
+// The ExportNVM, ExportCam, ExportBundler and ExportPLY tests exercise
+// colmap_rust::scene::reconstruction_export. The ExportRecon3D and ExportVRML tests land with
+// those exporters (PORTING_PLAN.md, Phase 4).
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use colmap_rust::scene::reconstruction::Reconstruction;
+use colmap_rust::scene::reconstruction_export as export;
 use colmap_rust::scene::reconstruction_io_binary as bin;
 use colmap_rust::scene::reconstruction_io_text as txt;
 use colmap_rust::scene::reconstruction_io_text_write as txtw;
 use colmap_rust::scene::synthetic::{synthesize_dataset, SyntheticDatasetOptions};
+use colmap_rust::sensor::models::CameraModelId;
 
 /// COLMAP's `CreateTestDir()`: a fresh, empty directory per call.
 pub(crate) fn create_test_dir() -> PathBuf {
@@ -349,4 +352,90 @@ fn export_ply_nominal() {
     colmap_rust::scene::reconstruction_export::export_ply_path(&reconstruction, &ply_path).unwrap();
     assert!(ply_path.exists());
     assert!(std::fs::metadata(&ply_path).unwrap().len() > 0);
+}
+
+/// The exporter tests' synthetic scene: one rig, one camera, `num_frames_per_rig` frames.
+fn export_scene(
+    num_frames_per_rig: i32,
+    num_points3d: i32,
+    camera_model_id: CameraModelId,
+) -> Reconstruction {
+    let mut reconstruction = Reconstruction::new();
+    let mut synthetic_dataset_options = SyntheticDatasetOptions {
+        num_rigs: 1,
+        num_cameras_per_rig: 1,
+        num_frames_per_rig,
+        num_points3d,
+        camera_model_id,
+        ..SyntheticDatasetOptions::default()
+    };
+    if camera_model_id == CameraModelId::FullOpenCV {
+        synthetic_dataset_options.camera_params = vec![
+            1280.0, 1280.0, 512.0, 384.0, 0.05, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ];
+    }
+    synthesize_dataset(&synthetic_dataset_options, &mut reconstruction).unwrap();
+    reconstruction
+}
+
+#[test]
+fn export_nvm_nominal() {
+    let reconstruction = export_scene(3, 10, CameraModelId::SimpleRadial);
+    let test_dir = create_test_dir();
+    let nvm_path = test_dir.join("export.nvm");
+    assert!(export::export_nvm_path(&reconstruction, &nvm_path, false).unwrap());
+    assert!(nvm_path.exists());
+}
+
+#[test]
+fn export_nvm_unsupported_camera_model() {
+    let reconstruction = export_scene(1, 5, CameraModelId::FullOpenCV);
+    let test_dir = create_test_dir();
+    let nvm_path = test_dir.join("export.nvm");
+    assert!(!export::export_nvm_path(&reconstruction, &nvm_path, false).unwrap());
+}
+
+#[test]
+fn export_bundler_nominal() {
+    let reconstruction = export_scene(3, 20, CameraModelId::SimpleRadial);
+    let test_dir = create_test_dir();
+    let bundler_path = test_dir.join("bundle.out");
+    let list_path = test_dir.join("list.txt");
+    assert!(
+        export::export_bundler_path(&reconstruction, &bundler_path, &list_path, false).unwrap()
+    );
+    assert!(bundler_path.exists());
+    assert!(list_path.exists());
+}
+
+#[test]
+fn export_bundler_unsupported_camera_model() {
+    let reconstruction = export_scene(1, 5, CameraModelId::FullOpenCV);
+    let test_dir = create_test_dir();
+    let bundler_path = test_dir.join("bundle.out");
+    let list_path = test_dir.join("list.txt");
+    assert!(
+        !export::export_bundler_path(&reconstruction, &bundler_path, &list_path, false).unwrap()
+    );
+}
+
+#[test]
+fn export_cam_nominal() {
+    let reconstruction = export_scene(2, 10, CameraModelId::SimpleRadial);
+    let test_dir = create_test_dir();
+    assert!(export::export_cam_path(&reconstruction, &test_dir, false).unwrap());
+    let num_cam_files = std::fs::read_dir(&test_dir)
+        .unwrap()
+        .filter(|entry| {
+            entry.as_ref().unwrap().path().extension() == Some(std::ffi::OsStr::new("cam"))
+        })
+        .count();
+    assert_eq!(num_cam_files, reconstruction.num_reg_images());
+}
+
+#[test]
+fn export_cam_unsupported_camera_model() {
+    let reconstruction = export_scene(1, 5, CameraModelId::FullOpenCV);
+    let test_dir = create_test_dir();
+    assert!(!export::export_cam_path(&reconstruction, &test_dir, false).unwrap());
 }
