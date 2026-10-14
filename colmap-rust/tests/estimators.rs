@@ -8,6 +8,8 @@ mod transform_matchers;
 
 #[path = "estimators/absolute_pose.rs"]
 mod absolute_pose;
+#[path = "estimators/essential_matrix.rs"]
+mod essential_matrix;
 #[path = "estimators/generalized_absolute_pose.rs"]
 mod generalized_absolute_pose;
 #[path = "estimators/poselib_utils.rs"]

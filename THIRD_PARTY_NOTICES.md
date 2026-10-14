@@ -284,9 +284,12 @@ Source: http://ceres-solver.org (https://github.com/ceres-solver/ceres-solver)
 
 Ported from Ceres 2.2.0 (via colmap-sharp's `ColmapSharp/Solver/Jet.cs`): the dual-number
 arithmetic and elementary-function rules of `ceres::Jet` (`include/ceres/jet.h`) in
-`colmap-rust/src/sensor/models/jet.rs`; and COLMAP's customized copy of `ceres::TinySolver`
+`colmap-rust/src/sensor/models/jet.rs`; COLMAP's customized copy of `ceres::TinySolver`
 (`src/colmap/optim/tiny_solver.h`, via colmap-sharp's `ColmapSharp/Optim/TinySolver.cs`) in
-`colmap-rust/src/optim/tiny_solver.rs`.
+`colmap-rust/src/optim/tiny_solver.rs`; and the rotation conversions
+`ceres::AngleAxisToQuaternion` / `ceres::QuaternionToAngleAxis` (`include/ceres/rotation.h`, via
+colmap-sharp's `ColmapSharp/Solver/Rotation.cs`) in
+`colmap-rust/src/estimators/cost_functions/quaternion_utils.rs`.
 
 ```
 Ceres Solver - A fast non-linear least squares minimizer
