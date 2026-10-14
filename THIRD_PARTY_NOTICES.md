@@ -325,9 +325,14 @@ fa7280fee27f97aff31ae7f98bab7f583fac7d08, the version COLMAP's
 `src/thirdparty/CMakeLists.txt` fetches)
 
 Ported (via colmap-sharp's `ColmapSharp/Estimators/Solvers/PoseLib/`) in
-`colmap-rust/src/estimators/solvers/poselib/`, one file per PoseLib source file: the
-Sturm-sequence root finder and Danilevsky characteristic polynomial of `misc/sturm.h`
-(`sturm.rs`).
+`colmap-rust/src/estimators/solvers/poselib/`, one file per PoseLib source file (a long
+generated source split by responsibility): the Sturm-sequence root finder and Danilevsky
+characteristic polynomial of `misc/sturm.h` (`sturm.rs`); `camera_pose.h` and the quaternion
+helpers of `misc/quaternion.h` (`camera_pose.rs`); the camera description of
+`misc/camera_models.h`/`.cc` (`poselib_camera.rs`); `misc/re3q3.cc` (`re3q3.rs`,
+`re3q3_coeffs.rs`, `re3q3_var_change.rs`); `solvers/p3p.cc` with `solvers/p3p_common.h` and
+`univariate::solve_cubic_single_real` (`p3p.rs`); `solvers/gp3p.cc` (`gp3p.rs`); and
+`solvers/p4pf.cc` (`p4pf.rs`).
 
 ```
 BSD 3-Clause License

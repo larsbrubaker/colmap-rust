@@ -5,5 +5,24 @@
 //!
 //! - [`sturm`]: `misc/sturm.h`, Sturm-sequence root bracketing and Danilevsky's
 //!   characteristic polynomial.
+//! - [`camera_pose`]: `camera_pose.h`'s [`CameraPose`] and the quaternion helpers of
+//!   `misc/quaternion.h`.
+//! - [`re3q3`]: `misc/re3q3.cc`, three quadratics in three unknowns (its generated
+//!   elimination step and random change of variables are in private sibling files).
+//! - [`p3p`]: `solvers/p3p.cc`, the minimal absolute pose.
+//! - [`gp3p`]: `solvers/gp3p.cc`, the minimal generalized absolute pose.
+//! - [`p4pf`]: `solvers/p4pf.cc`, the minimal absolute pose with unknown focal length.
+//! - [`poselib_camera`]: the camera description of `misc/camera_models.h`.
 
+pub mod camera_pose;
+pub mod gp3p;
+pub mod p3p;
+pub mod p4pf;
+pub mod poselib_camera;
+pub mod re3q3;
+mod re3q3_coeffs;
+mod re3q3_var_change;
 pub mod sturm;
+
+pub use camera_pose::CameraPose;
+pub use poselib_camera::PoseLibCamera;

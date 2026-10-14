@@ -6,6 +6,18 @@
 #[path = "support/transform_matchers.rs"]
 mod transform_matchers;
 
+#[path = "estimators/poselib_utils.rs"]
+mod poselib_utils;
+#[path = "estimators/rust_only_camera_pose.rs"]
+mod rust_only_camera_pose;
+#[path = "estimators/rust_only_gp3p.rs"]
+mod rust_only_gp3p;
+#[path = "estimators/rust_only_p3p.rs"]
+mod rust_only_p3p;
+#[path = "estimators/rust_only_p4pf.rs"]
+mod rust_only_p4pf;
+#[path = "estimators/rust_only_re3q3.rs"]
+mod rust_only_re3q3;
 #[path = "estimators/rust_only_sturm.rs"]
 mod rust_only_sturm;
 #[path = "estimators/similarity_transform.rs"]

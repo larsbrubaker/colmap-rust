@@ -1326,3 +1326,57 @@ relies on the partial state.
 
 **Evidence.** `tests/scene/rust_only_reconstruction.rs`
 `rust_only_reconstruction_failed_operations_leave_it_unchanged`.
+
+## 220. re3q3's random change of variables uses a fixed-seed mt19937, not std::rand
+
+**What differs.** PoseLib's `re3q3` (P4Pf's three-quadratics solver,
+`estimators/solvers/poselib/re3q3.rs`, with the retry in `re3q3_var_change.rs`) retries a
+near-degenerate system (all three elimination determinants below 1e-10) after a random affine
+change of variables. PoseLib draws that from Eigen's `Quaternion::UnitRandom()` and
+`setRandom()`, which read the C library's global `std::rand()`. The port draws a uniform
+rotation (Shoemake, Graphics Gems III) and a shift in [-1, 1]^3 from a fresh `Mt19937` seeded
+with 0 on every call, through libc++'s `uniform_real_distribution`
+(`math::random::libcxx::uniform_real`).
+
+**Why.** `std::rand()` is a process-global stream whose sequence depends on the C library and
+on every earlier call in the process, so COLMAP's result in this branch is not reproducible
+even against itself; porting it would add hidden global state shared across threads, which
+CLAUDE.md rules out (sequential and parallel runs must agree). Eigen's `UnitRandom` code is
+MPL-2.0 and is not ported, so the rotation follows the published method it cites. A fixed
+per-call seed keeps the result a pure function of the input. Only the degenerate branch is
+affected; the regular path is a straight port. Same as colmap-sharp entry 26.
+
+**Evidence.** A change of variables followed by `refine_3q3` against the original
+coefficients targets the same system, so the solution set agrees up to solver tolerance
+whichever random matrix is drawn. `tests/estimators/rust_only_re3q3.rs`,
+`rust_only_degenerate_elimination_uses_random_var_change` (x^2 = 1, y^2 = 4, z^2 = 9: every
+elimination determinant is 0) finds all eight solutions, each satisfying the original system
+to 1e-8. colmap-sharp cross-checked C++ PoseLib fa7280f (clang++, Eigen 3.4) in a scratch
+harness: for `std::srand` seeds 1..20 it also returns 8 solutions with max residual below
+3e-9, and for x^2 = 1, y^2 = 4, z = x + y (a linear third equation) it returns 0 solutions for
+every seed, as the port does (upstream behavior, pinned by
+`rust_only_linear_equation_returns_no_solutions_like_poselib`).
+
+## 221. re3q3_rotation's pre-rotation uses a fixed-seed mt19937, not std::rand
+
+**What differs.** PoseLib's `re3q3_rotation` (used by `gp3p`, which COLMAP's `GP3PEstimator`
+calls; `estimators/solvers/poselib/re3q3.rs`, `solve_rotation`) rotates every problem by a
+random rotation R0 before solving in Cayley parameters, so that no solution lands on the
+Cayley transform's singularity (a rotation by pi). Unlike re3q3's change of variables (entry
+220), this draw happens on *every* call, not only for degenerate input. PoseLib takes R0 from
+Eigen's `Quaternion::UnitRandom()`, i.e. from the process-global `std::rand()`. The port draws
+it (Shoemake's uniform rotation) from a fresh `Mt19937` seeded with 1 on every call.
+
+**Why.** The same as entry 220: `std::rand()` is hidden global state whose sequence depends on
+the C library and on every earlier call, so COLMAP's gp3p is not reproducible even against
+itself, and porting it would make sequential and parallel runs disagree. Eigen's `UnitRandom`
+is MPL-2.0 and not ported. The seed differs from entry 220's so the two draws are not the same
+rotation. Consequence: for a fixed input the port always uses the same R0, so an input whose
+true rotation is (close to) R0 composed with a rotation by pi is always ill-conditioned here,
+where PoseLib would be only for an unlucky draw. That set has measure zero and RANSAC draws
+other samples. Same as colmap-sharp entry 29.
+
+**Evidence.** colmap-sharp ran PoseLib fa7280f's gp3p (clang++, Eigen 3.4) in a scratch
+harness: it returns the same four poses for `std::srand` seeds 1..5 on a fixed three-ray
+input, agreeing to about 1e-10 across seeds. `tests/estimators/rust_only_gp3p.rs`,
+`rust_only_matches_poselib_solution_set` returns those same four poses to 1e-8.
