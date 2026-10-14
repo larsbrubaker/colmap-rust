@@ -118,13 +118,14 @@ Port colmap-sharp's `Solver/` (Jets, residual blocks, manifolds, losses, LM trus
 Schur dense/sparse/iterative, summary) into `solver/`. Riskiest phase; Tier C against pycolmap BA.
 On main: the general `Jet<N>`, `Scalar` (f64 and Jets; the camera models use it), Ceres'
 rotation conversions, `CostFunction`, `AutoDiffCostFunction`, `TinySolverAutoDiffFunction`, the
-`sampson_error.h` functors. Slices left, in dependency order:
-1. Dense and block matrices: SmallBlas, SmallBlasFixed, SparseMatrix, BlockSparseMatrix,
-   BlockRandomAccessMatrix (tests SmallBlas, SmallBlasFixed, BlockRandomAccessMatrix).
+`sampson_error.h` functors, the small BLAS kernels (`Operation` enum, const-generic fixed
+kernels), `LinearOperator`, `SparseMatrix`/`DenseSparseMatrix`, the compressed-row block
+structure, `BlockSparseMatrix`, and the dense, sparse and diagonal `BlockRandomAccessMatrix`
+(cells resolved once to a `CellLocation`). Slices left, in dependency order:
 2. Losses and manifolds: LossFunctions, Manifolds, SphereProductManifolds, CeresPolynomial
    (tests LossFunction, Corrector, Manifold, CeresPolynomial).
 3. The problem model: ParameterBlock, ResidualBlock, Problem, Problem.Evaluate,
-   ParameterBlockOrdering, Program (tests Problem, OrderedGroups, ParameterBlockOrdering;
+   ParameterBlockOrdering, Program, `BlockJacobianLayout` (tests Problem, OrderedGroups, ParameterBlockOrdering;
    colmap-sharp entries 36, 37, 53).
 4. Evaluator and basic linear solvers: ProgramEvaluator, SolverTypes, LinearSolvers (tests
    ConjugateGradientsSolver, the LinearLeastSquaresProblems fixtures; colmap-sharp 18, 22).
