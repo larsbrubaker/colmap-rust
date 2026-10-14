@@ -23,7 +23,8 @@ visible in the app so the web build is the integration test.
   two_view_geometry, correspondence_graph, the reconstruction core (bounds, Normalize,
   Transform, Crop), binary + text reconstruction I/O, synthetic datasets (with and without a
   database, SynthesizeNoise, SynthesizeImages), `Reconstruction::Load`,
-  `TranscribeImageIdsToDatabase`, rig configs (`ReadRigConfig`, `ApplyRigConfig`), the in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
+  `TranscribeImageIdsToDatabase`, rig configs (`ReadRigConfig`, `ApplyRigConfig`), PLY I/O (`util/ply`), ConvertToPLY / ImportPLY /
+  ExtractColors / CreateImageDirs, every `reconstruction_io.cc` exporter, the in-memory `Database` (with Merge and LoadRandomDatabaseDescriptors) and `DatabaseCache`.
 - Phase 5: all of optim/ (RANSAC family, sparse_cholesky, least_absolute_deviations,
   tiny_solver).
 - Phase 6: `SimilarityTransformEstimator`, `poselib_utils`, the PoseLib CameraPose,
@@ -83,7 +84,7 @@ wasm32, and its app view covered by a headless UI test.
 
 ### Phase 1 — Math, linear algebra, util
 - The rest of `util/` that later phases need: `IdMap`, the libc++ `unordered_map` emulation,
-  PLY I/O (`util/ply`), `enum_utils`, `timestamp` (port each when its first user lands;
+  `enum_utils`, `timestamp` (port each when its first user lands;
   `util/cache.h` is under Phase 9).
 - `colmap-web` installs `util::timer::set_clock_source` from `performance.now()`.
 
@@ -98,9 +99,10 @@ and a camera-model undistortion preview.
 
 ### Phase 4 — Scene
 Remaining:
-- Reconstruction: PLY import/export (`ConvertToPLY`, `ImportPLYFromVector`; needs Phase 1's PLY
-  I/O), `ExtractColors*`, `CreateImageDirs`.
-- `reconstruction_io.cc`'s exporters: NVM, Cam, Recon3D, Bundler, PLY, VRML.
+- A pycolmap oracle fixture for the NVM, Bundler, Cam and Recon3D exporters' text (COLMAP's tests
+  only check return values; the layout is pinned by Rust-only tests).
+- Move `open_read`/`open_write` from `scene::reconstruction_io_utils` to `util/` (`util::ply`
+  depends on them).
 - `pose_graph`, `reconstruction_manager`, `reconstruction_pruning`, `scene_clustering`,
   `reconstruction_clustering`.
 
