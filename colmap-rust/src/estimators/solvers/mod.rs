@@ -3,6 +3,8 @@
 //! - [`affine_transform`]: [`AffineTransformEstimator`], [`estimate_affine2d`] and
 //!   [`estimate_affine2d_robust`].
 //! - [`translation_transform`]: [`TranslationTransformEstimator`] (2D).
+//! - [`homography_matrix`]: [`HomographyMatrixEstimator`] and
+//!   [`HomographyMatrixRayEstimator`] (DLT between points or bearing rays).
 //! - [`absolute_pose`]: [`P3PEstimator`], [`P4PFEstimator`], [`Point2DWithRay`],
 //!   [`ImgFromCamFunc`] and [`compute_squared_reprojection_error`].
 //! - [`epnp`]: [`EPNPEstimator`], the rest of `absolute_pose.h`.
@@ -25,6 +27,7 @@ mod essential_matrix_poly1;
 mod essential_matrix_poly2;
 mod essential_matrix_poly3;
 pub mod generalized_absolute_pose;
+pub mod homography_matrix;
 pub mod poselib;
 pub mod poselib_utils;
 pub mod similarity_transform;
@@ -43,6 +46,9 @@ pub use essential_matrix::{
     EssentialMatrixTangentSampsonEstimator,
 };
 pub use generalized_absolute_pose::{GP3PEstimator, GP3PObservation, GP3PResidualType};
+pub use homography_matrix::{
+    CamRayWithImgPoint, HomographyMatrixEstimator, HomographyMatrixRayEstimator,
+};
 pub use similarity_transform::{
     estimate_rigid3d, estimate_rigid3d_robust, estimate_sim3d, estimate_sim3d_robust,
     EuclideanTransformEstimator, SimilarityTransformEstimator, SimilarityTransformReport,

@@ -16,6 +16,8 @@ mod affine_transform;
 mod essential_matrix;
 #[path = "estimators/generalized_absolute_pose.rs"]
 mod generalized_absolute_pose;
+#[path = "estimators/homography_matrix.rs"]
+mod homography_matrix;
 #[path = "estimators/poselib_utils.rs"]
 mod poselib_utils;
 #[path = "estimators/quaternion_utils.rs"]
