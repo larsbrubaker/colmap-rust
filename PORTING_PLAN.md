@@ -11,30 +11,50 @@ license decisions are in `docs/LICENSE_AUDIT.md`.
 that runs natively and on GitHub Pages, cancellable with progress. Each phase makes its result
 visible in the app so the web build is the integration test.
 
-## Resume here (paused 2026-09-27)
+## Resume here
 
-**On `main` and reviewed:** Phase 0 (scaffold, app shells, CI), Phase 1 (util, math, linalg), Phase 2
-(geometry), Phase 3 (all of sensor/), Phase 5 RANSAC family (`optim/`).
+**On `main`, by phase:**
+- Phase 0: scaffold, app shells (native, web, headless harness), CI.
+- Phase 1: util, math, linalg, including the sparse CSC matrix, AMD ordering and simplicial
+  Cholesky.
+- Phase 2: geometry (the `Rigid3dNear` / `Sim3dNear` matchers exist as test support).
+- Phase 3: all of sensor/.
+- Phase 4: point2d, point3d, track, camera, frame, image, projection, visibility_pyramid,
+  two_view_geometry, correspondence_graph, the reconstruction core (bounds, Normalize,
+  Transform, Crop), binary + text reconstruction I/O, and synthetic datasets without a database.
+- Phase 5: all of optim/ (RANSAC family, sparse_cholesky, least_absolute_deviations,
+  tiny_solver).
+- Phase 6: `SimilarityTransformEstimator`, `poselib_utils`, the PoseLib CameraPose,
+  PoseLibCamera, sturm, re3q3, p3p, gp3p, p4pf and relpose_5pt solvers, and COLMAP's
+  `absolute_pose` (P3P, P4Pf, EPnP, `ComputeSquaredReprojectionError`) and
+  `generalized_absolute_pose` (GP3P).
+- Phase 9: feature types and utils, VLFeat's CPU SIFT, `SiftCPUFeatureExtractor`, the
+  `FeatureExtractor` / `FeatureMatcher` traits, the exact k-NN descriptor index,
+  `SiftCPUFeatureMatcher` with guided matching, and the SIFT text loader.
+- Phase 13: the compute seam in colmap-gpu (`ComputeDevice`, `WebGpuComputeDevice`).
 
 **Setting up on another machine:** clone `rust-apps` with submodules (colmap-rust needs `../agg-gui`
 as a sibling); in colmap-rust run `scripts/fetch-reference.sh` (and `oracle/setup.sh` only if you
-regenerate fixtures). Agent worktrees live in `.claude/worktrees/`, so create the symlink
-`.claude/worktrees/agg-gui -> <rust-apps>/agg-gui` (git-ignored) or the app crates won't resolve.
+regenerate fixtures). Agent worktrees live in `.claude/worktrees/`, so create the git-ignored
+symlinks `.claude/worktrees/agg-gui`, `.claude/worktrees/agg-rust` and
+`.claude/worktrees/tess2-rust`, each pointing at the rust-apps checkout of the same name, or the
+app crates won't resolve.
 Divergence-log merges: keep both sides' entries in numeric order (entries are independent sections).
 After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balanced.
 
-**Next slices** (start each from `main`; earlier in-progress attempts were discarded):
-- Phase 4a — scene data types: point2d, point3d, track, camera, frame, image, projection,
-  visibility_pyramid, two_view_geometry, with their `*_test.cc`. `Camera::verify_params` must
-  return `Err` for an invalid model id (divergence 101).
-- Phase 5b — sparse CSC matrix, AMD ordering, simplicial Cholesky (port colmap-sharp's), then
-  `optim` sparse_cholesky, least_absolute_deviations, tiny_solver.
-- Phase 6a — `SimilarityTransformEstimator`, then the five deferred optim tests (Phase 6 below).
-- Phase 6b — PoseLib minimal solvers (port colmap-sharp's `Estimators/Solvers/PoseLib/`).
+**Next slices** (start each from `main`):
+- Phase 6b (a): `estimators/cost_functions` tiny_manifold and tiny_sampson_error, then (b)
+  COLMAP's `essential_matrix` (see Phase 6 below).
+- Phase 4 — the in-memory `Database`, then what waits on it (see Phase 4 below).
+- Phase 9 — the covariant extractor and `util/cache.h`.
+- Phase 7 — the Ceres replacement.
 
-**Other open items:** colmap-rust is a rust-apps submodule (pushed); after cloning rust-apps,
-`git -C colmap-rust checkout main && git -C colmap-rust pull`. Only `main` exists on origin; agents
-work on local worktree branches that are merged to `main` and then deleted.
+**Other open items:**
+- colmap-rust is a rust-apps submodule (pushed); after cloning rust-apps,
+  `git -C colmap-rust checkout main && git -C colmap-rust pull`. Only `main` exists on origin;
+  agents work on local worktree branches that are merged to `main` and then deleted.
+- `Cargo.lock` on `main` is stale against current agg-gui (any build rewrites it); commit a
+  refreshed lock.
 
 ## Out of scope (do not re-litigate)
 
@@ -55,11 +75,13 @@ wasm32, and its app view covered by a headless UI test.
 
 ### Phase 1 — Math, linear algebra, util
 - The rest of `util/` that later phases need: `IdMap`, the libc++ `unordered_map` emulation,
-  `Cache`, PLY I/O, `enum_utils`, `timestamp` (port each when its first user lands).
+  PLY I/O (`util/ply`), `enum_utils`, `timestamp` (port each when its first user lands;
+  `util/cache.h` is under Phase 9).
 - `colmap-web` installs `util::timer::set_clock_source` from `performance.now()`.
 
 ### Phase 2 — Geometry
-Remaining: `rigid3_matchers`/`sim3_matchers` (test helpers).
+Remaining: `rigid3_matchers_test.cc` and `sim3_matchers_test.cc` (the matchers themselves are
+in `tests/support/transform_matchers.rs`).
 App: camera-frustum rendering in the 3D viewport.
 
 ### Phase 3 — Sensor
@@ -67,39 +89,59 @@ App: image loading (native file dialog / browser file picker + drag-drop), an im
 and a camera-model undistortion preview.
 
 ### Phase 4 — Scene
-`point2d`, `point3d`, `track`, `camera`, `frame`, `image`, `rig`, `correspondence_graph`,
-`two_view_geometry`, `pose_graph`, `projection`, `visibility_pyramid`, `reconstruction`,
-`reconstruction_io` (binary + text), `reconstruction_manager`, `reconstruction_pruning`,
-`synthetic`, in-memory `database`, `database_cache`, `scene_clustering`,
-`reconstruction_clustering`.
-App: open a COLMAP model folder / zip (native + browser) and show cameras + sparse points;
-bundled sample model on the web page.
+Remaining:
+- In-memory `database`, then `database_cache`, and what needs a database: the scene `rig`
+  config helpers, `Reconstruction::Load`, `TranscribeImageIdsToDatabase`, the `SetRigsAndFrames*`
+  tests, and synthetic's database branch.
+- Synthetic: `SynthesizeNoise`, `SynthesizeImages`.
+- Reconstruction: PLY import/export (`ConvertToPLY`, `ImportPLYFromVector`; needs Phase 1's PLY
+  I/O), `ExtractColors*`, `CreateImageDirs`.
+- `reconstruction_io.cc`'s exporters: NVM, Cam, Recon3D, Bundler, PLY, VRML.
+- `pose_graph`, `reconstruction_manager`, `reconstruction_pruning`, `scene_clustering`,
+  `reconstruction_clustering`.
 
-### Phase 5 — Optimization primitives
-Remaining (in progress): `least_absolute_deviations`, `tiny_solver`, `sparse_cholesky` (port of
-colmap-sharp's simplicial Cholesky + AMD).
+App: open a COLMAP model folder / zip (native + browser) and show cameras + sparse points;
+bundled sample model on the web page. The library side is ready (`Reconstruction::read`).
 
 ### Phase 6 — Minimal solvers and estimators
-First: `SimilarityTransformEstimator` (Umeyama), then swap in the five deferred optim tests
-(`ransac_test.cc` SimilarityTransform, ParallelSimilarityTransform, ReproducibilityWithRandomSeed;
-`loransac_test.cc` SimilarityTransform, ParallelSimilarityTransform) and delete their rust-only
-line-estimator stand-ins. Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those
-without opt in via `EstimateAsLocal`.
-`estimators/solvers/*` (PoseLib parts, BSD-3), `two_view_geometry`, `pose`, `generalized_pose`,
-`triangulation`, `alignment`, `fundamental_matrix_degensac`, `rotation_averaging`,
-`global_positioning`, `gravity_refinement`, `view_graph_calibration`.
+Remaining:
+- 6b (a): `estimators/cost_functions/tiny_manifold` (`EigenQuaternionManifold`,
+  `SphereManifold<3>`, `ProductManifold`) and `tiny_sampson_error`, with
+  `tiny_manifold_test.cc` and `tiny_sampson_error_test.cc`.
+- 6b (b), after (a): COLMAP's `essential_matrix` solvers: FivePoint (its over-determined path
+  needs the generated `essential_matrix_poly` / `essential_matrix_coeffs`, colmap-sharp's
+  `EssentialMatrixPolynomials`), EightPoint and TangentSampson, with `essential_matrix_test.cc`.
+- The rest of PoseLib (port colmap-sharp's `Estimators/Solvers/PoseLib/`): Essential,
+  Relpose6ptSharedFocal, Relpose6ptOnesidedFocal, GenRelpose6pt and `ImagePair`; then COLMAP's
+  `relpose_shared_focal` and `relpose_one_sided_focal`.
+- The other `estimators/solvers/*`: `affine_transform`, `euclidean_transform`,
+  `translation_transform`, `fundamental_matrix`, `homography_matrix`,
+  `generalized_relative_pose`.
+- The estimators: `two_view_geometry`, `pose`, `generalized_pose`, `triangulation`,
+  `alignment`, `fundamental_matrix_degensac`, `rotation_averaging`, `global_positioning`,
+  `gravity_refinement`, `view_graph_calibration`.
+
+Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without opt in via
+`EstimateAsLocal`.
 
 ### Phase 7 — Nonlinear least squares (Ceres replacement)
 Port colmap-sharp's `Solver/` (Jets, residual blocks, manifolds, losses, LM trust region,
 Schur dense/sparse/iterative, summary). Riskiest phase; Tier C against pycolmap BA.
+This phase also ports `tiny_solver_test.cc` ManifoldConvergesAndStaysOnManifold, deferred to it
+because it needs Ceres' `TinySolverAutoDiffFunction` over the general Jet (and
+`SphereManifold<3>`, Phase 6b (a)).
 
 ### Phase 8 — Bundle adjustment
 `estimators/bundle_adjustment*` (CPU), `cost_functions/*`, `ceres_loss_function`, `covariance`.
 App: run BA on a loaded model with live cost plot and progress/cancel.
 
 ### Phase 9 — Features
-`feature/sift` (VLFeat CPU SIFT, BSD-2), `types`, `utils`, `matcher` (brute force + exact k-NN,
-cross-check, ratio, guided), `extractor`, `index`.
+Remaining:
+- The covariant extractor (`CovariantSiftCPUFeatureExtractor`: VLFeat's covdet, its scale space
+  and raw descriptor), then `CreateSiftFeatureExtractor` and the five `Covariant*` rows of
+  `sift_test.cc`'s `SiftCpuExtractionTest.Nominal`.
+- `util/cache.h` (`LRUCache`, `ThreadSafeLRUCache`) with `cache_test.cc`.
+
 App: keypoint overlay on images; match viewer between two images.
 
 ### Phase 10 — Incremental SfM
@@ -119,9 +161,11 @@ graph cut), `mesh_simplification`, `texture_mapping`.
 App: depth/normal map viewer, fused cloud, mesh display, export (PLY/OBJ/STL).
 
 ### Phase 13 — GPU PatchMatch (colmap-gpu)
-Port colmap-sharp Phase 13: the compute seam, its WGSL kernels (reuse as-is where possible),
-planner, orchestrator, CPU twin, conformance checker. Device comes from agg-gui-wgpu, so it
-runs on Metal/DX12/Vulkan natively and WebGPU in the browser.
+Remaining from colmap-sharp Phase 13, all waiting on Phase 12's MVS: the WGSL kernels (reuse
+as-is where possible), planner, orchestrator, CPU twin, conformance checker, and the three
+ColmapGpu PatchMatch classes. They run on the compute seam's dedicated wgpu device
+(`WebGpuComputeDevice`, not agg-gui-wgpu's), on Metal/DX12/Vulkan natively and WebGPU in the
+browser.
 
 ### Phase 14 — Global and hierarchical mapping
 `sfm/global_mapper`, `controllers/global_pipeline`, `hierarchical_pipeline`,
@@ -139,6 +183,22 @@ reasons to Rust. Every skipped COLMAP test is listed here by name when its file 
   ReadNonImageFile, ReadNonExistentFile, ReadUnsupportedChannels, all
   ParameterizedBitmapFormatTests, and the PNG round-trip tails of CloneAsRGB/CloneAsGrey: the host
   decodes and encodes images; the core has no file I/O.
+
+### feature/
+- `extractor_test.cc` FeatureExtractionOptions.{Move,MoveAssignment}: they check the LoMa
+  options' `shared_ptr` use counts, and LoMa is ONNX (out of scope). The ALIKED_N16ROT,
+  ALIKED_N32, LOMA_B and LOMA_B128 rows of CheckAndRequiresOpenGLWithNoGpu: their ONNX
+  sub-options are not ported (`rust_only_onnx_extractor_types_fail_check` pins that they fail
+  `Check`).
+- `matcher_test.cc` the rows of FeatureMatchingOptions.Check for the nine ONNX matcher types:
+  ONNX matchers are out of scope (`rust_only_onnx_matcher_types_fail_check_and_create` pins
+  that they fail).
+- `sift_test.cc` ExtractSiftFeaturesGPU.Nominal, CreateSiftGPUMatcherOpenGL.Nominal,
+  CreateSiftGPUMatcherCUDA.Nominal, MatchSiftFeaturesGPU.{TypeMismatch,Nominal},
+  MatchGuidedSiftFeaturesGPU.{TypeMismatch,Nominal,EssentialMatrix,Spherical,
+  SphericalMixedHemispheres,UnprojectableKeypoints,SharedFocal,SharedFocalPerPairFocal},
+  MatchSiftFeaturesCPUvsGPU.Nominal, MatchGuidedSiftFeaturesCPUvsGPUGuided.EssentialMatrix:
+  SiftGPU, excluded by its licence.
 
 ### util/
 - `types_test.cc` Span.SizeAndEmpty, FilterView.{Empty,All,None,Nominal,RangeExpression}:
@@ -180,11 +240,29 @@ Fix each one in agg-gui, then remove its workaround here:
 - **Web runs single-threaded.** GitHub Pages can't send the COOP/COEP headers that
   SharedArrayBuffer (and so wasm threads / rayon) needs, and we accept that cost: on the web,
   long work is chunked across frames (or moved to a plain Web Worker without shared memory).
-  Native uses rayon. A `coi-serviceworker` shim could enable isolation on Pages later; not now.
+  Native will use rayon once the core adds it (see below). A `coi-serviceworker` shim could enable isolation on Pages later; not now.
 - **agg-gui is a path dependency** (`../agg-gui`), so colmap-rust can follow agg-gui `main` or a
   development branch; CI checks it out beside this repo. Only the app crates use it.
 - **Web shell comes from agg-gui.** A (to-be-published) `agg-gui-web-shell` crate (canvas,
   requestAnimationFrame loop, DOM input, WebGPU surface) lives in the agg-gui repo; colmap-web
   uses it rather than carrying its own copy.
+- **Scene ownership: ids, not pointers.** Frames and images store the ids of their rig, camera
+  and frame; methods that need the owners take them as arguments (`scene/mod.rs` header,
+  divergence 170).
+- **Reconstruction mutators return plain `&mut`.** Consistency after an id change is checked by
+  `is_valid` and the owner-taking methods, not by the setters (divergence 214).
+- **SIFT is CPU-only.** SiftGPU is excluded by its licence; a WGSL SIFT could be a later
+  colmap-gpu step.
+- **`FeatureExtractor` / `FeatureMatcher` traits follow colmap-sharp**, returning `Result` and
+  taking a `CancelToken`.
+- **faiss is replaced by an exact nearest-neighbour search** (divergence 231). The descriptor
+  index cache is `Option<Arc<dyn FeatureDescriptorIndexCache>>`, which Phase 11's matcher cache
+  implements; it stands in for `ThreadSafeLRUCache` until `util/cache.h` is ported.
+- **`ImgFromCamFunc` is `Arc<dyn Fn(Vector3d) -> Option<Vector2d> + Send + Sync>`** (the absolute
+  pose estimators, `estimators/solvers/absolute_pose.rs`).
+- **`fast_expn` is a constant table** of correctly rounded `exp` values (divergence 202), an
+  exception to the `math::fns` rule.
+- **The core is single-threaded for now** (no rayon): `num_threads` is validated and otherwise
+  ignored, so results never depend on it.
 - **colmap-rust will be published to crates.io** once the core is usable (crate `colmap-rust`,
   lib `colmap_rust`); keep its package metadata publish-ready.

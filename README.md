@@ -13,7 +13,10 @@ Multi-View Stereo: photos → camera poses → sparse point cloud → dense dept
 
 **Live demo:** https://larsbrubaker.github.io/colmap-rust/ (requires a WebGPU browser)
 
-Status: just started — see [PORTING_PLAN.md](PORTING_PLAN.md). Sister project:
+Status: the core library has util, math, linear algebra, geometry, sensor, the RANSAC family
+and sparse solvers, most of the scene model with COLMAP binary/text model I/O, the first
+minimal solvers, and CPU SIFT extraction and matching. The app shows a 3D viewport (ground grid
+and axes) and the pipeline stages, all still marked "Not yet ported". See [PORTING_PLAN.md](PORTING_PLAN.md). Sister project:
 [colmap-sharp](https://github.com/larsbrubaker/colmap-sharp) (the same port in C#).
 
 ## Build
