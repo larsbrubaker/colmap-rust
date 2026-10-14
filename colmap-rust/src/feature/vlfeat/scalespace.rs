@@ -16,7 +16,9 @@
 //!   by `put_image` before it is read, so the initial contents never reach an output.
 //! - `vl_scalespace_new_with_geometry`'s `assert(is_valid_geometry(geom))` and the image-size
 //!   asserts of `vl_scalespace_get_default_geometry` are `Err`s; `vl_scalespace_get_level`'s
-//!   range asserts are panics (an internal invariant of the callers).
+//!   range asserts are panics (an internal invariant of the callers). `put_image` with a
+//!   negative first octave and no octave 0, where VLFeat writes out of bounds, is an `Err`
+//!   (docs/CPP_DIVERGENCES.md entry 295).
 //! - `vl_scalespacegeometry_is_equal` (which compares `octaveFirstSubdivision` against
 //!   `octaveLastSubdivision`, an upstream typo) is not ported: the covariant detector builds a
 //!   new scale space per image, so a scale space is never reused.
@@ -163,6 +165,14 @@ impl VlScaleSpace {
         &self.octaves[index][offset..offset + ogeom.width * ogeom.height]
     }
 
+    /// Every level of octave `o`, one after the other from the first subdivision: what
+    /// `vl_scalespace_get_level(o, octaveFirstSubdivision)` points into when the covariant
+    /// detector scans the octave as a 3D volume. Panics outside the geometry.
+    pub fn octave(&self, o: i32) -> &[f32] {
+        let (index, _) = self.level_location(o, self.geom.octave_first_subdivision);
+        &self.octaves[index]
+    }
+
     /// The writable pixels of level `(o, s)` (`vl_scalespace_get_level` used as an output).
     pub fn level_mut(&mut self, o: i32, s: i32) -> &mut [f32] {
         let (index, offset) = self.level_location(o, s);
@@ -180,8 +190,12 @@ impl VlScaleSpace {
     }
 
     /// Port of `vl_scalespace_put_image`: builds every level from `image` (row-major floats of
-    /// the geometry's size). `cancel` is polled before each octave.
+    /// the geometry's size). `cancel` is polled before each octave. `Err` when the first
+    /// octave is negative and octave 0 is not in the geometry.
     pub fn put_image(&mut self, image: &[f32], cancel: &CancelToken) -> Result<()> {
+        // A negative first octave is upsampled from octave 0, which VLFeat writes whether or
+        // not the geometry has it (out of bounds when it does not); here that is an error.
+        check!(self.geom.first_octave >= 0 || self.geom.last_octave >= 0);
         cancel.check_cancelled()?;
         self.start_octave_from_image(image, self.geom.first_octave);
         self.fill_octave(self.geom.first_octave);

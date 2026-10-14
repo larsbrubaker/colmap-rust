@@ -2110,3 +2110,20 @@ Boost backend reproduces the property, and most of the order, and stays determin
 `rust_only_create_spreads_tied_overlap_across_frames` gets at least three shared frames with
 the Boost order and fails with the ascending order (two shared frames, 1 and 11). The ported
 `scene_clustering_test.cc` cases call `partition` directly and are unaffected.
+
+## 295. The covariant detector rejects an image too small for its octaves
+
+**What differs.** `VlCovDet::put_image` (`feature/vlfeat/covdet.rs`) returns `Err` for an image
+whose shorter side is below 16 pixels with the default first octave (-1), or too small for the
+configured first octave; VLFeat's `vl_covdet_put_image` goes on: a 1-pixel side converts
+`log2(0) = -inf` to an integer, and with a last octave below 0 `vl_scalespace_put_image`
+upsamples octave -1 from an octave 0 the scale space never allocated (`scalespace.rs`'s
+`put_image` checks this). It also returns `Err` for an image buffer of the wrong length, which
+VLFeat cannot check.
+
+**Why.** VLFeat's behaviour there is undefined (out-of-bounds writes), so there is no result to
+match; an error the caller can report is the safe equivalent. COLMAP's covariant extractor
+never gets there: it rejects such images first (colmap-sharp's `CovariantSift.cs` throws for a
+side below `MinimumImageSide`), so no COLMAP result is lost.
+
+**Evidence.** `tests/feature/rust_only_vl_covdet.rs` `rust_only_vl_covdet_rejects_bad_input`.

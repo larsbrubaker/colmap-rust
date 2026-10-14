@@ -12,8 +12,9 @@
 //! SiftGPU is excluded by licence (docs/LICENSE_AUDIT.md): there is no GPU extractor or
 //! matcher and no `use_gpu` branch. SIFT LightGlue (ONNX) is excluded too, so
 //! [`SiftMatchingOptions`] has no `lightglue` options.
-//! The covariant extractor (`CovariantSiftCPUFeatureExtractor`, VLFeat's covdet) and
-//! `CreateSiftFeatureExtractor` are not ported yet (PORTING_PLAN.md Phase 9).
+//! The covariant extractor (`CovariantSiftCPUFeatureExtractor`, over VLFeat's covdet in
+//! [`crate::feature::vlfeat::covdet`]) and `CreateSiftFeatureExtractor` are not ported yet
+//! (PORTING_PLAN.md Phase 9).
 //! Tests: `tests/feature/sift.rs` (`sift_test.cc`'s extraction cases),
 //! `tests/feature/sift_matching.rs` and `tests/feature/sift_guided_matching.rs` (its CPU
 //! matcher cases), and `tests/feature/rust_only_sift.rs` (pycolmap fixtures, reuse,

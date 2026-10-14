@@ -379,7 +379,9 @@ version pinned in `REFERENCE`)
 
 Ported (via colmap-sharp's `ColmapSharp/Feature/VLFeat/`) in `colmap-rust/src/feature/vlfeat/`:
 the SIFT filter of `sift.c`/`sift.h` (scale space, detection, orientations, descriptors and
-`vl_sift_calc_raw_descriptor`), the Gaussian scale space of `scalespace.c`/`scalespace.h`,
+`vl_sift_calc_raw_descriptor`), the covariant detector of `covdet.c`/`covdet.h` (DoG
+detection, non-extrema suppression, patch extraction, affine shape adaptation and orientations),
+the Gaussian scale space of `scalespace.c`/`scalespace.h`,
 `vl_imconvcol_vf`, `vl_imsmooth_f` and the image gradients of `imopv.c`, and the parts of
 `mathop.h`/`mathop.c` they use (including the 2x2 SVD and Gaussian elimination).
 

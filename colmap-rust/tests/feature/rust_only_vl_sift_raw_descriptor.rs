@@ -1,6 +1,6 @@
 // Rust-only tests of VlSiftFilter::calc_raw_descriptor (VLFeat's vl_sift_calc_raw_descriptor,
 // the covariant extractor's descriptor), which has no COLMAP test of its own: the covariant
-// oracle fixture pins it end to end once the detector lands. These pin VLFeat's behaviour: a
+// oracle fixture pins it end to end (rust_only_vl_covdet.rs). These pin VLFeat's behaviour: a
 // frame outside the gradient image leaves the descriptor untouched, a gradient field of one
 // orientation fills only that orientation's bins, the result is L2-normalized and truncated
 // at 0.2, and the norm threshold scales with the number of samples.

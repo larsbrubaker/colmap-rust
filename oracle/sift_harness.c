@@ -2,8 +2,8 @@
 // same calls COLMAP's SiftCPUFeatureExtractor makes and prints every keypoint, orientation and
 // raw float descriptor exactly (C99 hex floats). Built and run by oracle/fixture_sift.py, which
 // turns the output into colmap-rust/tests/data/oracle/sift_vlfeat.json. Not part of any build.
-// Ported from colmap-sharp's oracle/sift_harness.c (unchanged apart from these comments); its
-// covdet mode is for colmap-sharp's fixture_covariant_sift.py, not ported yet.
+// Its covdet mode is run by oracle/fixture_covariant_sift.py for covariant_sift_vlfeat.json.
+// Ported from colmap-sharp's oracle/sift_harness.c (unchanged apart from these comments).
 //
 // Why a harness in addition to pycolmap: Apple clang contracts a*b + c into fused multiply-adds
 // by default (-ffp-contract=on), and the macOS arm64 wheel's VLFeat is built that way, so its

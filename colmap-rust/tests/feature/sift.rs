@@ -3,8 +3,8 @@
 // per parameter row, named after the row: `sift_cpu_extraction_test_nominal_<row>`.
 //
 // The "Sift" row runs SiftCpuFeatureExtractor. The five Covariant* rows need the covariant
-// extractor (VLFeat's covdet) and CreateSiftFeatureExtractor, which are not ported yet
-// (PORTING_PLAN.md Phase 9). Skipped (PORTING_PLAN.md): ExtractSiftFeaturesGPU.Nominal
+// extractor (over VLFeat's covdet, feature::vlfeat::covdet) and CreateSiftFeatureExtractor,
+// which are not ported yet (PORTING_PLAN.md Phase 9). Skipped (PORTING_PLAN.md): ExtractSiftFeaturesGPU.Nominal
 // (SiftGPU, excluded by licence).
 
 use colmap_rust::feature::extractor::{FeatureExtractionOptions, FeatureExtractor};
