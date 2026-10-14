@@ -11,6 +11,8 @@
 //!   (`generalized_pose.h`, without the Ceres refiner).
 //! - [`pose`]: robust absolute and relative pose estimation (`pose.h`, without the Ceres
 //!   refiners).
+//! - [`rotation_averaging`]: global rotation averaging over a pose graph
+//!   (`rotation_averaging.h`, `rotation_averaging_impl.h`).
 //! - [`triangulation`]: robust multi-view point triangulation (`triangulation.h`).
 //! - [`two_view_geometry`]: robust two-view geometry verification of an image pair or of two
 //!   rigs, and the relative pose decomposition (`two_view_geometry.h`).
@@ -23,6 +25,7 @@ pub mod fundamental_matrix_degensac;
 pub mod fundamental_matrix_degensac_estimator;
 pub mod generalized_pose;
 pub mod pose;
+pub mod rotation_averaging;
 pub mod solvers;
 pub mod triangulation;
 pub mod two_view_geometry;

@@ -40,6 +40,8 @@ mod quaternion_utils;
 mod relpose_one_sided_focal;
 #[path = "estimators/relpose_shared_focal.rs"]
 mod relpose_shared_focal;
+#[path = "estimators/rotation_averaging.rs"]
+mod rotation_averaging;
 #[path = "estimators/rust_only_camera_pose.rs"]
 mod rust_only_camera_pose;
 #[path = "estimators/rust_only_fundamental_matrix_degensac_oracle.rs"]
