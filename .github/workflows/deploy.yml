@@ -71,8 +71,8 @@ jobs:
 
   # Browser smoke test in real Google Chrome (preinstalled on ubuntu-26.04), with WebGPU on
   # SwiftShader (flags in web/playwright.config.ts). Deploy is gated on it. Chrome runs headed on
-  # a virtual display (xvfb-run, which the runner image ships) so the screenshots it saves
-  # show the page; headless Linux Chrome captures WebGPU pages blank.
+  # a virtual display (xvfb-run, which `playwright install-deps` installs) so the screenshots it
+  # saves show the page; headless Linux Chrome captures WebGPU pages blank.
   test:
     needs: build
     runs-on: ubuntu-26.04
@@ -84,7 +84,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Install test dependencies
         run: bun install --frozen-lockfile
-      # `channel: "chrome"` uses the runner's Google Chrome; only Playwright's OS deps are needed.
+      # `channel: "chrome"` uses the runner's Google Chrome; only Playwright's OS deps (xvfb among
+      # them) are needed.
       - name: Install Playwright dependencies
         run: bunx playwright install-deps chrome
       - name: Download built site
