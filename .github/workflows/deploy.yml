@@ -36,17 +36,17 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: colmap-rust
     steps:
       - name: Checkout colmap-rust
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: colmap-rust
       - name: Checkout agg-gui
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: larsbrubaker/agg-gui
           ref: ${{ inputs.agg_gui_ref || env.AGG_GUI_REF }}
@@ -62,25 +62,25 @@ jobs:
       - name: Build web app
         run: web/build.sh
       - name: Upload built site
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: colmap-rust/web/dist
           include-hidden-files: true
           retention-days: 1
 
-  # Browser smoke test in real Google Chrome (preinstalled on ubuntu-latest), with WebGPU on
+  # Browser smoke test in real Google Chrome (preinstalled on ubuntu-26.04), with WebGPU on
   # SwiftShader (flags in web/playwright.config.ts). Deploy is gated on it. Chrome runs headed on
-  # a virtual display (xvfb-run, installed with Playwright's deps) so the screenshots it saves
+  # a virtual display (xvfb-run, which the runner image ships) so the screenshots it saves
   # show the page; headless Linux Chrome captures WebGPU pages blank.
   test:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: Install test dependencies
         run: bun install --frozen-lockfile
@@ -88,7 +88,7 @@ jobs:
       - name: Install Playwright dependencies
         run: bunx playwright install-deps chrome
       - name: Download built site
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: web/dist
@@ -99,7 +99,7 @@ jobs:
       # Always: the canvas/page screenshots are worth eyeballing on green runs too.
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results
           path: |
@@ -110,20 +110,23 @@ jobs:
     needs: [build, test]
     # Deploy only from main (a push, or a manual run on main); pull requests stop after the test.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download built site
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: dist
       - name: Upload pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+          # Dotfiles in the site are published too (.git and .github never are); the action
+          # leaves them out unless asked.
+          include-hidden-files: true
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

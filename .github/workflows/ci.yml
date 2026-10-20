@@ -30,18 +30,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-26.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: colmap-rust
     steps:
       - name: Checkout colmap-rust
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: colmap-rust
       - name: Checkout agg-gui
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: larsbrubaker/agg-gui
           ref: ${{ inputs.agg_gui_ref || env.AGG_GUI_REF }}
@@ -60,19 +60,19 @@ jobs:
 
   wasm:
     name: wasm32 core build + math probe
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: colmap-rust
     steps:
       - name: Checkout colmap-rust
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: colmap-rust
       # The core crate has no agg-gui dependency, but cargo resolves the whole workspace
       # (including the app crates' path dependencies) before building any member.
       - name: Checkout agg-gui
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: larsbrubaker/agg-gui
           ref: ${{ inputs.agg_gui_ref || env.AGG_GUI_REF }}

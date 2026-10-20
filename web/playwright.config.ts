@@ -1,7 +1,7 @@
 // Playwright config for the COLMAP Rust browser smoke test (testing net 4, see CLAUDE.md).
 // Serves the built site (web/dist, from build.sh) with serve.ts and drives real Google Chrome
 // (channel "chrome"), as agg-gui's demo does: the bundled chromium-headless-shell has no usable
-// GPU path for wgpu. colmap-web *requires* WebGPU, so on Linux (CI's ubuntu-latest has no GPU)
+// GPU path for wgpu. colmap-web *requires* WebGPU, so on Linux (CI's ubuntu-26.04 has no GPU)
 // Chrome is told to expose its SwiftShader (CPU Vulkan) adapter to WebGPU; macOS/Windows use the
 // real GPU and need no flags.
 //
