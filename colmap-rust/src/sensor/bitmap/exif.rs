@@ -15,9 +15,17 @@
 //! ported caller relies on. Names are compared ASCII case-insensitively, like OIIO's
 //! `getattribute` by default.
 //!
-//! Metadata access on a bitmap without a metadata store (default-constructed, or a copy of an
-//! empty bitmap) dereferences a null pointer in COLMAP; here it reads as absent and writes
-//! create the store (`docs/CPP_DIVERGENCES.md`, entry 124).
+//! Deliberate divergence: COLMAP's metadata is an OIIO `ImageSpec` behind a pointer that is
+//! null for a default-constructed bitmap or a copy of an empty one, addressed by OIIO type
+//! strings (`SetMetaData(name, "float", &value)`); here it is a [`super::MetaDataValue`] enum
+//! with typed getters, and the store always exists. Where COLMAP dereferences the null pointer
+//! (metadata access, `Rescale`, `Rot90` or `CloneMetadata` on a bitmap without metadata), this
+//! reads absent values and writes create entries; the null dereference is a crash in COLMAP,
+//! not a contract, and a defined result is the safe reading. A copy of an empty bitmap still
+//! drops the metadata, as in COLMAP. The metadata cases of `bitmap_test.cc`
+//! (`SetGetMetaData`, `CloneMetaData`, the EXIF getters) are ported in
+//! `tests/sensor/bitmap_exif.rs`, and `tests/sensor/rust_only_bitmap.rs` pins the type
+//! conversions, case-insensitivity and the copy-of-empty behavior.
 //!
 //! Tier A: the EXIF getters are COLMAP's arithmetic verbatim.
 

@@ -7,7 +7,18 @@
 //!
 //! Tier A: same strings in, same answer out, except when the cleaned make matches more than
 //! one make of the table; then COLMAP's answer depends on its hash map's iteration order and
-//! ours on `specs.cc` source order (`docs/CPP_DIVERGENCES.md`, entry 120).
+//! ours on `specs.cc` source order.
+//!
+//! That is a deliberate divergence: COLMAP's `camera_specs_t` is a `NodeHashMap`, and
+//! `QuerySensorWidth` iterates it, writing the output width on every match and stopping after
+//! the second non-exact match per make. [`initialize_camera_specs`] returns the makes in
+//! `specs.cc` source order, so when a cleaned EXIF make matches more than one table make (a
+//! substring match either way round; an empty make matches all of them), which widths are
+//! seen, and so the width left behind and whether a unique match is found, can differ from a
+//! given COLMAP build. Hash iteration order is unspecified and differs between standard
+//! libraries and Boost, so there is no single COLMAP behavior to match, and CLAUDE.md asks for
+//! deterministic order. `database_test.cc`'s cases match a single make and pass; queries whose
+//! make matches one table make are unaffected. Same as colmap-sharp entry 8.
 
 use std::sync::OnceLock;
 

@@ -7,8 +7,8 @@
 //! Tiers: scale and rotation of composition and `inverse`, `to_matrix`, `from_matrix`,
 //! `Display` and `to_file`'s text are Tier A (bit-identical to the pycolmap oracle); applying
 //! the transform and the translations of composition and `inverse` rotate a vector with
-//! `q * v` and are Tier B (see `Quaterniond`'s `Mul<Vector3d>` in `linalg/quaternion.rs`;
-//! docs/CPP_DIVERGENCES.md entry 80).
+//! `q * v` and are Tier B (see `Quaterniond`'s `Mul<Vector3d>` in `linalg/quaternion.rs`
+//! and the FMA divergence in the `geometry/rigid3.rs` header).
 //!
 //! Translation notes: the parameters `[qx, qy, qz, qw, tx, ty, tz, s]` are public fields;
 //! `Default` is hand-written as the identity (COLMAP's default constructor); COLMAP's free
@@ -104,7 +104,7 @@ impl Sim3d {
 
     /// `FromFile(path)`: reads the eight whitespace-separated values `ToFile` writes. Fails
     /// like COLMAP's `THROW_CHECK` when the file cannot be opened or a value is missing or
-    /// not a number (docs/CPP_DIVERGENCES.md entry 60 for the number syntax).
+    /// not a number (the number syntax is [`crate::util::string::string_to_double`]'s).
     pub fn from_file(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path).map_err(|_| file_error(path))?;
         let mut values = [0.0; 8];

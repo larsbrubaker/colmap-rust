@@ -1,6 +1,6 @@
 // Rust-only checks for the scene data types, beyond the 1:1 ports next to this file:
-// - every metadata method of `Camera` returns docs/CPP_DIVERGENCES.md entry 101's
-//   `DomainError` for an unknown model, and `create_from_model_id` rejects it;
+// - every metadata method of `Camera` returns the `DomainError` of the `scene/camera.rs`
+//   header for an unknown model, and `create_from_model_id` rejects it;
 // - `Track::element` out of range panics (entry 160);
 // - `VisibilityPyramid` with 8 levels keeps the full `max_score` and clamps negative and NaN
 //   coordinates into the first cell (entry 161).

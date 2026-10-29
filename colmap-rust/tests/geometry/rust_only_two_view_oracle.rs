@@ -11,9 +11,10 @@
 // Each field is compared as |expected - actual| <= tolerance * max(1, |expected|); the bounds are colmap-sharp's (set from the largest gap it observed).
 // ComputeRot90FromGravity is exact. The homography scenes carry a little noise: noise-free,
 // a planar scene has two physically valid decompositions and the pick between them comes
-// down to rounding (entry 86). Results COLMAP defines only up to sign are not in the fixture
-// (the epipole); the ones compared here are sign-independent by construction (see the
-// headers of the ported files), and rotations compare up to the quaternion sign.
+// down to rounding (the `geometry/homography_matrix.rs` header). Results COLMAP defines only
+// up to sign are not in the fixture (the epipole); the ones compared here are
+// sign-independent by construction (see the headers of the ported files), and rotations
+// compare up to the quaternion sign.
 
 use colmap_rust::geometry::essential_matrix::{
     compute_squared_sampson_errors, essential_matrix_from_pose,

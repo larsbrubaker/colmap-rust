@@ -4,14 +4,14 @@
 //! `reconstruction_io_text.cc` does. Port of colmap-sharp's `Util/CppLineTokens.cs` (written
 //! there, not a port of libc++). Tests: `tests/scene/rust_only_reconstruction_io.rs`.
 //!
-//! A value is one whitespace-separated token; a failed extraction is `None`, which is where
-//! C++ sets `failbit`. Spellings follow libc++'s `num_get`: an unsigned integer accepts an
-//! optional '-' and negates with wrap-around ("-1" reads as the maximum), and a magnitude
-//! above the type's maximum fails; a double is parsed by
-//! `crate::util::string::parse_double_token` (decimal and exponent notation; entry 60), and a
-//! float by `parse_float_token`, which accepts the same spellings and rounds once to `f32`.
-//! A token is taken whole, so "12abc" fails where libc++ would read 12 into an integer and
-//! leave "abc" for the next extraction (docs/CPP_DIVERGENCES.md entry 241).
+//! A value is one whitespace-separated token; a failed extraction is `None`, which is where C++
+//! sets `failbit`. Spellings follow libc++'s `num_get`: an unsigned integer accepts an optional
+//! '-' and negates with wrap-around ("-1" reads as the maximum), and a magnitude above the
+//! type's maximum fails; a double is parsed by `crate::util::string::parse_double_token`
+//! (decimal and exponent notation; see `string_to_double`), and a float by `parse_float_token`,
+//! which accepts the same spellings and rounds once to `f32`. A token is taken whole, so
+//! "12abc" fails where libc++ would read 12 into an integer and leave "abc" for the next
+//! extraction (docs/CPP_DIVERGENCES.md entry 241).
 
 use std::io::Read;
 

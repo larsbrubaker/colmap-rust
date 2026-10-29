@@ -1,11 +1,11 @@
 // Port of colmap/scene/camera_test.cc, 1:1 (same test names, values and checks), for
 // colmap_rust::scene::camera::Camera.
 //
-// `EXPECT_THROW(.., std::domain_error)` follows docs/CPP_DIVERGENCES.md entry 101: on the
-// metadata methods it is `Err` with `ErrorKind::DomainError` and COLMAP's message; on the
-// per-point methods (`CamFromImg`, `CamFromImgThreshold`, `ImgFromCam`) it is a panic with
-// that message, caught here with `catch_unwind`. `operator<<` becomes `Display`; C++'s
-// default `check_cheirality = true` is passed explicitly.
+// `EXPECT_THROW(.., std::domain_error)` follows the error split in the `scene/camera.rs`
+// header: on the metadata methods it is `Err` with `ErrorKind::DomainError` and COLMAP's
+// message; on the per-point methods (`CamFromImg`, `CamFromImgThreshold`, `ImgFromCam`) it is a
+// panic with that message, caught here with `catch_unwind`. `operator<<` becomes `Display`;
+// C++'s default `check_cheirality = true` is passed explicitly.
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 

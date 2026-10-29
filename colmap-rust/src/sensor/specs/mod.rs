@@ -9,8 +9,8 @@
 //! through `database_test.cc` (`tests/sensor/database.rs`).
 //!
 //! Translation note: COLMAP's `camera_specs_t` is a `NodeHashMap` (hash-ordered). Here it is
-//! a static slice in `specs.cc` source order, so the query iterates deterministically
-//! (`docs/CPP_DIVERGENCES.md`, entry 120).
+//! a static slice in `specs.cc` source order, so the query iterates deterministically (how
+//! that can change a query's answer: the `sensor/database.rs` header).
 
 mod data1;
 mod data2;

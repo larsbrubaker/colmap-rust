@@ -5,8 +5,18 @@
 //!
 //! Tier A for [`center_and_normalize_image_points`] and for the bounding box of
 //! [`compute_bounding_box_and_centroid`]; the centroid can differ in the last bits because the
-//! coordinates are fully sorted instead of partitioned with `std::nth_element`
-//! (docs/CPP_DIVERGENCES.md entry 81).
+//! coordinates are fully sorted instead of partitioned with `std::nth_element`.
+//!
+//! Deliberate divergence, the sort: [`compute_bounding_box_and_centroid`] sorts each
+//! coordinate list (`sort_by(f64::total_cmp)`) where COLMAP partitions it with two
+//! `std::nth_element` calls. The bounding box (the elements at the two percentile positions)
+//! is the same value, and so is the multiset of elements the centroid averages, but the order
+//! they are summed in differs: COLMAP's is whatever libc++'s `nth_element` leaves between the
+//! two positions, so the centroid can differ from COLMAP's in the last bits. That element
+//! order is an unspecified implementation detail of the C++ standard library; reproducing it
+//! would mean porting libc++'s introselect for one rounding-level effect, and sorting
+//! satisfies every `nth_element` postcondition. `normalization_test.cc` passes 1:1, including
+//! the exact bounding boxes and the 1e-6 centroid checks. Same as colmap-sharp entry 15.
 
 use crate::linalg::{AlignedBox3d, Matrix3d, Vector2d, Vector3d};
 use crate::math::fns;
@@ -39,7 +49,7 @@ pub fn compute_bounding_box_and_centroid(
 
     // COLMAP partitions with two std::nth_element calls per axis. A full sort satisfies every
     // nth_element postcondition, so the box is the same; only the summation order of the
-    // centroid can differ (entry 81). `total_cmp` orders -0.0 before 0.0, which are equal
+    // centroid can differ (the file header). `total_cmp` orders -0.0 before 0.0, which are equal
     // values either way.
     coords_x.sort_by(f64::total_cmp);
     coords_y.sort_by(f64::total_cmp);

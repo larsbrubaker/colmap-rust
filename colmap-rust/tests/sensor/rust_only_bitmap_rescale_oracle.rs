@@ -3,8 +3,8 @@
 // (src/sensor/bitmap/resize.rs) with pycolmap 4.2.0's OpenImageIO resize on the seeded images
 // of oracle/fixture_bitmap_rescale.py (fixture tests/data/oracle/bitmap_rescale.json).
 //
-// Tier B: every pixel within one gray level of pycolmap's (docs/CPP_DIVERGENCES.md, entry
-// 121).
+// Tier B: every pixel within one gray level of pycolmap's (the `sensor/bitmap/resize.rs`
+// header).
 
 use colmap_rust::sensor::bitmap::{Bitmap, RescaleFilter};
 

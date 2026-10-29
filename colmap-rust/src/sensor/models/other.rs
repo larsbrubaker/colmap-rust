@@ -445,9 +445,10 @@ impl CameraModel for EUCMCameraModel {
 /// image size: parameters `w, h` (metadata, not optimizable); no focal length, principal
 /// point or distortion.
 ///
-/// COLMAP writes `EIGEN_PI`, a `long double` literal; this uses `f64` pi, which equals it on
-/// macOS (where `long double` is `double`) and may differ on x86-64 Linux
-/// (docs/CPP_DIVERGENCES.md, entry 100).
+/// COLMAP evaluates `2.0 * EIGEN_PI * (...)` with `EIGEN_PI` a `long double` literal; this
+/// uses `std::f64::consts::PI`, which equals it on macOS (where `long double` is `double`).
+/// On x86-64 Linux (80-bit `long double`) COLMAP's results may therefore differ from both the
+/// macOS wheel and this port. Not observed: the oracle fixture comes from the macOS wheel.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct EquirectangularCameraModel;
 

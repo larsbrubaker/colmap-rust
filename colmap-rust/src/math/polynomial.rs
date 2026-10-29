@@ -9,12 +9,23 @@
 //! Tiers: [`evaluate_polynomial`] at a real point and the linear/quadratic roots are plain
 //! arithmetic in COLMAP's order, Tier A. The cubic goes through `cbrt`/`acos`/`cos`
 //! (`math::fns`), Durand-Kerner through complex division (Smith's algorithm, not libc++'s
-//! `logb`/`scalbn` scaling: docs/CPP_DIVERGENCES.md entry 50), and the companion matrix through
-//! our `EigenSolver` (Francis QR, not Eigen's: its header and entry 51), so those are Tier B;
-//! `polynomial_test.cc` compares them with tolerances.
+//! `logb`/`scalbn` scaling: see [`find_polynomial_roots_durand_kerner`]), and the companion
+//! matrix through our `EigenSolver` (Francis QR, not Eigen's: see
+//! [`find_polynomial_roots_companion_matrix`]), so those are Tier B; `polynomial_test.cc`
+//! compares them with tolerances.
 //!
-//! C++'s nullable `real`/`imag` output pointers become one returned [`PolynomialRoots`]
-//! (`None` where C++ returns `false`); see entry 52. `THROW_CHECK`s return `Err`.
+//! Deliberate divergence, outputs: COLMAP's root finders take nullable
+//! `Eigen::VectorXd* real, Eigen::VectorXd* imag` output pointers and return `bool`; here they
+//! return `Result<Option<PolynomialRoots>>` with both parts always computed (`None` for
+//! `false`, `Err` for a failed `THROW_CHECK`). On `false` COLMAP leaves the caller's vectors
+//! untouched; there is nothing to leave here. [`find_cubic_polynomial_roots`] returns
+//! `(num_roots, Vector3d)` with the unused entries zero, where COLMAP writes only the first
+//! `num_roots` entries of the caller's `Vector3d`. Rust has no nullable output references
+//! worth mirroring, computing both parts costs nothing measurable, and no COLMAP caller reads
+//! the untouched entries. `rust_only_cubic_leaves_unused_entries_zero` and
+//! `rust_only_polynomial_constant_has_no_roots` (`tests/math/rust_only_polynomial_matrix.rs`)
+//! pin this; the ported `CHECK_EQUAL_RESULT` cases compare the full outputs. Same as
+//! colmap-sharp's port (C# `out` parameters, always filled, unused cubic entries zero).
 
 use crate::linalg::{Complex, ComputationInfo, EigenSolver, MatrixXd, Vector3d, VectorXd};
 use crate::math::fns;
@@ -137,7 +148,8 @@ pub fn find_quadratic_polynomial_roots(
 
 /// The real roots of the monic cubic `x^3 + c2 x^2 + c1 x + c0 = 0`, each refined by one
 /// Newton step. Returns the number of roots (1 or 3) and the roots in the leading entries;
-/// the unused entries are zero (C++ leaves the caller's values there, entry 52).
+/// the unused entries are zero (C++ leaves the caller's values there; the outputs divergence
+/// in this file's header).
 /// Port of `colmap::FindCubicPolynomialRoots`.
 pub fn find_cubic_polynomial_roots(c2: f64, c1: f64, c0: f64) -> (usize, Vector3d) {
     // COLMAP's literals, kept digit for digit.
@@ -182,6 +194,22 @@ pub fn find_cubic_polynomial_roots(c2: f64, c1: f64, c0: f64) -> (usize, Vector3
 /// <https://en.wikipedia.org/wiki/Durand%E2%80%93Kerner_method>. Comparatively fast but
 /// often unstable/inaccurate. Degrees 1 and 2 use the closed forms; `None` for a constant.
 /// Port of `colmap::FindPolynomialRootsDurandKerner`.
+///
+/// Deliberate divergence: COLMAP divides `std::complex<double>` values, and libc++'s
+/// `operator/` rescales both operands by `logb`/`scalbn` of the divisor's larger part before
+/// the textbook formula (which Apple clang may also FMA-contract). This divides with
+/// [`Complex`]'s division, Smith's algorithm in .NET's branch order, so each update can differ
+/// in the last bits, and after up to 100 iterations the roots can differ at the 1e-10
+/// convergence threshold. The `+ double` step of the Horner evaluation adds to the real part
+/// only, as libc++ does. Tier B. Reproducing libc++'s division bit for bit would also need
+/// Apple clang's contraction decisions, while the iteration's contract is convergence to the
+/// roots, which both divisions meet; sharing [`Complex`] keeps colmap-rust and colmap-sharp
+/// on identical bits. `tests/math/polynomial.rs`: `find_polynomial_roots_durand_kerner_nominal`
+/// matches COLMAP's reference roots within 1e-6 in COLMAP's order and
+/// `find_cubic_polynomial_roots_multi_root` agrees with the closed form within 1e-4;
+/// `rust_only_companion_matrix_agrees_with_durand_kerner_on_real_roots` checks a quartic with
+/// known roots to 1e-8. Same as colmap-sharp's choice (its `Mathematics/Polynomial.cs`
+/// header).
 pub fn find_polynomial_roots_durand_kerner(
     coeffs_all: &VectorXd,
 ) -> crate::Result<Option<PolynomialRoots>> {
@@ -247,6 +275,17 @@ pub fn find_polynomial_roots_durand_kerner(
 /// Durand-Kerner but more stable/accurate. Degrees 1 and 2 use the closed forms, trailing
 /// zero coefficients add a root at zero (listed last); `None` for a constant or when the
 /// eigen solver fails. Port of `colmap::FindPolynomialRootsCompanionMatrix`.
+///
+/// Deliberate divergence: the roots come in the order our [`EigenSolver`] produces the
+/// companion matrix's eigenvalues, where COLMAP's come from Eigen's `EigenSolver`. Its Schur
+/// deflation order can differ from Eigen's for some inputs, and its values can differ in the
+/// last bits (`linalg/eigen_solver.rs` header). A complex pair still lists `+imag` first, and
+/// the zero root added for trailing zero coefficients is still last. Tier B. Eigen is not
+/// ported, and COLMAP's callers (the minimal solvers) treat the roots as a set.
+/// `tests/math/polynomial.rs`: `find_polynomial_roots_companion_matrix_nominal` and
+/// `_zero_solution` match COLMAP's reference roots within 1e-6 in COLMAP's listed order, so on
+/// these cases the order is Eigen's. Same as colmap-sharp (its `Mathematics/Polynomial.cs`
+/// header).
 pub fn find_polynomial_roots_companion_matrix(
     coeffs_all: &VectorXd,
 ) -> crate::Result<Option<PolynomialRoots>> {

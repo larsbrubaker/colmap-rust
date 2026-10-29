@@ -190,7 +190,7 @@ fn read_write_binary_little_endian_nominal() {
 }
 
 // Rust-only: the bytes on the wire are little-endian whatever the host (COLMAP's binary
-// formats depend on it), and a short stream is an error (docs/CPP_DIVERGENCES.md entry 61).
+// formats depend on it), and a short stream is an error (the `util/endian.rs` header).
 #[test]
 fn rust_only_little_endian_wire_bytes_and_short_read() {
     let mut file = Vec::new();

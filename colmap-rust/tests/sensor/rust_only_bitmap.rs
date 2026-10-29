@@ -1,8 +1,8 @@
 // Rust-only tests of src/sensor/bitmap/ beyond bitmap_test.cc (ports of colmap-sharp's C#-only
 // Bitmap cases plus the behaviors this port pins on its own):
-// - interpolation of points far outside the image or NaN (docs/CPP_DIVERGENCES.md, entry 123);
+// - interpolation of points far outside the image or NaN (`Bitmap::interpolate_bilinear`);
 // - case-insensitive metadata names (OIIO's getattribute default) and the metadata store of
-//   a copied empty bitmap (entry 124);
+//   a copied empty bitmap (the `sensor/bitmap/exif.rs` header);
 // - BitmapColor::cast's NaN and float-limit behavior (BitmapColorCast verbatim);
 // - JetColormap, which bitmap_test.cc does not cover;
 // - try_new's rejection of invalid dimensions, and printf's non-finite spelling in

@@ -3,10 +3,10 @@
 # from colmap-sharp's oracle/, whose ColmapSharp.Tests checks the same fixture),
 # pycolmap's Bitmap.rescale (OpenImageIO resize) with the default BILINEAR filter on small
 # seeded images, grey and RGB, up and down. BOX is left out: it differs from OIIO where a
-# source pixel center falls exactly on the box edge (docs/CPP_DIVERGENCES.md, entry 121).
+# source pixel center falls exactly on the box edge (colmap-rust/src/sensor/bitmap/resize.rs).
 # Read by colmap-rust/tests/sensor/rust_only_bitmap_rescale_oracle.rs, which checks the
 # resampler of colmap-rust/src/sensor/bitmap/resize.rs against it within one gray level
-# (Tier B; docs/CPP_DIVERGENCES.md, entry 121).
+# (Tier B; see that file's header).
 #
 # Usage: oracle/.venv/bin/python oracle/fixture_bitmap_rescale.py
 

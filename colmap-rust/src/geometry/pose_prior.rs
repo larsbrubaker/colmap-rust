@@ -142,7 +142,9 @@ impl fmt::Display for PosePrior {
 /// Port of `colmap::GravityFromExifOrientation`: the image-space gravity of an upright EXIF
 /// orientation (1, 3, 6 or 8), `None` otherwise. COLMAP also logs a warning for the mirrored
 /// orientations (2, 4, 5, 7) and an error for unknown values; the port has no logger yet, so
-/// only the `None` remains (docs/CPP_DIVERGENCES.md entry 84).
+/// only the `None` remains. That is a deliberate divergence: COLMAP's glog is not ported, the
+/// return value (the function's contract) is unchanged, and the log line is diagnostic only.
+/// `pose_prior_gravity_from_exif_orientation` (pose_prior_test.cc 1:1) checks every `None`.
 pub fn gravity_from_exif_orientation(orientation: i32) -> Option<Vector3d> {
     match orientation {
         1 => Some(Vector3d::new(0.0, 1.0, 0.0)),  // Normal

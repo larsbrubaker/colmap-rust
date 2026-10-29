@@ -5,17 +5,23 @@
 //! Tier A: every number comes from the camera models (Tier A themselves) or plain
 //! arithmetic in COLMAP's order.
 //!
-//! Errors follow docs/CPP_DIVERGENCES.md entry 101. The methods that go through the model
-//! metadata (parameter groups, `ParamsInfo`, `VerifyParams`, `HasBogusParams`, the focal
-//! length and principal point accessors, `CalibrationMatrix`, `MeanFocalLength`,
-//! `IsUndistorted`, `Rescale(scale)`) return `Err(DomainError, "Camera model does not
-//! exist")` for an unknown model, and their `THROW_CHECK`s return `Err` too. The per-point
-//! methods (`CamFromImg`, `CamRayFromImg`, `CamFromImgThreshold`, `ImgFromCam`,
+//! Errors follow the deliberate divergence of the model dispatch (`sensor/models/dispatch.rs`
+//! header), where COLMAP throws `std::domain_error` from every method. The methods that go
+//! through the model metadata (parameter groups, `ParamsInfo`, `VerifyParams`,
+//! `HasBogusParams`, the focal length and principal point accessors, `CalibrationMatrix`,
+//! `MeanFocalLength`, `IsUndistorted`, `Rescale(scale)`) return `Err(DomainError, "Camera model
+//! does not exist")` for an unknown model, and their `THROW_CHECK`s return `Err` too. The
+//! per-point methods (`CamFromImg`, `CamRayFromImg`, `CamFromImgThreshold`, `ImgFromCam`,
 //! `ImgFromCamWithJac`, `CamRayFromImgWithJac`, the `Is*` model-kind queries and
 //! `Rescale(width, height)`) panic with that message instead: a camera must be checked with
 //! [`Camera::verify_params`] (or built through [`Camera::create_from_model_id`]) before it is
-//! used per point. A `params` vector shorter than the model's is out-of-bounds indexing in
-//! COLMAP (undefined behavior); here it panics.
+//! used per point. [`Camera::create_from_model_id`] and [`Camera::create_from_model_name`]
+//! return COLMAP's `THROW_CHECK` error for an unknown model. The projection functions in
+//! `scene/projection.rs` panic like the per-point methods. `camera_test.cc`'s `EXPECT_THROW(..,
+//! domain_error)` becomes an `Err` check on the first group and a caught panic on the second
+//! (`tests/scene/camera.rs`, 1:1), and `tests/scene/rust_only_scene_types.rs` checks every
+//! metadata method for the `DomainError`. A `params` vector shorter than the model's is
+//! out-of-bounds indexing in COLMAP (undefined behavior); here it panics.
 
 use std::fmt;
 
@@ -239,8 +245,9 @@ impl Camera {
     /// `CalibrationMatrix`: the 3x3 calibration matrix K. Only defined for perspective
     /// cameras.
     pub fn calibration_matrix(&self) -> Result<Matrix3d> {
-        // The existence check comes first so an unknown model is the DomainError of
-        // entry 101, as COLMAP's IsPerspective() throws it, rather than a panic.
+        // The existence check comes first so an unknown model is the DomainError of a
+        // metadata method (file header), as COLMAP's IsPerspective() throws it, rather than a
+        // panic.
         self.focal_length_idxs()?;
         check!(
             self.is_perspective(),
@@ -276,7 +283,7 @@ impl Camera {
     }
 
     /// `VerifyParams`: whether the number of parameters fits the model. An unknown model is
-    /// `Err(DomainError)` (docs/CPP_DIVERGENCES.md entry 101).
+    /// `Err(DomainError)` (see the file header).
     pub fn verify_params(&self) -> Result<bool> {
         camera_model_verify_params(self.model_id, &self.params)
     }
@@ -393,7 +400,8 @@ impl Camera {
     /// image size is rounded (half away from zero, `std::round`) and the parameters are
     /// scaled by the ratio actually achieved per axis.
     pub fn rescale(&mut self, scale: f64) -> Result<()> {
-        // Validated before the check so an unknown model is entry 101's DomainError.
+        // Validated before the check so an unknown model is the metadata methods'
+        // DomainError (file header).
         self.focal_length_idxs()?;
         check_gt!(scale, 0.0);
         let scale_x = (scale * self.width as f64).round() / self.width as f64;

@@ -8,10 +8,16 @@
 //! so the helpers keep COLMAP's template shape. `std::istream`/`std::ostream` become
 //! `std::io::Read`/`Write`. Tier A (exact): pure byte shuffling.
 //!
-//! One behavior differs on purpose: COLMAP's `ReadBinaryLittleEndian` on a stream that ends
-//! early returns an unspecified value (the stream's failbit is set and the read is not
-//! checked there); here the read returns the `std::io::Error` (`UnexpectedEof`).
-//! `docs/CPP_DIVERGENCES.md` entry 61.
+//! One behavior differs on purpose: COLMAP's `ReadBinaryLittleEndian` reads `sizeof(T)` bytes
+//! with `std::istream::read` and, on a stream that ends early, returns whatever is in its
+//! buffer (the stream's failbit is set, and callers do not check it per value); here the read
+//! returns the `std::io::Error` (`UnexpectedEof`), so a truncated `cameras.bin` /
+//! `images.bin` / `points3D.bin` or depth map is reported instead of read as garbage.
+//! `Read::read_exact` reports the short read, and silently continuing with an unspecified
+//! value is not a behavior worth reproducing; on complete input the two are identical byte
+//! for byte. The ported round trips pass 1:1, and
+//! `rust_only_little_endian_wire_bytes_and_short_read` pins the wire bytes and the error.
+//! colmap-sharp made the same choice for its MVS reader (its entry 62).
 
 use std::io::{self, Read, Write};
 
@@ -125,7 +131,8 @@ pub fn native_to_big_endian<T: EndianValue>(x: T) -> T {
 }
 
 /// Port of `ReadBinaryLittleEndian<T>(stream)`: reads `sizeof(T)` little-endian bytes.
-/// Errors (`UnexpectedEof`) if the stream ends first (entry 61).
+/// Errors (`UnexpectedEof`) if the stream ends first, where COLMAP returns an unspecified
+/// value (the file header).
 pub fn read_binary_little_endian<T: EndianValue, R: Read + ?Sized>(
     stream: &mut R,
 ) -> io::Result<T> {

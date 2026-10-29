@@ -6,7 +6,12 @@
 //! `wasm32-unknown-unknown` has no clock without JavaScript (`Instant::now()` panics there),
 //! so on that target the host must install a monotonic source with [`set_clock_source`]
 //! (e.g. from `performance.now()`); with none installed there, the clock stands still and
-//! every elapsed time reads 0. `docs/CPP_DIVERGENCES.md` entry 62.
+//! every elapsed time reads 0. That is a deliberate divergence from COLMAP, whose clock
+//! always runs: the core crate must run in the browser without JavaScript bindings (no
+//! `wasm-bindgen` in the core, CLAUDE.md contract 1), and elapsed times only feed progress
+//! reports, never results. Elapsed microseconds are truncated from nanoseconds as COLMAP's
+//! `duration_cast` does. `timer_test.cc` passes 1:1 natively, and the core crate builds for
+//! `wasm32-unknown-unknown`.
 //!
 //! Not ported: `PrintSeconds` / `PrintMinutes` / `PrintHours`, which only `LOG(INFO)` the
 //! elapsed time; the core crate has no logger. Callers format

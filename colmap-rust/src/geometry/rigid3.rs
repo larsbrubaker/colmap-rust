@@ -13,7 +13,20 @@
 //!   translations of `inverse` and composition, `tgt_origin_in_src`), `adjoint_inverse` and
 //!   [`get_covariance_for_rigid3d_inverse`], because the macOS wheel contracts their products
 //!   into FMAs and this port never does (see `Quaterniond`'s `Mul<Vector3d>` in
-//!   `linalg/quaternion.rs` and docs/CPP_DIVERGENCES.md entry 80).
+//!   `linalg/quaternion.rs` and the FMA divergence below).
+//!
+//! Deliberate divergence, FMA contraction: beyond the quaternion-vector rotation, the pycolmap
+//! 4.2.0 macOS arm64 wheel differs from this port in the last bits on `adjoint_inverse` and
+//! [`get_covariance_for_rigid3d_inverse`] (Eigen's 3x3 and 6x6 products), and likewise on the
+//! `GpsTransform` conversions (`geometry/gps.rs` header). The wheel is built with contraction
+//! on and fuses multiply-adds; this port never uses FMA in math paths (CLAUDE.md, "No FMA"),
+//! so its results are the same on every target and are expected to match a C++ build that
+//! does not contract. `tests/geometry/rust_only_transforms_oracle.rs` pins these fields at
+//! 1e-14 relative (1e-13 for the 6x6 covariance) in
+//! `rust_only_transforms_oracle_tolerance_fields`; the operations that do not multiply-add
+//! (composition and inverse rotations, `to_matrix`, `from_matrix`, `adjoint`, the strings) are
+//! bit-identical in `rust_only_transforms_oracle_exact_fields` and
+//! `rust_only_transforms_oracle_strings`. Same as colmap-sharp entry 6.
 //!
 //! Translation notes:
 //! - COLMAP stores `params = [qx, qy, qz, qw, tx, ty, tz]` and hands out mutable `Eigen::Map`
@@ -24,7 +37,7 @@
 //! - `GetCovarianceForComposedRigid3d` and `GetCovarianceForRelativeRigid3d` take the 12x12
 //!   joint covariance as a [`MatrixXd`] (checked 12x12) and build their 6x12 Jacobians as
 //!   `MatrixXd`, so they are Tier B through its left-to-right products (the dynamic-size
-//!   divergence in `linalg/mod.rs`; docs/CPP_DIVERGENCES.md entry 80), pinned by the oracle's
+//!   divergence in `linalg/mod.rs`; the FMA divergence above), pinned by the oracle's
 //!   `cov_composed` and `cov_relative` fields.
 
 use std::fmt;

@@ -1,5 +1,6 @@
 // Port of COLMAP's src/colmap/geometry/gps_test.cc (all cases), plus Rust-only checks of
-// the UTM argument checks (including longitude 180, docs/CPP_DIVERGENCES.md entry 82).
+// the UTM argument checks (including longitude 180, documented on
+// `GpsTransform::ellipsoid_to_utm`).
 
 // gps_test.cc's reference literals are kept digit for digit.
 #![allow(clippy::excessive_precision)]

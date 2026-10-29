@@ -38,8 +38,32 @@
 //! - `const T* params` is a slice; `&params[4]` is `&params[4..]`.
 //!
 //! Tier A: every operation keeps COLMAP's evaluation order. Differences from the pycolmap
-//! wheel come only from its FMA contraction (docs/CPP_DIVERGENCES.md, entry 100) and its libm
-//! ([`crate::math::fns`]); `tests/sensor/rust_only_camera_model_oracle.rs` pins what is bit-identical.
+//! wheel come only from its FMA contraction and its libm ([`crate::math::fns`]);
+//! `tests/sensor/rust_only_camera_model_oracle.rs` pins what is bit-identical.
+//!
+//! Deliberate divergence, FMA contraction: projection (`camera_model_img_from_cam`) and ray
+//! unprojection (`camera_model_cam_ray_from_img`) of every perspective model, and
+//! `camera_model_cam_from_img` of the fisheye, division, FOV and EUCM models, differ from the
+//! pycolmap 4.2.0 macOS arm64 wheel by a few ulps on part of the inputs (at most 2e-14
+//! relative to max(1, |value|) in the fixture). Which calls succeed or fail never differs. The
+//! wheel is built with contraction on and fuses multiply-adds that sit in one C++ statement,
+//! e.g. `*x = f * *x + c1` in every model's `ImgFromCam` and `u * u + v * v + 1.0` in
+//! `CamRayFromImg`; this port never uses FMA in math paths (CLAUDE.md, "No FMA"), so its
+//! results are the same on every platform. The iterative undistortion runs its distortion on
+//! `ceres::Jet`, whose operators are separate function calls that clang does not contract, and
+//! matches the wheel bit for bit. The models that call `sin`/`cos`/`tan`/`atan`/`atan2` (the
+//! fisheye models, FOV, EQUIRECTANGULAR) also go through the `libm` crate rather than Apple
+//! libm, which can move the same outputs by an ulp; colmap-sharp holds EQUIRECTANGULAR
+//! bit-exact because .NET calls the platform libm, this port does not. `oracle/camera_models.py`
+//! prints the evidence: re-deriving SIMPLE_RADIAL's projected x with the unfused formula
+//! matches the wheel on 64/75 and 60/75 points of the two parameter sets, and on 75/75 with
+//! only `f * x + c1` fused; PINHOLE's ray z matches on 98/101 plain and 101/101 with
+//! `u*u + v*v` fused. The oracle test requires bit-identical `CamFromImg` for the plain
+//! pinholes and the models that unproject through the iterative undistortion (SIMPLE_RADIAL,
+//! RADIAL, OPENCV, FULL_OPENCV) and the pixel threshold, and pins everything else at 2e-14
+//! relative to max(1, |value|). Same as colmap-sharp entry 12. (Not observed here: C++
+//! `EquirectangularCameraModel` multiplies by the `long double` `EIGEN_PI`, see
+//! [`EquirectangularCameraModel`].)
 //! Tests: `colmap-rust/tests/sensor.rs`; the Jacobian tests (`models_jacobian_test.cc`), which
 //! differentiate with [`crate::solver::Jet`], are the unit tests in `jacobian_tests.rs`.
 

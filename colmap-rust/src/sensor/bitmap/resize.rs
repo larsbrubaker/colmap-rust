@@ -11,14 +11,18 @@
 //! and still count toward the weight total; the filter is separable; the result is rounded
 //! half away from zero to a byte. Accumulation is in double.
 //!
-//! Not Tier A (`docs/CPP_DIVERGENCES.md`, entry 121). Bilinear (the default, used by
-//! `Thumbnail`) is Tier B: OIIO accumulates in float, so a sum within float rounding of a
-//! half-integer can round to the neighboring gray level; `tests/sensor/rust_only_bitmap_rescale_oracle.rs`
-//! pins it against pycolmap within one gray level. Box matches OIIO on every probe without a
-//! tie, but when a source pixel center lies exactly on the box edge at a non-integer ratio
-//! (23 -> 10 pixels), OIIO includes or excludes it by rules not reproduced here.
-//! `bitmap_test.cc` pins only the output dimensions and that the two filters differ.
-//! `Thumbnail`'s size arithmetic is exact.
+//! Not Tier A, a deliberate divergence: OpenImageIO is native (`docs/LICENSE_AUDIT.md`), and
+//! its resize accumulates in float with its own filter evaluation, so bit-exact output would
+//! need a port of OIIO's resampling code (Apache-2.0, allowed but not done). Bilinear (the
+//! default, used by `Thumbnail`) is Tier B: OIIO accumulates in float, so a sum within float
+//! rounding of a half-integer can round to the neighboring gray level;
+//! `tests/sensor/rust_only_bitmap_rescale_oracle.rs` pins it against pycolmap within one gray
+//! level. Box matches OIIO on every probe without a tie, but when a source pixel center lies
+//! exactly on the box edge at a non-integer ratio (23 -> 10 pixels), OIIO includes or excludes
+//! it by rules not reproduced here. `bitmap_test.cc` pins only the output dimensions and that
+//! the two filters differ. colmap-sharp's impulse probes matched pycolmap exactly for both
+//! filters at ratios 4, 8, 3, 1.5, 5/3, 2/3 and 3/5; the box tie case is 23 -> 10 pixels,
+//! destination pixel 5. Same as colmap-sharp entry 9. `Thumbnail`'s size arithmetic is exact.
 
 use std::collections::VecDeque;
 

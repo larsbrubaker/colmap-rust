@@ -357,7 +357,7 @@ impl CameraModelWithJac for EquirectangularCameraModel {
         let phi = fns::atan2(-v, horizontal);
 
         // COLMAP's `1.0 / (2.0 * EIGEN_PI)` and `1.0 / EIGEN_PI` round to these same doubles
-        // (docs/CPP_DIVERGENCES.md, entry 102).
+        // on every platform, even where `long double` is wider (`jacobian.rs` header).
         const INV_2_PI: f64 = 1.0 / (2.0 * PI);
         const INV_PI: f64 = 1.0 / PI;
 

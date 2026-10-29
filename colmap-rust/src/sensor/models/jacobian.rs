@@ -7,10 +7,25 @@
 //!
 //! Jacobians are row-major 2xN arrays, as COLMAP's `double*` outputs are; C++'s `nullptr`
 //! ("skip this Jacobian") is `None`. Every expression keeps COLMAP's operation order, so a
-//! kernel rounds like the C++ up to libm and FMA contraction (docs/CPP_DIVERGENCES.md, entry
-//! 102). Against `ImgFromCam` on a Jet (automatic differentiation) the analytic Jacobians
-//! agree to COLMAP's 1e-10 (Tier B): they are different formulas for the same derivative.
+//! kernel rounds like the C++ up to libm and FMA contraction. Against `ImgFromCam` on a Jet
+//! (automatic differentiation) the analytic Jacobians agree to COLMAP's 1e-10 (Tier B): they
+//! are different formulas for the same derivative.
 //! Tests: `src/sensor/models/jacobian_tests.rs` (`models_jacobian_test.cc` 1:1).
+//!
+//! Deliberate divergence: the kernels and `camera_model_img_from_cam_with_jac` evaluate every
+//! multiply-add unfused, and the fisheye, FOV and EQUIRECTANGULAR kernels call
+//! `atan`/`tan`/`atan2` through [`crate::math::fns`] (the `libm` crate), so a clang build with
+//! contraction on (the pycolmap macOS wheel) can differ in the last bits of the pixel and of
+//! the Jacobian entries. The causes are those of the models themselves (the FMA divergence in
+//! the `sensor/models/mod.rs` header and the `math/fns.rs` header): no FMA in math paths, and
+//! transcendentals that agree bit for bit natively and on wasm. EQUIRECTANGULAR's
+//! `kInv2Pi = 1.0 / (2.0 * EIGEN_PI)` and `kInvPi` are `long double` expressions in C++;
+//! computed from `f64` pi here, they round to the same doubles on every platform (checked at
+//! 64-bit and 113-bit `long double` mantissas), so they are not a source of difference. The
+//! unit tests check every kernel against `ImgFromCam` differentiated with the Jet to COLMAP's
+//! 1e-10, and the dispatch against the typed kernel. pycolmap exposes these kernels only inside
+//! its essential-matrix estimators (through `Camera::CamRayFromImgWithJac`), so there is no
+//! oracle fixture for them.
 
 use crate::math::fns;
 

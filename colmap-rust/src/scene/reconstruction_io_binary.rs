@@ -11,7 +11,8 @@
 //! registration order, as `RegImageIds`).
 //!
 //! Translation notes:
-//! - A stream that ends early is an error here; COLMAP reads unspecified values (entry 61).
+//! - A stream that ends early is an error here; COLMAP reads unspecified values
+//!   (`util/endian.rs` header).
 //! - A sensor type or camera model number that names no enumerator, and an image name that
 //!   is not UTF-8, are errors (a Rust enum or `String` cannot hold them; entry 241).
 //! - Widths and heights are `u64` in the file and `usize` in [`crate::scene::camera::Camera`];

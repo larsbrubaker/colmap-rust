@@ -12,8 +12,8 @@
 //!   keeps each overload's own arithmetic (`Rigid3d * point` vs. `matrix * point.homogeneous()`).
 //! - The angular-error overload taking a normalized camera ray instead of an image point
 //!   is [`calculate_angular_reprojection_error_from_ray`].
-//! - These run per point, so an unknown camera model panics (docs/CPP_DIVERGENCES.md
-//!   entry 101).
+//! - These run per point, so an unknown camera model panics (the per-point side of the
+//!   split in the `sensor/models/dispatch.rs` header).
 
 use crate::geometry::rigid3::Rigid3d;
 use crate::linalg::{Matrix3x4d, Vector2d, Vector3d};

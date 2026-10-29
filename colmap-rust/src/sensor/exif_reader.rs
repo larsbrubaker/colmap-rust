@@ -20,7 +20,16 @@
 //! Malformed input never panics: an entry that points outside the block, has an unexpected
 //! type or count, or a rational with a zero denominator is skipped. EXIF allows n/0 (cameras
 //! write 0/0 for "unknown"); OIIO most likely stores the float quotient (inf or NaN), while
-//! this reader leaves the attribute unset (`docs/CPP_DIVERGENCES.md`, entry 122).
+//! this reader leaves the attribute unset.
+//!
+//! That is a deliberate divergence for FocalLength, FocalPlaneXResolution,
+//! GPSLatitude/Longitude and GPSAltitude: an inf/NaN focal length or GPS coordinate carries no
+//! information, and cameras write 0/0 to mean "unknown", so "absent" is the faithful reading.
+//! It is visible only through the getters: `exif_latitude` / `exif_longitude` /
+//! `exif_altitude` return `None` where COLMAP could return NaN or inf, and
+//! `exif_focal_length` returns `None` (or a later fallback's value) where COLMAP could return
+//! inf or NaN from a zero-denominator FocalLength. Not verified against OIIO: no oracle fixture
+//! carries a zero-denominator tag. Same as colmap-sharp entry 10.
 
 use super::bitmap::{Bitmap, MetaDataValue};
 

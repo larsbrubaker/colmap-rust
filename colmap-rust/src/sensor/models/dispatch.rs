@@ -12,10 +12,33 @@
 //! index groups, num params, verify, has-bogus) return `Err` with
 //! [`ErrorKind::DomainError`] and COLMAP's message. The per-point functions (projection,
 //! unprojection, threshold, rescale, the kind predicates) stay infallible and panic with the
-//! same message on `Invalid`: callers must hold a verified model id
-//! (docs/CPP_DIVERGENCES.md, entry 101). The functions COLMAP does not throw from
-//! (`ExistsCameraModelWithId`, `CameraModelIdToName`, `CameraModelNameToId`,
-//! `CameraModelIsPerspectiveFisheye`) answer for `Invalid` instead.
+//! same message on `Invalid`: callers must hold a verified model id. The functions COLMAP
+//! does not throw from (`ExistsCameraModelWithId`, `CameraModelIdToName`,
+//! `CameraModelNameToId`, `CameraModelIsPerspectiveFisheye`) answer for `Invalid` instead.
+//!
+//! That split is a deliberate divergence: COLMAP throws from every dispatch function. A
+//! misspelled model in a user's `cameras.txt` reaches the boundary functions (COLMAP's text
+//! reader, `scene/reconstruction_io_text.cc` around line 140, calls `CameraModelNumParams` /
+//! `CameraModelVerifyParams` on the looked-up id without an existence check, and
+//! `camera_test.cc` expects `VerifyParams` on a default `Camera` to throw), and it must be a
+//! recoverable error (in the web app a panic would abort the app), so those return `Result`.
+//! The per-point functions run once per point in every projection, residual and undistortion
+//! loop, where a `Result` would cost every caller for a condition that cannot occur once the
+//! camera is validated, so they keep a panic: an internal invariant, where CLAUDE.md's error
+//! rule allows one. A C++ enum class can also hold any integer
+//! (`static_cast<CameraModelId>(123456789)`); a Rust [`CameraModelId`] holds only named
+//! enumerators, so a raw value is checked once, at [`CameraModelId::from_i32`], which returns
+//! `None` for an unnamed value. `scene/camera.rs` applies the same split to `Camera`'s
+//! methods.
+//!
+//! The obligation this puts on the rest of the crate: every path that creates a camera from
+//! outside data validates the id through the fallible functions before any per-point call.
+//! The camera readers (text, binary, database) propagate the `DomainError`; nothing calls a
+//! per-point function on an unverified camera. `tests/sensor/models.rs` ports `models_test.cc`
+//! 1:1 (including the `ExistsCameraModelWithId(static_cast<CameraModelId>(123456789))` check
+//! through `from_i32`), and `tests/sensor/rust_only_models.rs` checks that every boundary
+//! function returns `Err(DomainError, "Camera model does not exist")` for `Invalid` and that
+//! projection and unprojection panic with that message.
 //!
 //! [`camera_model_img_from_cam_with_jac`] dispatches to the analytic per-model kernels of
 //! `models_jacobian.h` (`jacobian*.rs`); binding `M` to a model without
@@ -243,7 +266,7 @@ pub fn camera_model_num_params(model_id: CameraModelId) -> Result<usize> {
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_rescale(
     model_id: CameraModelId,
     scale_x: f64,
@@ -297,7 +320,7 @@ pub fn camera_model_has_bogus_params(
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_img_from_cam(
     model_id: CameraModelId,
     params: &[f64],
@@ -327,7 +350,7 @@ pub fn camera_model_img_from_cam(
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_img_from_cam_with_jac(
     model_id: CameraModelId,
     params: &[f64],
@@ -366,7 +389,7 @@ pub fn camera_model_img_from_cam_with_jac(
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_cam_from_img(
     model_id: CameraModelId,
     params: &[f64],
@@ -385,7 +408,7 @@ pub fn camera_model_cam_from_img(
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_cam_ray_from_img(
     model_id: CameraModelId,
     params: &[f64],
@@ -411,7 +434,7 @@ pub fn camera_model_cam_ray_from_img(
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_cam_from_img_threshold(
     model_id: CameraModelId,
     params: &[f64],
@@ -433,7 +456,7 @@ pub fn camera_model_is_perspective_fisheye(model_id: CameraModelId) -> bool {
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_is_perspective(model_id: CameraModelId) -> bool {
     dispatch!(model_id, M => M::KIND != CameraModelKind::Spherical)
 }
@@ -444,7 +467,7 @@ pub fn camera_model_is_perspective(model_id: CameraModelId) -> bool {
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_is_perspective_pinhole(model_id: CameraModelId) -> bool {
     dispatch!(model_id, M => M::KIND == CameraModelKind::PerspectivePinhole)
 }
@@ -454,7 +477,7 @@ pub fn camera_model_is_perspective_pinhole(model_id: CameraModelId) -> bool {
 /// # Panics
 ///
 /// On `CameraModelId::Invalid` ("Camera model does not exist"): callers must hold a
-/// verified model id (docs/CPP_DIVERGENCES.md, entry 101).
+/// verified model id (see this module's header).
 pub fn camera_model_is_spherical(model_id: CameraModelId) -> bool {
     dispatch!(model_id, M => M::KIND == CameraModelKind::Spherical)
 }

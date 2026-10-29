@@ -16,8 +16,9 @@
 //   bit.
 // - Everything else within 2e-14 * max(1, |expected|): the macOS arm64 pycolmap wheel fuses
 //   single-statement multiply-adds (f * x + c1, u*u + v*v) into FMAs, which colmap-rust never
-//   does (docs/CPP_DIVERGENCES.md, entry 100), and the models that call sin/cos/tan/atan go
-//   through the libm crate rather than Apple libm (`math::fns`). colmap-sharp also holds
+//   does (the FMA divergence in the `sensor/models/mod.rs` header), and the models that call
+//   sin/cos/tan/atan go through the libm crate rather than Apple libm (`math::fns`).
+//   colmap-sharp also holds
 //   EQUIRECTANGULAR bit-exact because .NET calls the platform libm; here its trigonometry is
 //   libm's, so it is in the tolerance set.
 

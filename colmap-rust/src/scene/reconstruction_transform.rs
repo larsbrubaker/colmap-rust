@@ -6,9 +6,10 @@
 //! `Scene/Reconstruction.Queries.cs` (the same methods).
 //! Tests: `tests/scene/reconstruction_transform.rs` (`reconstruction_test.cc` 1:1).
 //!
-//! Tier A: plain IEEE in COLMAP's order, except the centroid's summation order (entry 81)
-//! and `Transform`'s rotation of vectors (`q * v`: `Quaterniond`'s `Mul<Vector3d>` in
-//! `linalg/quaternion.rs`, and entry 80).
+//! Tier A: plain IEEE in COLMAP's order, except the centroid's summation order (the sort
+//! that replaces `std::nth_element`, `geometry/normalization.rs` header) and `Transform`'s
+//! rotation of vectors (`q * v`: `Quaterniond`'s `Mul<Vector3d>` in `linalg/quaternion.rs`,
+//! and the FMA divergence in the `geometry/rigid3.rs` header).
 //!
 //! Translation notes: COLMAP's default arguments are the `DEFAULT_*` constants below; Rust
 //! has none, so every caller passes them. Points are visited in ascending id order (entry

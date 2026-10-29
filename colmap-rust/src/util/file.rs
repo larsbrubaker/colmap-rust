@@ -14,7 +14,19 @@
 //! extension starts at the file name's last '.', except that a name whose only '.' is its
 //! first character (a dot file), "." and ".." have none. Only '/' separates path
 //! components, as for `std::filesystem::path` on POSIX; COLMAP on Windows also splits at
-//! '\\', so hosts must pass '/'-normalized names. `docs/CPP_DIVERGENCES.md` entry 63.
+//! '\\', so hosts must pass '/'-normalized names.
+//!
+//! That is a deliberate divergence: COLMAP's `HasFileExtension` takes a
+//! `std::filesystem::path`, whose file name on Windows also ends at '\\'. Here
+//! [`has_file_extension`] works on path strings and treats only '/' as a separator, on every
+//! platform. So for the Windows-style name `dir\.jpg`, `has_file_extension(.., ".jpg")` is
+//! true here (the whole string is the file name, and its last '.' is not its first
+//! character), where COLMAP on Windows sees the dot file `.jpg`, which has no extension, and
+//! returns false. [`split_file_extension`] matches COLMAP everywhere (COLMAP splits that one
+//! at '.' only). The core crate has no file system and must give the same answer natively and
+//! in the browser, so it cannot depend on the host platform's separator rules; on
+//! '/'-normalized names the two agree. The ported `file_test.cc` cases pass 1:1, and
+//! `rust_only_has_file_extension_edge_cases` pins the '/' rules.
 
 use std::fs::File;
 use std::io::{BufReader, BufWriter};

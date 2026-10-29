@@ -170,9 +170,10 @@ def main():
 
 
 def print_contraction_evidence(fixture):
-    """Evidence for docs/CPP_DIVERGENCES.md entry 100: the wheel's last-ulp
-    differences from colmap-rust are FMA contraction. Re-derive two outputs with
-    colmap-rust's plain formula and with the multiply-adds fused, and count matches."""
+    """Evidence for the FMA divergence in the colmap-rust/src/sensor/models/mod.rs
+    header: the wheel's last-ulp differences from colmap-rust are FMA contraction.
+    Re-derive two outputs with colmap-rust's plain formula and with the multiply-adds
+    fused, and count matches."""
     for case in fixture["cases"]:
         if case["model"] == "SIMPLE_RADIAL":
             f, c1, _, k = case["params"]

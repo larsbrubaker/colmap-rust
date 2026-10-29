@@ -17,9 +17,20 @@
 //! For noise-free correspondences of a plane, two of the four candidates are usually both
 //! physically valid: every point triangulates in front of both cameras with a reprojection
 //! sum at rounding level (~1e-16). `pose_from_homography_matrix` then picks between them by
-//! rounding, in COLMAP as here, so the two can disagree on such exact data
-//! (docs/CPP_DIVERGENCES.md entry 86); with any noise the choice is well defined and matches
-//! (the oracle test).
+//! rounding, in COLMAP as here, so the two can disagree on such exact data; with any noise
+//! the choice is well defined and matches.
+//!
+//! That is a deliberate divergence: `pose_from_homography_matrix` breaks the tie by the
+//! smaller angular reprojection sum, as COLMAP does, so which candidate it returns depends on
+//! last-bit rounding (our 3x3 inverse and products, our SVD's middle singular value, and
+//! `triangulate_mid_point`'s SVD: the `linalg/mod.rs` and `linalg/jacobi_svd.rs` headers).
+//! Reproducing Eigen's rounding exactly is not possible without porting Eigen; the tie is a
+//! property of the exact data, not of the algorithm. On 20 noisy scenes
+//! `rust_only_pose_from_homography_matrix_matches_pycolmap`
+//! (`tests/geometry/rust_only_two_view_oracle.rs`) agrees with pycolmap on the pose, normal and
+//! points within 1e-12 / 1e-11 / 1e-10 relative, and homography_matrix_test.cc passes 1:1,
+//! including the noise-free `pose_from_homography_matrix_nominal`. colmap-sharp documents the
+//! same behavior in its `Geometry/HomographyMatrix.cs` header and fixture generator.
 
 use super::rigid3::Rigid3d;
 use super::triangulation::triangulate_mid_point;

@@ -116,11 +116,20 @@ pub fn string_contains(s: &str, sub_str: &str) -> bool {
 /// allowing surrounding white space but nothing else, and errors with COLMAP's
 /// `THROW_CHECK` message (`"Failed to parse floating-point value: <str>"`) otherwise.
 ///
-/// COLMAP reads with `std::istringstream >> double`; this uses Rust's correctly rounded
-/// parser on the token, which agrees on decimal and exponent notation (the only forms
-/// COLMAP's writers produce). Spellings the two could treat differently are rejected here:
-/// `inf`/`nan` and hexadecimal floats, and values that overflow to infinity (libc++ sets
-/// `failbit` on `ERANGE`). `docs/CPP_DIVERGENCES.md` entry 60.
+/// Deliberate divergence: COLMAP reads with a classic-locale `std::istringstream >> double`;
+/// this parses the white-space-trimmed token with Rust's correctly rounded `f64::from_str`.
+/// Both accept decimal and exponent notation ("1", "-0.5", ".5", "1e-3") and reject words and
+/// trailing characters. Where they could disagree, this rejects: a token with any character
+/// outside `0-9 . e E + -` (so `inf`, `nan`, `infinity` and hexadecimal floats such as `0x1p3`
+/// fail), and a value that overflows to infinity (libc++ sets `failbit` on `ERANGE`).
+/// Underflow to a subnormal or zero is accepted, where libc++ may set `failbit`. Reproducing
+/// libc++'s `num_get` exactly would mean porting a C++ standard library for inputs COLMAP
+/// never writes: every string that reaches this parser in COLMAP's own formats is decimal
+/// output of its writers (`%g`-style or `precision(17)`), which both parsers read to the same,
+/// correctly rounded double. This also stands behind `CSVToVector<float/double>`.
+/// `tests/util/string.rs` (`string_to_double_nominal`, `string_to_double_locale_independence`,
+/// `rust_only_string_to_double_rejects`) and the `CSVToVector` cases of `tests/util/misc.rs`
+/// pass 1:1. Same as colmap-sharp entry 20.
 pub fn string_to_double(s: &str) -> Result<f64> {
     let value = parse_double_token(s);
     crate::check!(

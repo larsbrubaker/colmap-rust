@@ -5,12 +5,21 @@
 //! are `polynomial.rs` and `random_eigen.rs`. Tests: `colmap-rust/tests/math/matrix.rs`
 //! (`matrix_test.cc` 1:1).
 //!
-//! Tier B: the result goes through our Householder QR (`docs/CPP_DIVERGENCES.md` entry 53),
-//! so it matches COLMAP within the test's 1e-6 tolerance, not bit for bit. COLMAP's template
-//! takes any square Eigen matrix type; here there is a [`MatrixXd`] version and
-//! [`Matrix3d`] / [`Matrix4d`] versions. The `det(Q) > 0` test uses the determinant of the
-//! caller's type, as Eigen's template does: Laplace/cofactor expansion for the fixed sizes,
-//! partial-pivot LU for `MatrixXd`.
+//! Tier B, a deliberate divergence: COLMAP factors the flipped transpose with
+//! `Eigen::HouseholderQR`; this uses [`HouseholderQr`] (colmap-sharp's port, not Eigen's
+//! blocked implementation, because Eigen is MPL-2.0 and not ported), so R and Q can differ
+//! from COLMAP's in the last bits and match within the test's 1e-6 tolerance, not bit for bit.
+//! The algorithm around the QR (flips, zeroing loop, `det(Q) > 0` normalization) is COLMAP's.
+//! COLMAP's template takes any square Eigen matrix type; here there are three entry points,
+//! [`decompose_matrix_rq`] ([`MatrixXd`], `Err` unless square), [`decompose_matrix_rq_3d`]
+//! ([`Matrix3d`]) and [`decompose_matrix_rq_4d`] ([`Matrix4d`]). The `det(Q) > 0` test uses
+//! the determinant of the caller's type, as Eigen's template does: Laplace/cofactor expansion
+//! for the fixed sizes, partial-pivot LU for `MatrixXd`. `decompose_matrix_rq_nominal`
+//! (COLMAP's 1e-6 tolerances, upper-triangular and unitary at Eigen's default precision)
+//! passes 1:1, and `rust_only_decompose_matrix_rq_dynamic_and_3d`
+//! (`tests/math/rust_only_polynomial_matrix.rs`) covers 2x2/3x3/5x5 at 1e-9 and pins the 3x3
+//! entry point to the dynamic one bit for bit. Same as colmap-sharp (its
+//! `Mathematics/MatrixUtils.cs` header).
 
 use crate::check_eq;
 use crate::linalg::{HouseholderQr, Matrix3d, Matrix4d, MatrixXd};

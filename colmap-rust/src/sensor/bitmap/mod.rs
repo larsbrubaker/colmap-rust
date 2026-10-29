@@ -11,14 +11,17 @@
 //! Tests: `tests/sensor/bitmap.rs` (`bitmap_test.cc`; the file I/O cases are skipped, see
 //! `PORTING_PLAN.md`).
 //!
-//! No file decoding or encoding: COLMAP's `Read`/`Write` go through OpenImageIO, which is
-//! native and not ported (`docs/LICENSE_AUDIT.md`, `docs/CPP_DIVERGENCES.md` entry 124). The
-//! host decodes an image into [`Bitmap::row_major_data_mut`] and feeds its EXIF block to
+//! No file decoding or encoding, a deliberate divergence: COLMAP's `Read`/`Write` go through
+//! OpenImageIO, which is native and not ported (`docs/LICENSE_AUDIT.md`). The app hosts decode
+//! images (the browser through its own decoders), so the core takes pixel buffers: the host
+//! decodes an image into [`Bitmap::row_major_data_mut`] and feeds its EXIF block to
 //! [`super::exif_reader`], which fills the metadata the EXIF getters read under OpenImageIO's
-//! attribute names.
+//! attribute names. The metadata is a typed store that always exists rather than OIIO's
+//! `ImageSpec` behind a nullable pointer (`exif.rs` header). The file I/O cases of
+//! `bitmap_test.cc` are listed as skipped in `PORTING_PLAN.md`.
 //!
-//! Tier A (exact) for everything here except `Rescale` (`resize.rs`, entry 121). Translation
-//! notes:
+//! Tier A (exact) for everything here except `Rescale` (`resize.rs`, whose header says how it
+//! differs). Translation notes:
 //! - Dimensions stay C++ `int` (`i32`), since pixel coordinates can be negative.
 //! - The C++ copy constructor/assignment is [`Clone`]: a copy of an empty bitmap has no
 //!   metadata, like COLMAP's null `meta_data_`. C++ move construction/assignment, which leave
@@ -285,8 +288,9 @@ impl Bitmap {
     /// (`std::round`, half away from zero), or `None` outside the image.
     pub fn interpolate_nearest_neighbor(&self, x: f64, y: f64) -> Option<BitmapColor<u8>> {
         // `as i32` maps NaN to 0, which would return pixel (0, 0); a NaN point is outside the
-        // image (docs/CPP_DIVERGENCES.md, entry 123). Infinities and values beyond int range
-        // saturate and get_pixel rejects them.
+        // image, where COLMAP's cast of `std::round(x)` is undefined (see
+        // `interpolate_bilinear`). Infinities and values beyond int range saturate and
+        // get_pixel rejects them.
         if x.is_nan() || y.is_nan() {
             return None;
         }
@@ -299,7 +303,16 @@ impl Bitmap {
         // COLMAP's check is `x0 < 0 || x1 >= width_ || ...` on x0 = (int)floor(x),
         // x1 = x0 + 1. For finite x, floor(x) >= 0 <=> x >= 0 and floor(x) + 1 < width <=>
         // x < width - 1, so testing the doubles first is the same check; it also keeps points
-        // beyond int range and NaN out, where the C++ cast is undefined (entry 123).
+        // beyond int range and NaN out, where the C++ cast is undefined.
+        //
+        // That is a deliberate divergence for those points: Rust's `as i32` saturates and
+        // maps NaN to 0, so the literal translation would sample pixel (0, 0) for NaN, and
+        // `floor(x) = i32::MAX` would make `x1` overflow. On x86 COLMAP's cast yields
+        // `INT_MIN`, which its check rejects, so `None` is what COLMAP does there; on arm64
+        // COLMAP reads out of bounds. colmap-sharp found this through intermittent
+        // stereo-rectification failures (source points beyond int range for about 2.5% of
+        // PRNG seeds). Pinned by `rust_only_interpolate_far_outside_or_nan_returns_none`.
+        // Same as colmap-sharp entry 117.
         let in_range =
             x >= 0.0 && x < f64::from(self.width - 1) && y >= 0.0 && y < f64::from(self.height - 1);
         if !in_range {

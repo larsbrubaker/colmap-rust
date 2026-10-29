@@ -91,7 +91,8 @@ pub(crate) fn sensor_type_from_i32(value: i32) -> Result<SensorType> {
 /// re-exported here for the readers that import them with the stream helpers below.
 pub(crate) use crate::util::file::{open_read, open_write};
 
-/// A stream read or write that failed part-way (COLMAP's unchecked stream state; entry 61).
+/// A stream read or write that failed part-way (COLMAP's unchecked stream state; the
+/// `util/endian.rs` header).
 pub(crate) fn stream_error(error: std::io::Error) -> ColmapError {
     ColmapError::new(
         ErrorKind::RuntimeError,

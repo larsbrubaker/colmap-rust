@@ -1,7 +1,7 @@
 // Rust-only camera model tests (complement the 1:1 port in models.rs):
 // - the boundary functions return COLMAP's domain_error as `Err(DomainError)` for
 //   `CameraModelId::Invalid`, and the per-point functions panic with the same message
-//   (docs/CPP_DIVERGENCES.md, entry 101);
+//   (the split in the `sensor/models/dispatch.rs` header);
 // - `cam_ray_from_img_jacobian` against a hand-derived PINHOLE Jacobian. COLMAP tests it
 //   through models_jacobian_test.cc, ported as the unit tests in
 //   `src/sensor/models/jacobian_tests.rs`.

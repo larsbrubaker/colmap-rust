@@ -24,9 +24,20 @@
 //!   and the sign of t can differ from COLMAP. `pose_from_essential_matrix` therefore returns
 //!   COLMAP's pose whenever one candidate has strictly the most points in front of both
 //!   cameras; on a tie COLMAP keeps the last tied candidate in its order, which is
-//!   sign-dependent (docs/CPP_DIVERGENCES.md entry 85).
+//!   sign-dependent.
 //! - `epipole_from_essential_matrix` returns the null vector as the SVD gives it, so its
 //!   overall sign is arbitrary, as in COLMAP (an epipole is a homogeneous point).
+//!
+//! That is a deliberate divergence: the candidate order and the epipole's sign follow our
+//! SVD's signs, not Eigen's, so on a cheirality tie the pose, and the epipole's overall sign,
+//! can differ from COLMAP's. Eigen's JacobiSVD is not ported (MPL-2.0) and its sign
+//! convention is an implementation detail; COLMAP's contract is the relative pose with the
+//! most cheiral points and the epipole as a projective point, and both are kept.
+//! essential_matrix_test.cc passes 1:1 (`decompose_essential_matrix_nominal` accepts either
+//! rotation and either sign of t, as COLMAP's test does; `pose_from_essential_matrix_nominal`
+//! recovers the pose at 1e-12), and the pycolmap fixture `geometry_two_view.json` deliberately
+//! carries no epipoles. colmap-sharp documents the same behavior in its
+//! `Geometry/EssentialMatrix.cs` header.
 
 use super::pose::{check_cheirality, CamRayWithJac};
 use super::rigid3::{cross_product_matrix, Rigid3d};

@@ -4,9 +4,28 @@
 //! (gps_test.cc) and `tests/geometry/rust_only_transforms_oracle.rs`.
 //!
 //! Tier B against the pycolmap oracle (relative 1e-14, or 1e-8 m for coordinates in meters):
-//! the transcendentals go through [`crate::math::fns`], the
-//! macOS wheel fuses some multiply-adds this port does not (entry 80) and `utm_to_ellipsoid`'s
-//! latitude can be 1 ulp off (entry 83). The UTM zone is Tier A.
+//! the transcendentals go through [`crate::math::fns`], the macOS wheel fuses some
+//! multiply-adds this port does not, and `utm_to_ellipsoid`'s latitude can be 1 ulp off. The
+//! UTM zone is Tier A.
+//!
+//! Deliberate divergence, FMA contraction: the ellipsoid/ECEF/ENU/UTM conversions differ from
+//! the pycolmap 4.2.0 macOS arm64 wheel in the last bits, up to 9.3e-10 m on ECEF-scale
+//! coordinates, because the wheel fuses multiply-adds such as `N * (1 - e2) + alt` in
+//! `EllipsoidToECEF` and this port never does (the same cause as `Rigid3d`'s products,
+//! `geometry/rigid3.rs` header). colmap-sharp's `oracle/geometry_transforms.py` (copied here)
+//! shows that fusing that expression takes the `EllipsoidToECEF` z coordinate from 13/80 to
+//! 3/80 mismatches, while x and y (no multiply-add) match on every case.
+//! `tests/geometry/rust_only_transforms_oracle.rs` pins the coordinates at 1e-8 m and the
+//! angles at 1e-14 relative. Same as colmap-sharp entry 6.
+//!
+//! Deliberate divergence, [`GpsTransform::utm_to_ellipsoid`]: its latitude can be one ulp away
+//! from the same wheel (colmap-sharp sees 2 of 80 points of `geometry_transforms.json`, a gap
+//! of about 7e-15 degrees); longitude and altitude match. The cause is not established:
+//! colmap-sharp re-derived the conversion in Python with the platform libm and reproduced its
+//! (and our) result exactly, and fusing the series' multiply-adds did not remove the mismatch,
+//! so it is neither a port bug nor contraction. It is not emulated; the oracle test pins the
+//! latitude at 1e-14 relative in `rust_only_transforms_oracle_tolerance_fields`. Same as
+//! colmap-sharp entry 11.
 
 use crate::linalg::{Matrix3d, Vector3d};
 use crate::math::{deg_to_rad, fns, rad_to_deg};
@@ -262,8 +281,15 @@ impl GpsTransform {
     /// first such zone on ties, as `std::max_element`). 4th-order series expansion.
     ///
     /// Fails on a latitude outside [-90, 90] or a longitude outside [-180, 180], and on a
-    /// longitude of exactly 180, which maps to zone 61 (an out-of-bounds write in COLMAP;
-    /// docs/CPP_DIVERGENCES.md entry 82).
+    /// longitude of exactly 180.
+    ///
+    /// Deliberate divergence: COLMAP accepts longitude 180 (its range check is `lon <= 180`),
+    /// maps it to zone 61 and increments `zone_counts[60]` of a 60-element `std::array`, which
+    /// is undefined behavior. There is no defined COLMAP behavior to match, and the literal
+    /// translation would panic on the out-of-bounds index, so this returns a "Check failed"
+    /// error, keeping library code panic-free. Longitude -180 (zone 1) is unaffected.
+    /// colmap-sharp throws `IndexOutOfRangeException` in the same place. Pinned by
+    /// `rust_only_gps_utm_rejects_out_of_range_input` (`tests/geometry/gps.rs`).
     pub fn ellipsoid_to_utm(&self, lat_lon_alt: &[Vector3d]) -> Result<(Vec<Vector3d>, i32)> {
         // Reference:
         // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
