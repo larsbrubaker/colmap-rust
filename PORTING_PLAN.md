@@ -166,7 +166,7 @@ App: run BA on a loaded model with live cost plot and progress/cancel.
 Remaining:
 - The covariant extractor. On main: VLFeat's scale space, smoothing, gradients, the 2x2 SVD and
   Gaussian elimination, the raw descriptor, and `VlCovDet` (detector and shape), bit-exact against
-  colmap-sharp's VLFeat oracle (`covariant_sift_vlfeat.json`; one frame value 1 ulp off, entry 1).
+  colmap-sharp's VLFeat oracle (`covariant_sift_vlfeat.json`; one frame value 1 ulp off, see the `math::fns` header).
   Left: `CovariantSiftCPUFeatureExtractor` (`CovariantSift.cs`: `ComputeRawDescriptors`,
   `PooledMean` with `VlCovDetTests.CSharpOnly_PooledMeanAddsRowsInBlocksOfFour`,
   `CreateDescriptorFilter`, sort and truncation, the minimum-image-side guard; an interleaved
