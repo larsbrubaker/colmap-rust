@@ -52,7 +52,6 @@ regenerate fixtures). Agent worktrees live in `.claude/worktrees/`, so create th
 symlinks `.claude/worktrees/agg-gui`, `.claude/worktrees/agg-rust` and
 `.claude/worktrees/tess2-rust`, each pointing at the rust-apps checkout of the same name, or the
 app crates won't resolve.
-Divergence-log merges: keep both sides' entries in numeric order (entries are independent sections).
 After merging `THIRD_PARTY_NOTICES.md`, check the ```` ``` ```` fences are balanced.
 
 **Next slices** (start each from `main`):
@@ -114,35 +113,34 @@ Estimators with a C++ `Refine` implement `optim::LocalEstimator`; those without 
 `EstimateAsLocal`.
 
 ### Phase 7 — Nonlinear least squares (Ceres replacement)
-Port colmap-sharp's `Solver/` (Jets, residual blocks, manifolds, losses, LM trust region,
-Schur dense/sparse/iterative, summary) into `solver/`. Riskiest phase; Tier C against pycolmap BA.
-On main: the general `Jet<N>`, `Scalar` (f64 and Jets; the camera models use it), Ceres'
-rotation conversions, `CostFunction`, `AutoDiffCostFunction`, `TinySolverAutoDiffFunction`, the
-`sampson_error.h` functors, the small BLAS kernels (`Operation` enum, const-generic fixed
-kernels), `LinearOperator`, `SparseMatrix`/`DenseSparseMatrix`, the compressed-row block
-structure, `BlockSparseMatrix`, and the dense, sparse and diagonal `BlockRandomAccessMatrix`
-(cells resolved once to a `CellLocation`), Ceres' losses with the `Corrector`, the
-`Manifold` trait (Euclidean, Subset, Quaternion, EigenQuaternion, Sphere, Product; kept apart
-from the tiny-solver manifolds, whose math differs), the polynomial helpers, and the problem
-model: `Problem` owns parameter values in an arena and hands back ids (the `solver/problem.rs` header); cost
-functions, losses and manifolds are shared `Arc`s; `Problem::evaluate`, `Program`,
-`OrderedGroups`/`ParameterBlockOrdering` in Ceres' order (307), `BlockJacobianLayout` and a
-single-threaded `ProgramEvaluator`. `CostFunction` is not `Send + Sync` yet, so a `Problem` is
-built on the thread that solves it. Ceres 2.2.0's
-source is in `ceres-reference/` (`scripts/fetch-reference.sh`); `manifold_test.cc` and the other
-Ceres tests not yet ported can be checked there. Slices left, in dependency order:
-4. Basic linear solvers: SolverTypes, LinearSolvers, and Ceres' `evaluator_test.cc` (tests
-   ConjugateGradientsSolver, the LinearLeastSquaresProblems fixtures; colmap-sharp 18, 22).
-5. Schur: SchurOrdering, SchurEliminator (+ parallel), SchurComplementSolvers,
-   ImplicitSchurComplement, IterativeSchurSolver (tests SchurEliminator, SchurEliminatorParallel,
-   SchurComplementSolver, SchurDeterminism, ImplicitSchurComplement; colmap-sharp 35).
-6. The minimizer: trust region strategy, line search, minimizer, LeastSquaresSolver (tests
-   TrustRegionMinimizer, CeresExample, CeresProblem, BundleAdjustmentProblem).
-7. Refiners: `estimators/pose`'s `RefineAbsolutePose`, `RefineRelativePose`,
-   `RefineEssentialMatrix` (pose_test.cc's six refinement cases) and
-   `RefineGeneralizedAbsolutePose` (generalized_pose_test.cc's three), GradientChecker; and the
-   shared-focal refiner back on `TinySolverAutoDiffFunction` as COLMAP has it, retiring
-   the closed-form Jacobian on `TinyFocalSampsonErrorCostFunctor`.
+Port colmap-sharp's `Solver/` (Jets, residual blocks, manifolds, losses, LM trust region, Schur
+dense/sparse/iterative, summary) into `solver/`. Riskiest phase; Tier C against pycolmap BA. On
+main: the general `Jet<N>`, `Scalar` (f64 and Jets; the camera models use it), Ceres' rotation
+conversions, `CostFunction`, `AutoDiffCostFunction`, `TinySolverAutoDiffFunction`, the
+`sampson_error.h` functors, the small BLAS kernels (`Operation` enum, const-generic fixed kernels),
+`LinearOperator`, `SparseMatrix`/`DenseSparseMatrix`, the compressed-row block structure,
+`BlockSparseMatrix`, and the dense, sparse and diagonal `BlockRandomAccessMatrix` (cells resolved
+once to a `CellLocation`), Ceres' losses with the `Corrector`, the `Manifold` trait (Euclidean,
+Subset, Quaternion, EigenQuaternion, Sphere, Product; kept apart from the tiny-solver manifolds,
+whose math differs), the polynomial helpers, and the problem model: `Problem` owns parameter values
+in an arena and hands back ids (the `solver/problem.rs` header); cost functions, losses and
+manifolds are shared `Arc`s; `Problem::evaluate`, `Program`,
+`OrderedGroups`/`ParameterBlockOrdering` in id order (the `solver/ordered_groups.rs` header),
+`BlockJacobianLayout` and a single-threaded `ProgramEvaluator`. `CostFunction` is not `Send + Sync`
+yet, so a `Problem` is built on the thread that solves it. Ceres 2.2.0's source is in
+`ceres-reference/` (`scripts/fetch-reference.sh`); `manifold_test.cc` and the other Ceres tests not
+yet ported can be checked there. Slices left, in dependency order: 4. Basic linear solvers:
+SolverTypes, LinearSolvers, and Ceres' `evaluator_test.cc` (tests ConjugateGradientsSolver, the
+LinearLeastSquaresProblems fixtures; colmap-sharp 18, 22). 5. Schur: SchurOrdering, SchurEliminator
+(+ parallel), SchurComplementSolvers, ImplicitSchurComplement, IterativeSchurSolver (tests
+SchurEliminator, SchurEliminatorParallel, SchurComplementSolver, SchurDeterminism,
+ImplicitSchurComplement; colmap-sharp 35). 6. The minimizer: trust region strategy, line search,
+minimizer, LeastSquaresSolver (tests TrustRegionMinimizer, CeresExample, CeresProblem,
+BundleAdjustmentProblem). 7. Refiners: `estimators/pose`'s `RefineAbsolutePose`,
+`RefineRelativePose`, `RefineEssentialMatrix` (pose_test.cc's six refinement cases) and
+`RefineGeneralizedAbsolutePose` (generalized_pose_test.cc's three), GradientChecker; and the
+shared-focal refiner back on `TinySolverAutoDiffFunction` as COLMAP has it, retiring the
+closed-form Jacobian on `TinyFocalSampsonErrorCostFunctor`.
 
 And the Ceres estimators of Phase 6 (each also takes `PoseGraph`):
 - `global_positioning`: `GlobalPositioner` (Solve, SetupProblem, InitializeRandomPositions,
