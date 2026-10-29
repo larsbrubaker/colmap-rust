@@ -11,8 +11,16 @@
 //!   and [`ReconstructionManager::get_mut`] borrow one, and [`ReconstructionManager::set`]
 //!   swaps it.
 //! - `Get`'s `std::out_of_range` (`vector::at`) is an [`ErrorKind::OutOfRange`] error.
-//! - `Write` orders the models by point count with an index tie-break where COLMAP's
-//!   `std::sort` leaves ties unspecified (docs/CPP_DIVERGENCES.md entry 283).
+//! - `Write` orders the models by point count with an index tie-break, a deliberate
+//!   divergence. COLMAP's `Write` orders them with `std::sort` by descending `NumPoints3D` and
+//!   writes them to `0/`, `1/`, ..., leaving the order of equal counts unspecified; here the
+//!   sort is stable, so equal-sized models keep their manager order. The tie order decides
+//!   which folder a model lands in (CLAUDE.md's stable-sort rule). libc++'s `std::sort` uses
+//!   insertion sort for short ranges, which also keeps equal elements in order, so for the
+//!   handful of models a mapper produces the result is COLMAP's; only a long run of equal
+//!   counts could differ. Evidence: `tests/scene/rust_only_reconstruction_manager.rs`
+//!   `rust_only_write_orders_by_point_count_then_index` writes models with point counts 1, 2,
+//!   1, 2 and reads back sources 1, 3, 0, 2. Same as colmap-sharp entry 34.
 
 use std::path::Path;
 
@@ -98,11 +106,11 @@ impl ReconstructionManager {
 
     /// `Write(path)`: writes every reconstruction (binary) into the sub-folders "0", "1",
     /// ... of `path`, the one with the most 3D points first; equal counts keep their order
-    /// (entry 283). Each sub-folder is created if needed; `path` must exist.
+    /// (see the module header). Each sub-folder is created if needed; `path` must exist.
     pub fn write(&self, path: &Path) -> Result<()> {
         let mut order: Vec<usize> = (0..self.reconstructions.len()).collect();
         // std::sort by descending point count; the stable sort keeps equal counts in index
-        // order (entry 283).
+        // order (see the module header).
         order.sort_by(|&a, &b| {
             self.reconstructions[b]
                 .num_points3d()

@@ -10,8 +10,16 @@
 //! of two before the eigenvalues are taken, and the interpolation system is solved with
 //! full-pivoting LU at a zero threshold. The eigenvalues come from
 //! [`crate::linalg::EigenSolver`] and the LU from [`crate::linalg::FullPivLu`], both written
-//! from the published algorithms, so results are Tier B. The balancing's 1-norms are
-//! left-to-right sums (docs/CPP_DIVERGENCES.md, entry 305).
+//! from the published algorithms, so results are Tier B.
+//!
+//! The balancing's 1-norms are left-to-right sums in coefficient order, a deliberate
+//! divergence: `BalanceCompanionMatrix` takes them with Eigen's `lpNorm<1>()`, which may
+//! vectorize and reduce in packet lanes whose order depends on the target's SIMD width and the
+//! compiler. Eigen is MPL-2.0 and not ported (contract rule 2), there is no single order to
+//! match, and a sequential order gives the same bits on every target, native and wasm. Results
+//! can differ from COLMAP's Ceres in the last bits. Evidence: `tests/solver/ceres_polynomial.rs`
+//! (Ceres' `polynomial_test.cc`) passes at Ceres' own tolerances. Same as colmap-sharp entry
+//! 115.
 //!
 //! Polynomials are coefficient vectors, highest degree first.
 //!

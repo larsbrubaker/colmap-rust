@@ -23,8 +23,18 @@
 //!   octave's extremum scan and every 256 features of the suppression pass. The checks never
 //!   touch the numbers.
 //! - VLFeat's asserts (an image of at least 1x1, `detect` after `put_image`) are `Err`s; so
-//!   are an image too small for the octaves and an image buffer of the wrong length, where
-//!   VLFeat's behaviour is undefined (docs/CPP_DIVERGENCES.md entry 295).
+//!   are an image too small for the octaves and an image buffer of the wrong length, a
+//!   deliberate divergence. `put_image` rejects an image whose shorter side is below 16 pixels
+//!   with the default first octave (-1), or too small for the configured first octave, where
+//!   `vl_covdet_put_image` goes on: a 1-pixel side converts `log2(0) = -inf` to an integer,
+//!   and with a last octave below 0 `vl_scalespace_put_image` upsamples octave -1 from an
+//!   octave 0 the scale space never allocated (`scalespace.rs`'s `put_image` checks this).
+//!   VLFeat cannot check the buffer length at all. Its behaviour there is undefined
+//!   (out-of-bounds writes), so there is no result to match, and an error the caller can
+//!   report is the safe equivalent. COLMAP's covariant extractor never gets there: it rejects
+//!   such images first (colmap-sharp's `CovariantSift.cs` throws for a side below
+//!   `MinimumImageSide`), so no COLMAP result is lost. Evidence:
+//!   `tests/feature/rust_only_vl_covdet.rs` `rust_only_vl_covdet_rejects_bad_input`.
 //! - The feature buffer is a `Vec`; VLFeat's growth policy (1000 spare features) never reaches
 //!   an output.
 
@@ -202,7 +212,7 @@ impl VlCovDet {
     /// Port of `vl_covdet_put_image`: builds the Gaussian scale space of a row-major
     /// `width` x `height` float image, down to octaves of at least 16 pixels on the shorter
     /// side. `Err` for an empty image, a buffer of another size, or an image too small for
-    /// the octaves (entry 295).
+    /// the octaves (see the module header).
     pub fn put_image(
         &mut self,
         image: &[f32],

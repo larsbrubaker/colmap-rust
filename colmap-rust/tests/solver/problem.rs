@@ -1,9 +1,9 @@
 // Port of Ceres Solver 2.2.0's internal/ceres/problem_test.cc (BSD-3-Clause, see
 // THIRD_PARTY_NOTICES.md): `colmap_rust::solver::Problem` and `Problem::evaluate`, same names
 // and values. The problem owns its parameter values and names blocks by id where Ceres takes
-// the user's `double*` (divergence 306), so a test that adds "the same pointer" again uses the
-// id it got back, an "unknown pointer" is an id the problem never handed out, and every death
-// test becomes "returns Err". The ProblemEvaluateTest cases run every combination of residuals,
+// the user's `double*` (the `solver/problem.rs` header), so a test that adds "the same
+// pointer" again uses the id it got back, an "unknown pointer" is an id the problem never
+// handed out, and every death test becomes "returns Err". The ProblemEvaluateTest cases run every combination of residuals,
 // gradient and Jacobian (problem_evaluate.rs).
 //
 // Not ported, with the reason:

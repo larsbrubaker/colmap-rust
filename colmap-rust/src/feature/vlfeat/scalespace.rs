@@ -18,7 +18,7 @@
 //!   asserts of `vl_scalespace_get_default_geometry` are `Err`s; `vl_scalespace_get_level`'s
 //!   range asserts are panics (an internal invariant of the callers). `put_image` with a
 //!   negative first octave and no octave 0, where VLFeat writes out of bounds, is an `Err`
-//!   (docs/CPP_DIVERGENCES.md entry 295).
+//!   (the divergence in the `covdet.rs` header).
 //! - `vl_scalespacegeometry_is_equal` (which compares `octaveFirstSubdivision` against
 //!   `octaveLastSubdivision`, an upstream typo) is not ported: the covariant detector builds a
 //!   new scale space per image, so a scale space is never reused.

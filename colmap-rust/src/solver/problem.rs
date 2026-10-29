@@ -3,7 +3,7 @@
 //! (BSD-3-Clause, see THIRD_PARTY_NOTICES.md); colmap-sharp's `ColmapSharp/Solver/Problem.cs` is
 //! the C# form.
 //!
-//! Design (an API bundle adjustment and every refinement build on; divergence 306):
+//! Design (an API bundle adjustment and every refinement build on; a deliberate divergence):
 //! - Ceres keys a parameter block by the user's `double*` and reads and writes the user's memory.
 //!   Here the problem owns the values: [`Problem::add_parameter_block`] copies them into one
 //!   arena (`ProblemBlocks::values`, one allocation for every block) and returns a
@@ -11,9 +11,19 @@
 //!   and camera ids to them, where COLMAP asks `HasParameterBlock(ptr)`), reads the solution
 //!   back with [`Problem::parameter_block`] and writes it into its own objects. Blocks cannot
 //!   overlap, so Ceres' aliasing and same-pointer-different-size checks have nothing to check.
-//!   A `Problem` borrowing the caller's arrays instead would need every block borrowed mutably
-//!   at once for the problem's lifetime (impossible for COLMAP's shared camera blocks without
-//!   ids anyway) and would make every solver type generic over that lifetime.
+//!   Every other call that takes a `double*` in Ceres takes the id, and a message that prints
+//!   a block's pointer prints its id. Rust gives a block no stable address to key on without
+//!   `unsafe`, and a `Problem` borrowing the caller's arrays instead would need every block
+//!   borrowed mutably at once for the problem's lifetime (impossible for COLMAP's shared camera
+//!   and rig blocks without ids anyway) and would make every solver type generic over that
+//!   lifetime. Owning the values costs one copy in and one copy out per solve (Ceres copies
+//!   them into its state vector anyway).
+//! - `AddResidualBlock` does not add unknown blocks on the fly: a residual block names ids the
+//!   problem handed out, and an unknown id is an error.
+//! - `GetParameterBlocks` lists blocks in the order they were added, not in address order.
+//!   Insertion order is deterministic, where address order is an accident of the allocator; the
+//!   one COLMAP caller, `GetOtherParams` in `estimators/covariance.cc`, uses that order only to
+//!   lay out the factorization (same as colmap-sharp entry 53).
 //! - Cost functions, losses and manifolds are `Arc`s: a problem may share one among many
 //!   blocks, and between problems, as Ceres' `DO_NOT_TAKE_OWNERSHIP` allows (the only problem
 //!   option COLMAP sets). Ceres' other `Problem::Options` (fast removal, safety checks, the
@@ -21,7 +31,11 @@
 //!   `RemoveResidualBlock` / `RemoveParameterBlock` / `EvaluateResidualBlock`, which COLMAP
 //!   never calls.
 //! - Where Ceres `LOG(FATAL)`s or CHECK-fails (an unknown block, a size mismatch, duplicate
-//!   blocks), the port returns the error with Ceres' message.
+//!   blocks, a manifold of the wrong size), the port returns the error with Ceres' message.
+//!
+//! Evidence: `tests/solver/problem.rs` (Ceres' `problem_test.cc`, the cases that apply; the
+//! skipped ones are listed in its header with their reason) and `tests/solver/problem_evaluate.rs`
+//! (`ProblemEvaluateTest`, exact values) pass.
 //!
 //! The problem's [`Program`] (`program.rs`) lists every block in insertion order;
 //! `problem_evaluate.rs` holds [`Problem::evaluate`].
@@ -285,7 +299,7 @@ impl Problem {
     }
 
     /// Every parameter block, in the order they were added (Ceres lists them in address
-    /// order; divergence 306).
+    /// order; see the module header).
     pub fn get_parameter_blocks(&self) -> Vec<ParameterBlockId> {
         self.program.parameter_blocks.clone()
     }

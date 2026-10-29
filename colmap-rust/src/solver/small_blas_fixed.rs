@@ -10,8 +10,8 @@
 // with the operation (Rust never reassociates or contracts floating-point sums), so the
 // results are bit-identical to the naive loops of `small_blas.rs` (pinned by
 // `tests/solver/rust_only_small_blas_fixed.rs`). Ceres' own fixed-size path uses Eigen's
-// kernels, whose order may differ (docs/CPP_DIVERGENCES.md, entry 300), so matching the naive
-// loops is the contract.
+// kernels, whose order may differ (the divergence in the `small_blas.rs` header), so matching
+// the naive loops is the contract.
 //
 // The rows of B and of C are sliced once per call / per output row, so the inner loops index
 // within slices whose lengths the compiler knows. A shorter operand panics on that slicing,

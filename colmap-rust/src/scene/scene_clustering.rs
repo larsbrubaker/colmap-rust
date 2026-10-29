@@ -10,19 +10,68 @@
 //! and the order of the child clusters can differ.
 //!
 //! Translation notes:
-//! - Ties (entry 284). COLMAP sorts the overlap-candidate edges and each image's related
-//!   images by descending weight with `std::sort`, which leaves equal weights in an
-//!   unspecified order. Here equal weights keep their edge order (a stable sort).
-//! - The flat child-cluster sort (entry 290). COLMAP's comparator ("size >= other size and
-//!   min id < other min id") is not a strict weak ordering and dereferences `min_element` of
-//!   an empty cluster. Here children are ordered by what its comment says it intends:
-//!   descending size, then ascending smallest image id, with empty clusters last.
+//! - Ties, a deliberate divergence. `PartitionHierarchicalCluster` sorts the overlap-candidate
+//!   edges of each child by descending weight, and `PartitionFlatCluster` each image's related
+//!   images, with `std::sort`, which leaves equal weights in an unspecified order. Here equal
+//!   weights keep their edge order (a stable sort). When a weight tie straddles the overlap
+//!   budget, a different overlap image can be chosen. The translation rules require a
+//!   deterministic tie-break wherever tie order reaches an output, and edge order is what the
+//!   macOS SDK's libc++ `std::sort` gives for short lists: lengths 2-5 go through
+//!   `__sort3/4/5`, which never reorder equal elements under these `>` comparators; lengths
+//!   6-23 go through insertion sort, which is stable; lengths of 24 or more go through
+//!   pdqsort, which is not. So only a list of 24+ entries with tied weights can come out in
+//!   another order than COLMAP's; every such list in COLMAP's tests has at most 12 entries.
+//!   Reproducing pdqsort would tie the result to one library version. Evidence: all eight
+//!   `scene_clustering_test.cc` cases (`tests/scene/scene_clustering.rs`) pass. Same as
+//!   colmap-sharp entry 93 (which also covers the `scene/reconstruction_clustering.rs` ties).
+//! - The flat child-cluster sort, a deliberate divergence. COLMAP's comparator ("size >= other
+//!   size and min id < other min id") is not a strict weak ordering (`std::sort` then has
+//!   undefined behavior) and dereferences `min_element` of an empty cluster. Undefined behavior
+//!   cannot be ported, so children are ordered by what its comment says it intends: descending
+//!   size, then ascending smallest image id, with empty clusters last (stable among
+//!   themselves). Only the order of `root_cluster().child_clusters` / `leaf_clusters()` is
+//!   affected; each child's overlap images depend only on its own members. The orders do
+//!   differ in practice: with 3-5 children libc++'s `__sort3/4/5` only swap when the comparator
+//!   says so, so a child of size 2 with smallest id 1 stays ahead of a child of size 3 with
+//!   smallest id 5 (neither compares "less"), while here the larger child comes first. The flat
+//!   overlap loop also stops once `j` passes the child's longest related-image list, where
+//!   COLMAP keeps counting up to `num_image_matches` (a negative value, "no limit" as
+//!   `size_t`, would spin for 2^64 rounds); those rounds cannot add an image, so the result is
+//!   the same. Evidence: `tests/scene/rust_only_scene_clustering.rs`
+//!   `rust_only_flat_child_clusters_ordered_by_size_then_smallest_id` pins the order;
+//!   `scene_clustering_three_flat_clusters` and `_three_flat_clusters_two_overlap` (1:1,
+//!   order-insensitive as in COLMAP) pass. Same as colmap-sharp entry 94.
 //! - COLMAP's `image_t` -> `int` narrowing of the edge endpoints is kept (`as`, which wraps
 //!   as the C++ conversion does), so the graph cut sees the same vertex ids.
-//! - `Create`'s pair order (entry 291). COLMAP iterates a hash map of image pairs; here the
-//!   pairs are ordered by Boost.Unordered's `mulx` mix of the pair id (ported from Boost,
-//!   BSL-1.0, see THIRD_PARTY_NOTICES.md), modelling COLMAP's default Boost backend, so ties
-//!   do not all break toward low image ids.
+//! - `Create`'s pair order, a deliberate divergence. COLMAP builds the edge list by iterating
+//!   the `NodeHashMap` from `NumMatchesBetweenAllImages()`, so the edges come in hash order.
+//!   Here the order of COLMAP's default backend is modelled, the one CMake picks when Boost >=
+//!   1.84 is found (`cmake/FindDependencies.cmake`): `boost::unordered_node_map` with the
+//!   identity `std::hash<uint64_t>`. Boost marks that hash non-avalanching
+//!   (`hash_traits.hpp`), so its table mixes it with `mulx(h) = lo ^ hi` of
+//!   `h * 0x9E3779B97F4A7C15` (`detail/mulx.hpp`, ported under BSL-1.0, see
+//!   THIRD_PARTY_NOTICES.md), puts the key in group `mix >> size_index` and iterates groups in
+//!   ascending order. The pairs are ordered by that mixed value, then by pair id, instead of
+//!   the correspondence graph's ascending pair id. That is Boost's order up to the order of
+//!   keys sharing a group (Boost keeps insertion order within a group and moves overflow to
+//!   later groups), which depends on the table size and the insertion history.
+//!
+//!   Why: the edge order decides every weight tie, both the vertex numbering of the graph cut
+//!   (the `math/graph_cut_partitioner.rs` header) and which overlap images each child gets
+//!   (the Ties note above). COLMAP relies, without saying so, on that order being unrelated to
+//!   image ids. In ascending order every tie breaks toward the same few low image ids, and a
+//!   database numbers the images of one rig frame consecutively, so sibling clusters can
+//!   overlap in a single frame. A zero-baseline rig's images of one frame share a projection
+//!   center, so the two halves have too few distinct centers in common to estimate the
+//!   similarity that merges them (colmap-sharp's hierarchical pipeline test on a panoramic rig
+//!   ended with two reconstructions until this order). Modelling the default Boost backend
+//!   keeps that property, and most of the order, and stays deterministic.
+//!
+//!   Evidence (Tier C): `tests/scene/rust_only_scene_clustering.rs`
+//!   `rust_only_create_spreads_tied_overlap_across_frames` gets at least three shared frames
+//!   with the Boost order and fails with the ascending order (two shared frames, 1 and 11). The
+//!   ported `scene_clustering_test.cc` cases call `partition` directly and are unaffected. Same
+//!   as colmap-sharp entry 120.
 //! - The other hash containers COLMAP uses here (the `FlatHashSet` of a child's images, the
 //!   `NodeHashMap` of related images) are only looked up, never iterated in a way that
 //!   reaches an output.
@@ -185,7 +234,7 @@ impl SceneClustering {
     /// `Create(options, database_cache)`: partitions the scene graph of the cache's
     /// correspondence graph, with the number of matches between two images as the edge
     /// weight. Pairs are taken in the order of Boost's mixed hash of their pair ids,
-    /// modelling COLMAP's Boost hash map backend (entry 291).
+    /// modelling COLMAP's Boost hash map backend (see the module header).
     pub fn create(options: SceneClusteringOptions, database_cache: &DatabaseCache) -> Result<Self> {
         let mut num_matches_between_images = database_cache
             .correspondence_graph()
@@ -256,7 +305,7 @@ impl SceneClustering {
         // Add overlapping images between sibling clusters before partitioning.
         if self.options.image_overlap > 0 {
             for (i, candidates) in overlapping_edges.iter_mut().enumerate() {
-                // Descending weight; equal weights keep their edge order (entry 284).
+                // Descending weight; equal weights keep their edge order (module header, Ties).
                 candidates.sort_by_key(|edge| std::cmp::Reverse(edge.1));
 
                 let mut overlapping_image_ids = BTreeSet::new();
@@ -350,8 +399,8 @@ impl SceneClustering {
         }
 
         // Sort child clusters by descending size of images and secondarily by lowest image
-        // id; empty clusters last (entry 290). The sort is stable, so equal keys keep label
-        // order.
+        // id; empty clusters last (see the module header). The sort is stable, so equal keys
+        // keep label order.
         root_cluster.child_clusters.sort_by_key(|child| {
             (
                 std::cmp::Reverse(child.image_ids.len()),
@@ -378,7 +427,7 @@ impl SceneClustering {
         }
 
         // Sort related images by decreasing weights; equal weights keep their edge order
-        // (entry 284).
+        // (module header, Ties).
         for related in related_images.values_mut() {
             related.sort_by_key(|image| std::cmp::Reverse(image.1));
         }

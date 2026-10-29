@@ -26,8 +26,19 @@
 //! - The trait is object safe and `Send + Sync`, so a problem can hold `Box<dyn Manifold>`.
 //! - Ceres' compile-time `EuclideanManifold<N>` / `SphereManifold<N>` sizes are runtime sizes
 //!   (Ceres' `DYNAMIC` forms, which compute the same values).
-//! - Vector norms sum squares left to right (docs/CPP_DIVERGENCES.md, entry 305). Tier C, like
-//!   the solver that consumes them.
+//! - Vector norms sum squares left to right, a deliberate divergence. Ceres evaluates the
+//!   norms in its manifolds through Eigen (`delta.norm()`, `x.norm()`, and in
+//!   `sphere_manifold.rs` the Householder vector's `squaredNorm()` and dot product), which
+//!   Eigen may vectorize and reduce in packet lanes; here the squares are summed left to right
+//!   in coefficient order. The quaternion manifolds' norms are `std::hypot`'s three-argument
+//!   form, which is followed exactly (`math::fns::hypot3`). Results can differ from COLMAP's
+//!   Ceres in the last bits. Eigen is MPL-2.0 and not ported (contract rule 2), and its packet
+//!   order depends on the target's SIMD width and the compiler, so there is no single order to
+//!   match; a sequential order gives the same bits on every target, native and wasm. Tier C,
+//!   like the solver that consumes them. Evidence: `tests/solver/rust_only_manifold.rs`
+//!   (colmap-sharp's `ManifoldTests`, plus the sphere's poles) checks Plus/Minus round trips to
+//!   1e-12 and the Jacobians against finite differences to 1e-8. Same as colmap-sharp entry 115
+//!   (its `Solver/Manifolds.cs` part).
 //!
 //! Tests: `tests/solver/rust_only_manifold.rs` (colmap-sharp's C#-only `ManifoldTests`).
 

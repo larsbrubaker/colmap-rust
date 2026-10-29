@@ -10,14 +10,39 @@
 // Every matrix is row-major. Each output element is a sum over k in increasing order into a
 // temporary that starts at 0.0, then stored with the [`Operation`] (=, +=, -=), which is how
 // Ceres' naive kernels round. Ceres switches to Eigen's kernels when all sizes are
-// compile-time constants (its template specializations such as <2, 3, 6>), whose summation
-// order is Eigen's and may differ in the last bits (docs/CPP_DIVERGENCES.md, entry 300).
+// compile-time constants (its template specializations such as <2, 3, 6>, which the Schur
+// eliminator picks from the Jacobian's static block sizes), whose summation order is Eigen's.
+//
+// That is a deliberate divergence: every shape here rounds as the naive loops do, while
+// Eigen's fixed-size products may sum in another order (vectorized pairs), so results agree
+// with Ceres' to rounding, not bit for bit. Eigen is replaced rather than ported (CLAUDE.md
+// contract 2), and one summation order for every shape makes the Schur solvers' results
+// independent of which kernel a shape dispatches to, which the later determinism tests rely on.
+// Bundle adjustment is Tier C. Evidence: `tests/solver/rust_only_small_blas.rs` (Ceres'
+// `small_blas_test.cc` via colmap-sharp: every product, operation, stride and start offset
+// against MatrixXd within 5 * epsilon) and `tests/solver/rust_only_small_blas_fixed.rs` (the
+// fixed kernels give the naive loops' bits for every operation, with negative zeros and
+// strided, offset output blocks; reversing the fixed kernels' k order makes it fail). Same as
+// colmap-sharp entry 35 (item 2, the kernel part).
 //
 // `invert_upper_psd` is Ceres' InvertPSDMatrix with assume_full_rank = true for dynamic sizes:
 // selfadjointView<Upper>().llt().solve(Identity), a Cholesky factorization of the upper
 // triangle (Golub & Van Loan, "Matrix Computations", 4th ed., Algorithm 4.2.2, as in
 // `linalg/llt.rs`; Eigen is not ported) and two triangular solves per column of the identity.
-// A matrix that is not positive definite yields NaN (entry 301).
+// A matrix that is not positive definite yields NaN, a deliberate divergence: Eigen's LLT
+// stops there and the solve returns unspecified values, which cannot be reproduced without
+// porting Eigen and are garbage either way. `invert_upper_psd` (and `_in_place`, which
+// `BlockRandomAccessDiagonalMatrix::invert` uses for the SCHUR_JACOBI preconditioner, and which
+// the Schur eliminator will use for E'E) fills the whole inverse with NaN as soon as a Cholesky
+// pivot is not positive or is NaN. NaN makes the linear solve, and so the trust-region step,
+// invalid; the minimizer then rejects the step and shrinks the radius, which is what Ceres'
+// minimizer does when the garbage happens to be non-finite. Evidence:
+// `tests/solver/rust_only_sparse_matrix.rs`
+// `rust_only_invert_upper_psd_matches_llt_and_rejects_indefinite` (an indefinite 2x2 block
+// gives all NaN; an SPD block with garbage below the diagonal matches `linalg::Llt` within
+// 1e-12, in place bit-identical to out of place); the ported
+// `BlockRandomAccessDiagonalMatrixTest.Invert` checks the positive definite case at 1e-14.
+// Same as colmap-sharp entry 35 (item 5).
 //
 // Users: `block_sparse_matrix.rs` and the block random access matrices; later the Schur
 // eliminator and the implicit Schur complement. No kernel allocates.

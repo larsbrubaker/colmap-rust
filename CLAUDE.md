@@ -40,9 +40,11 @@ Explain the trade-offs, then defer once a decision is made.
 5. **Never weaken a test to make it pass.** Every failure is a real bug, found by
    instrumentation and root-cause analysis. For a ported test, COLMAP's expected value is the
    spec and the Rust output is the bug.
-6. **Deliberate divergence is documented.** Anything that behaves differently from COLMAP on
-   purpose gets a numbered entry in `docs/CPP_DIVERGENCES.md`: what differs, why, and the
-   evidence. Convenience is not a reason.
+6. **Deliberate divergence is documented at the code.** Anything that behaves differently from
+   COLMAP on purpose gets a comment at the code that differs (its header or doc comment): what
+   differs, why, and the evidence (the test that pins it), ending "Same as colmap-sharp entry
+   N." when colmap-sharp took the same divergence. Other places that depend on it name that
+   code. The commit message says so too. Convenience is not a reason.
 
 ## Two references
 
@@ -53,14 +55,15 @@ Explain the trade-offs, then defer once a decision is made.
   version colmap-sharp's `Solver/` follows. Read the Ceres source a colmap-sharp file cites before
   porting it, and port Ceres' own tests (`internal/ceres/*_test.cc`) where they cover what lands.
 - **colmap-sharp is the worked map.** Before porting a module, read colmap-sharp's port of it,
-  its tests and the `CPP_DIVERGENCES.md` entries that cite it: they record every trap already
-  found (tie orders, libc++ distribution details, hash iteration order, FMA contraction). For
-  the code colmap-sharp had to *write* because COLMAP's dependency is excluded or native
+  its tests and the entries of colmap-sharp's divergence list (in its `docs/`) that cite it:
+  they record every trap already found (tie orders, libc++ distribution details, hash
+  iteration order, FMA contraction). For the code colmap-sharp had to *write* because COLMAP's dependency is excluded or native
   (linear algebra, sparse Cholesky + AMD, the Ceres subset, Delaunay, the libc++ emulations,
   PatchMatch RNG, the WGSL PatchMatch kernels), port colmap-sharp's code to Rust — it is our own
   MIT code and already validated.
 - When the two disagree, COLMAP wins unless colmap-sharp documented a divergence; then take the
-  same divergence (full entry here, "Same as colmap-sharp entry N") or fix it and say why.
+  same divergence (a full note at the code here, ending "Same as colmap-sharp entry N.") or fix
+  it and say why.
 - A result that differs between colmap-rust and colmap-sharp on the same input is a bug in one
   of them. Find out which.
 
@@ -107,6 +110,9 @@ Plus the gates that run with net 1:
 - `file_compliance` (`colmap-rust/tests/file_compliance.rs`): every `.rs`, `.wgsl`, `.py`,
   `.sh`, `.ts` and `.js` file in the workspace has at most **800 non-empty lines**, starts
   with a header comment, and contains no merge-conflict markers. No exemptions, ever.
+- `markdown_placement` (`colmap-rust/tests/markdown_placement.rs`): no Markdown file outside
+  the places "Documentation" lists; untracked files count. It walks the same files as
+  `file_compliance` (`colmap-rust/tests/support/repo_walk.rs`).
 - `cargo build -p colmap-rust --target wasm32-unknown-unknown` must stay green.
 - `cargo clippy --workspace -- -D warnings`.
 
@@ -230,23 +236,35 @@ Don't work around it in colmap-app.
   frame (native: worker thread; web: chunked cooperative steps or a worker).
 - **Icons:** Font Awesome via Unicode code points, as in agg-gui.
 
-## Plans and progress docs
+## Documentation
 
-Docs are kept current, and they describe the present. Plan and progress documents
-(`PORTING_PLAN.md`, anything in `docs/` that tracks work) describe **open work only; history lives
-in git**.
+Documentation lives in the code: the header comment or doc comment of the file, module or
+function it describes, where whoever works on that code reads it. A rule that spans several files
+goes in the header of the crate or module that owns it (its `lib.rs` or `mod.rs`), and the files
+it governs point there. A deliberate divergence from COLMAP is a comment at the code that differs
+(contract rule 6). There are no design docs.
 
-- Update a doc in the same change that makes it stale: the code, its header comments, `CLAUDE.md`,
-  `README.md` and `PORTING_PLAN.md` always agree with each other.
+Markdown outside the code is limited to `README.md`, `CLAUDE.md`, `PORTING_PLAN.md` (the plan for
+open work) and `THIRD_PARTY_NOTICES.md` at the root, `docs/LICENSE_AUDIT.md` (the legal record of
+which upstream code may be ported, kept like the notices), license files (such as
+`colmap-app/assets/fonts/font-awesome-LICENSE.md`) and `.claude/` (agent instructions and
+skills). `markdown_placement` refuses any other Markdown file.
+
+## Plans and progress
+
+Docs are kept current, and they describe the present. `PORTING_PLAN.md` describes **open work
+only; history lives in git**.
+
+- Update a doc in the same change that makes it stale: the code, its header and doc comments,
+  `CLAUDE.md`, `README.md`, `PORTING_PLAN.md` and `docs/LICENSE_AUDIT.md` always agree with each
+  other.
 - Prune as you go. Remove finished steps, stale findings and superseded decisions. Never append
   status updates, changelogs, commit hashes, or "how we got here" narrative; the commit message is
   where that goes.
-- Delete a plan doc in the change that completes its work, and remove a phase when it is done and
-  green.
-- A decision that must outlive the doc goes in a code comment where it applies, or in this file.
-- `docs/CPP_DIVERGENCES.md` and `docs/LICENSE_AUDIT.md` are reference docs, not progress docs. They
-  describe how the code is *now*: an entry is removed when its divergence is gone, never marked
-  "fixed".
+- Remove a phase when it is done and green.
+- A decision that must outlive the plan goes in a code comment where it applies, or in this file.
+- A divergence note describes how the code is *now*: it is removed when its divergence is gone,
+  never marked "fixed". `docs/LICENSE_AUDIT.md` likewise records the license decisions in force.
 - A doc's own status line can be stale. Check the code before trusting it.
 
 ## Commands
@@ -257,7 +275,7 @@ cargo build --workspace
 cargo test --workspace
 cargo test -p colmap-rust --test <module>            # one module's ported tests
 cargo test -p colmap-rust <name> -- --exact --nocapture
-cargo test -p colmap-rust --test file_compliance
+cargo test -p colmap-rust --test file_compliance --test markdown_placement
 cargo build -p colmap-rust --target wasm32-unknown-unknown
 cargo clippy --workspace -- -D warnings
 cargo run -p colmap-native                            # desktop app
@@ -293,10 +311,7 @@ Working conventions that every brief repeats:
   `scripts/fetch-reference.sh` and `oracle/setup.sh` first.
 - Implementers commit on their own branch and never push or edit `PORTING_PLAN.md`; they list
   what their change makes stale, and the orchestrator prunes the plan when it merges.
-- Divergence entry numbers are stable and never reused. Hand each concurrent implementer its own
-  range. Merge `docs/CPP_DIVERGENCES.md` entry by entry, then check no conflict marker is left
-  (`file_compliance` also rejects them).
-- Keep headers, comments and divergence entries true to the final code in the same commit.
+- Keep headers, doc comments and divergence notes true to the final code in the same commit.
 - Every phase that lands library capability also lands a way to see it in the app (a view,
   an overlay, a pipeline stage), with a headless UI test — that is how the web build tests the
   port "robustly online".

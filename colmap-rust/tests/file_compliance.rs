@@ -7,65 +7,24 @@
 //   (c) no merge-conflict markers — in every UTF-8 text file, Markdown included.
 //
 // No exemption list, ever: a file over the limit is split by responsibility (the
-// `file-size-refactoring` skill), never squeezed. Skipped trees are build output, VCS data
-// and third-party material that is not ours: target/ (only next to a Cargo.toml, i.e. Cargo's
-// build output at a crate or workspace root), .git/, cpp-reference/, oracle/.venv/,
-// node_modules/, web/pkg/, web/dist/, .claude/worktrees/.
+// `file-size-refactoring` skill), never squeezed. The files are those `support/repo_walk.rs`
+// walks (shared with `markdown_placement.rs`), whose header lists the skipped trees.
 //
 // A file with a checked source extension that cannot be read or is not UTF-8 fails the scan
 // rather than being skipped; other non-UTF-8 files (images, fonts) are binary and ignored.
 
+#[path = "support/repo_walk.rs"]
+mod repo_walk;
+
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use repo_walk::{is_skipped_dir, repo_files};
 
 const MAX_NON_EMPTY_LINES: usize = 800;
 const SOURCE_EXTENSIONS: [&str; 6] = ["rs", "wgsl", "py", "sh", "ts", "js"];
 const REFACTOR_HINT: &str =
     "Split each file by responsibility; see the `file-size-refactoring` skill. No exemptions.";
-
-fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("colmap-rust sits inside the workspace root")
-        .to_path_buf()
-}
-
-/// True for a directory (relative to the root, `/`-separated) that the walk skips.
-/// `beside_cargo_toml` says whether its parent directory holds a `Cargo.toml`: only then is a
-/// `target` directory Cargo's build output rather than a source directory that happens to be
-/// called `target`.
-fn is_skipped_dir(relative: &str, beside_cargo_toml: bool) -> bool {
-    let name = relative.rsplit('/').next().unwrap_or(relative);
-    (name == "target" && beside_cargo_toml)
-        || matches!(name, ".git" | "node_modules")
-        || matches!(
-            relative,
-            "cpp-reference" | "oracle/.venv" | "web/pkg" | "web/dist" | ".claude/worktrees"
-        )
-}
-
-fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
-    let entries = fs::read_dir(dir).unwrap_or_else(|e| panic!("read {}: {e}", dir.display()));
-    for entry in entries {
-        let path = entry.expect("directory entry").path();
-        let file_type = fs::symlink_metadata(&path).expect("metadata").file_type();
-        if file_type.is_dir() {
-            let beside_cargo_toml = dir.join("Cargo.toml").is_file();
-            if !is_skipped_dir(&relative(root, &path), beside_cargo_toml) {
-                collect_files(root, &path, out);
-            }
-        } else if file_type.is_file() {
-            out.push(path);
-        }
-    }
-}
-
-fn relative(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root)
-        .expect("under the root")
-        .to_string_lossy()
-        .replace('\\', "/")
-}
 
 fn extension(path: &Path) -> &str {
     path.extension().and_then(|e| e.to_str()).unwrap_or("")
@@ -116,14 +75,9 @@ fn load_text(ext: &str, bytes: std::io::Result<Vec<u8>>) -> Result<Option<String
 }
 
 fn scan() -> Scan {
-    let root = workspace_root();
-    let mut paths = Vec::new();
-    collect_files(&root, &root, &mut paths);
-    paths.sort();
     let mut files = Vec::new();
     let mut failures = Vec::new();
-    for p in paths {
-        let path = relative(&root, &p);
+    for (path, p) in repo_files() {
         match load_text(extension(&p), fs::read(&p)) {
             Ok(Some(text)) => files.push((path, text)),
             Ok(None) => {}
@@ -236,6 +190,8 @@ fn rust_only_compliance_rules_classify_examples() {
     assert!(is_skipped_dir("target", true));
     assert!(is_skipped_dir("web/node_modules", false));
     assert!(is_skipped_dir("oracle/.venv", false));
+    assert!(is_skipped_dir("ceres-reference", false));
+    assert!(is_skipped_dir("web/test-results", false));
     assert!(!is_skipped_dir("colmap-rust/src", true));
 }
 

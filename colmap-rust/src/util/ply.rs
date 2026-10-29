@@ -15,9 +15,9 @@
 //! against COLMAP's limit (2^32), and the vectors start at most `MAX_INITIAL_CAPACITY` large
 //! and grow with the data actually read (COLMAP reserves the declared count). A binary mesh
 //! whose texcoord lists are cut short fails with "Unexpected end of PLY file at face i", where
-//! COLMAP reads them unchecked (`docs/CPP_DIVERGENCES.md` entry 280). COLMAP's `LOG(WARNING)`s
-//! (an ignored non-vertex element, a malformed face count in `HasPlyMeshFaces`) are not
-//! emitted: the core has no logger.
+//! COLMAP reads them unchecked (the divergence in the `util/ply_mesh_read.rs` header). COLMAP's
+//! `LOG(WARNING)`s (an ignored non-vertex element, a malformed face count in
+//! `HasPlyMeshFaces`) are not emitted: the core has no logger.
 
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;

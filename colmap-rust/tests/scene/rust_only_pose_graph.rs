@@ -1,5 +1,5 @@
 // Rust-only checks of colmap_rust::scene::pose_graph::PoseGraph beyond pose_graph_test.cc:
-// the order of equally large frame components (docs/CPP_DIVERGENCES.md entry 282).
+// the order of equally large frame components (the `scene/pose_graph.rs` header).
 
 use std::collections::HashSet;
 

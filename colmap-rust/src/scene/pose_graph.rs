@@ -14,9 +14,23 @@
 //!   error; its `std::runtime_error` for a duplicate or missing pair is
 //!   [`ErrorKind::RuntimeError`].
 //! - The edges live in a `BTreeMap`, so they iterate in ascending pair id where COLMAP's
-//!   `NodeHashMap` has its hash order. The component functions walk the frames in ascending
-//!   id order and order equally large components by their smallest frame id
-//!   (docs/CPP_DIVERGENCES.md entry 282).
+//!   `NodeHashMap` has its hash order; no output of the pose graph itself depends on it.
+//! - Equally large frame components are ordered by their smallest frame id, a deliberate
+//!   divergence. `ConnectedFrameComponents` collects the frames of the valid edges in a
+//!   `FlatHashSet`, finds the components (whose order follows that set, see the
+//!   `math/connected_components.rs` header) and orders them with an unstable `std::sort` by
+//!   descending size, so the order of equally large components is unspecified;
+//!   `LargestConnectedFrameComponent` keeps the first strictly largest one in the same hash
+//!   order. Here `find_connected_components` gets the frames in ascending id order and the sort
+//!   is stable, so [`PoseGraph::largest_connected_frame_component`] returns the first of the
+//!   ordered components, and `connected_image_ids_for_frame_components` follows the same order.
+//!   The tie order decides which component global SfM treats as the largest, so it must be
+//!   deterministic (CLAUDE.md's stable-sort and hash-order rules); COLMAP relies on no
+//!   particular order (`pose_graph_test.cc` uses components of different sizes and compares
+//!   sets). Evidence: `tests/scene/pose_graph.rs` passes with COLMAP's expectations;
+//!   `tests/scene/rust_only_pose_graph.rs`
+//!   `rust_only_equal_size_components_ordered_by_smallest_frame_id` pins the tie order and that
+//!   the largest component equals the first one. Same as colmap-sharp entry 38.
 //! - `Load`'s `LOG(INFO)` edge count is dropped, like `LOG(INFO)` elsewhere in the library.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -272,7 +286,7 @@ impl PoseGraph {
     }
 
     /// `ConnectedFrameComponents`: the connected components as sets of frame ids, largest
-    /// first, equally large ones by smallest frame id (entry 282). With
+    /// first, equally large ones by smallest frame id (see the module header). With
     /// `filter_unregistered`, only edges between frames with a pose count.
     pub fn connected_frame_components(
         &self,
@@ -354,7 +368,7 @@ impl PoseGraph {
     // BuildFrameGraph (pose_graph.cc's anonymous namespace): the frames of the valid edges'
     // images, skipping edges with an unposed frame when filter_unregistered, and one frame
     // edge per image edge. COLMAP's node set is a FlatHashSet; here the nodes come in
-    // ascending id order so that the component order is reproducible (entry 282).
+    // ascending id order so that the component order is reproducible (see the module header).
     fn build_frame_graph(
         &self,
         reconstruction: &Reconstruction,

@@ -15,8 +15,19 @@
 //! - `ExtractColorsForAllImages` runs on one thread, so its per-point sums are accumulated in
 //!   registered-image order: COLMAP's result with `num_threads = 1` (with more threads COLMAP
 //!   sums per-thread partials in a scheduling-dependent order). Its `LOG(WARNING)` for an
-//!   unreadable image is not emitted (the core has no logger). `docs/CPP_DIVERGENCES.md`
-//!   entry 281 covers both.
+//!   unreadable image is not emitted (the core has no logger).
+//!
+//! Both extractor notes are deliberate divergences: image file decoding is not ported, so the
+//! host owns image I/O, natively and in the browser (as for `synthesize_images`, whose doc in
+//! `scene/synthetic_noise.rs` holds the same reasoning), and the core is single-threaded
+//! (CLAUDE.md, Threading). With more threads COLMAP adds the per-thread partial sums in a
+//! scheduling-dependent order, which can move a mean that lands near a rounding tie. COLMAP's
+//! `ExtractColorsForImage` returns `false` for an unreadable file and
+//! `ExtractColorsForAllImages` skips it with a log warning; `None` from `load_image` does the
+//! same. Evidence: `tests/scene/reconstruction_ply.rs`
+//! `reconstruction_extract_colors_for_all_images` (COLMAP's test, with the deleted image file
+//! as a missing map entry) and `tests/scene/rust_only_reconstruction_ply.rs`
+//! `rust_only_extract_colors_for_image_colors_black_points_only`.
 
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};

@@ -13,7 +13,14 @@
 //!   the maps are `BTreeMap`s). The one place it leaks is the id of clusters of equal size:
 //!   COLMAP sorts the clusters by size with `std::sort`, so equal-size clusters are numbered
 //!   in an unspecified (hash-map) order. Here they are numbered by ascending smallest frame
-//!   id (docs/CPP_DIVERGENCES.md entry 284).
+//!   id, a deliberate divergence: the translation rules require a deterministic tie-break
+//!   wherever tie order reaches an output, and reproducing absl's or Boost's hash order would
+//!   tie the result to one library version. Only equal-size clusters can get swapped ids.
+//!   Evidence: all nine `reconstruction_clustering_test.cc` cases
+//!   (`tests/scene/reconstruction_clustering.rs`) pass;
+//!   `tests/scene/rust_only_reconstruction_clustering.rs`
+//!   `rust_only_equal_size_clusters_numbered_by_smallest_frame_id` pins the numbering (and
+//!   fails when the tie-break is reversed). Same as colmap-sharp entry 93.
 //! - The result is a `BTreeMap` (COLMAP's `NodeHashMap`, whose order carries no meaning).
 //! - `ClusterReconstructionFrames` takes the reconstruction by `const` reference here; COLMAP's
 //!   non-const reference is never written through.
@@ -161,7 +168,7 @@ fn establish_strong_clusters(
     }
 
     // Sort by number of frames (largest first); equal sizes by ascending smallest frame id,
-    // where COLMAP's order is its hash map's (entry 284).
+    // where COLMAP's order is its hash map's (see the module header).
     let mut sorted_clusters: Vec<Vec<FrameId>> = root_to_nodes.into_values().collect();
     sorted_clusters.sort_by_key(|cluster_nodes| {
         (

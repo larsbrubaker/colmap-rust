@@ -1,6 +1,7 @@
 // Rust-only checks of colmap_rust::scene::reconstruction_clustering beyond
 // reconstruction_clustering_test.cc: equally large clusters are numbered by ascending smallest
-// frame id (docs/CPP_DIVERGENCES.md entry 284), and invalid options are rejected.
+// frame id (the `scene/reconstruction_clustering.rs` header), and invalid options are
+// rejected.
 
 use std::collections::{BTreeMap, HashSet};
 

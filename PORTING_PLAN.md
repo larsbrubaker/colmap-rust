@@ -124,7 +124,7 @@ structure, `BlockSparseMatrix`, and the dense, sparse and diagonal `BlockRandomA
 (cells resolved once to a `CellLocation`), Ceres' losses with the `Corrector`, the
 `Manifold` trait (Euclidean, Subset, Quaternion, EigenQuaternion, Sphere, Product; kept apart
 from the tiny-solver manifolds, whose math differs), the polynomial helpers, and the problem
-model: `Problem` owns parameter values in an arena and hands back ids (divergence 306); cost
+model: `Problem` owns parameter values in an arena and hands back ids (the `solver/problem.rs` header); cost
 functions, losses and manifolds are shared `Arc`s; `Problem::evaluate`, `Program`,
 `OrderedGroups`/`ParameterBlockOrdering` in Ceres' order (307), `BlockJacobianLayout` and a
 single-threaded `ProgramEvaluator`. `CostFunction` is not `Send + Sync` yet, so a `Problem` is

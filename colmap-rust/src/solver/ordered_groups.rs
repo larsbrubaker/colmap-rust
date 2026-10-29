@@ -6,9 +6,19 @@
 //! group 1, frame centers and rig cameras in group 2.
 //!
 //! Ceres keeps each group in a `std::set<double*>`, so a group's blocks come out in heap-address
-//! order. Here the elements are [`crate::solver::ParameterBlockId`]s, so a group's blocks come
-//! out in the order they were added to the problem (divergence 307). Groups are visited in
-//! increasing id order, as in Ceres.
+//! order, and the Schur solvers lay out the eliminated blocks (and the reduced camera system's
+//! columns) in that order. Here the elements are [`crate::solver::ParameterBlockId`]s, so a
+//! group's blocks come out in id order: the order they were added to the problem. That is a
+//! deliberate divergence. Groups are still visited in increasing id order, and every other
+//! rule (moving an element, `Reverse`'s numbering, the counts) is Ceres'. Address order is an
+//! accident of the allocator, so no run-to-run order exists to match; the ids make Ceres' own
+//! `std::set` rule deterministic. The effect on results is rounding-level (the order of
+//! additions into the reduced system), within the Tier C outcome bar. colmap-sharp keeps each
+//! group in the order its blocks were added to the group (its entry 36); id order is the same
+//! wherever a caller adds blocks to the problem and to the ordering in the same order, as
+//! COLMAP's `GlobalPositioner` does. Evidence: `tests/solver/ordered_groups.rs` (Ceres'
+//! `ordered_groups_test.cc`, unchanged values) passes; none of its cases depends on the order
+//! inside a group.
 
 use std::collections::{BTreeMap, BTreeSet};
 

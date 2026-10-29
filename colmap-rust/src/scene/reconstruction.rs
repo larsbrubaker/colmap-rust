@@ -2,8 +2,11 @@
 //! a reconstruction's rigs, cameras, frames, images and 3D points, with its accessors and the
 //! operations that add, delete, register and de-register them. Its queries, statistics,
 //! validity check and tear-down are in [`crate::scene::reconstruction_queries`], its bounds,
-//! normalization, transform and crop in [`crate::scene::reconstruction_transform`]. Port of
-//! colmap-sharp's `Scene/Reconstruction.cs`.
+//! normalization, transform and crop in [`crate::scene::reconstruction_transform`], its
+//! model-folder read and write in [`crate::scene::reconstruction_files`], `Load` and
+//! `TranscribeImageIdsToDatabase` in [`crate::scene::reconstruction_database`], and the PLY
+//! import/export, `ExtractColors*` and `CreateImageDirs` in
+//! [`crate::scene::reconstruction_ply`]. Port of colmap-sharp's `Scene/Reconstruction.cs`.
 //! Tests: `tests/scene/reconstruction.rs` and `tests/scene/reconstruction_queries.rs`
 //! (`reconstruction_test.cc` 1:1 for the ported methods) and
 //! `tests/scene/rust_only_reconstruction.rs`.
@@ -28,9 +31,6 @@
 //!   not rejected at the setter (there is no pointer to guard it); `is_valid` reports it, and
 //!   every owner-taking method of `Frame` / `Image` rejects the mismatched objects (the
 //!   id-change divergence below).
-//! - Not yet ported (later Phase 4 slices): `Load` (needs `DatabaseCache`),
-//!   `TranscribeImageIdsToDatabase` (needs `Database`), the PLY import/export,
-//!   `ExtractColors*` and `CreateImageDirs`.
 //!
 //! Deliberate divergence, iteration order: COLMAP keeps rigs, cameras, frames, images and 3D
 //! points in `NodeHashMap`s, whose iteration order is unspecified (it depends on the hash-map

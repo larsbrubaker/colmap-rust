@@ -1,7 +1,7 @@
 // Rust-only checks of colmap_rust::scene::reconstruction_manager beyond
 // reconstruction_manager_test.cc: Write/Read round trips through model folders, ordered by
-// point count with ties in index order (docs/CPP_DIVERGENCES.md entry 283), and the error
-// paths of Get, Set and Delete.
+// point count with ties in index order (the `scene/reconstruction_manager.rs` header), and the
+// error paths of Get, Set and Delete.
 
 use colmap_rust::linalg::{Vector3d, Vector3ub};
 use colmap_rust::scene::reconstruction::Reconstruction;

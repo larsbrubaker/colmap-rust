@@ -9,7 +9,8 @@
 //! The step goes through the Householder reflection that maps x to the last axis, so the
 //! tangent space is the first n - 1 coordinates there (Hartley and Zisserman's "homogeneous
 //! vector" update). COLMAP uses it with n = 3 for a unit-length relative translation. Norms and
-//! dot products are left-to-right sums (docs/CPP_DIVERGENCES.md, entry 305).
+//! dot products are left-to-right sums where Ceres goes through Eigen (the divergence in the
+//! `manifold.rs` header).
 //!
 //! Tests: `tests/solver/rust_only_manifold.rs`.
 

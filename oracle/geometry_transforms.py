@@ -141,7 +141,8 @@ def gps_case(rng, ellipsoid, center_lat, center_lon, spread):
 
 
 def print_fma_evidence(gps_cases):
-    # docs/CPP_DIVERGENCES.md, entry 6: EllipsoidToECEF's z = (N * (1 - e2) + alt) * sin_lat
+    # The FMA contraction divergence in the colmap-rust/src/geometry/gps.rs header (colmap-sharp's
+    # entry 6): EllipsoidToECEF's z = (N * (1 - e2) + alt) * sin_lat
     # re-derived without and with the multiply-add fused (math.fma, Python 3.13+), against
     # the wheel. x and y have no multiply-add and match without fusing.
     deg_to_rad = 0.0174532925199432954743716805978692718781530857086181640625

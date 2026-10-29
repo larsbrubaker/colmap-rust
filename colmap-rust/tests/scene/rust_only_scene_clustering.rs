@@ -1,6 +1,6 @@
 // Rust-only checks of colmap_rust::scene::scene_clustering beyond scene_clustering_test.cc:
-// the flat child order (docs/CPP_DIVERGENCES.md entry 290) and Create's pair order
-// (entry 291).
+// the flat child order and Create's pair order (both described in the
+// `scene/scene_clustering.rs` header).
 
 use std::collections::{BTreeSet, HashSet};
 

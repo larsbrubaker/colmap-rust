@@ -2,8 +2,24 @@
 //! `Util/Ply.Mesh.cs`): a triangle mesh, plain or textured (per-face UVs and a
 //! "comment TextureFile" header line), from a text or binary PLY stream. The types and the
 //! shared header/byte helpers are in [`super::ply`], which re-exports this reader; the
-//! conventions (Tier A, growth instead of reserving, entry 280) are described there.
+//! conventions (Tier A, growth instead of reserving) are described there.
 //! Tests: `tests/util/ply.rs`.
+//!
+//! A truncated binary mesh fails inside the texcoord lists, a deliberate divergence. COLMAP's
+//! `ReadPlyMesh` checks `file.good()` after every vertex, face count and face index it reads
+//! from a binary file, but not after a face's texcoord count or its six UVs. A file cut there
+//! leaves those values indeterminate: usually the count is not 6 and the read fails with
+//! "Expected 6 texture coordinates per triangular face", a cut inside a middle face's UVs fails
+//! at the next face, and a cut inside the last face's UVs loads the mesh with garbage UVs and no
+//! error. Here the count and every UV are checked, and all three cases fail with "Unexpected
+//! end of PLY file at face i" for the face whose texcoords are cut. This is the same robustness
+//! gap as a short binary stream (the `util/endian.rs` header): a half-written mesh must not load
+//! with garbage texture coordinates, and the error names the cause and the face. Well-formed
+//! files read identically. Evidence: ply.cc's unchecked `file.read` calls for `num_texcoords`
+//! and `uv`; `tests/util/rust_only_ply.rs` `rust_only_truncated_binary_texcoords_fail` cuts a
+//! one-face textured mesh before the texcoord count and after two of its six UVs (the last-face
+//! case); the ported `ply_test.cc` cases, which read complete files, pass unchanged. Same as
+//! colmap-sharp entry 113.
 
 use std::io::Read;
 use std::path::Path;
@@ -360,7 +376,7 @@ fn read_binary_body(
         ));
 
         if has_texcoord {
-            // COLMAP reads the count and the UVs unchecked; a cut file fails here (entry 280).
+            // COLMAP reads the count and the UVs unchecked; a cut file fails here (see the header).
             let count = file.read(1).map(|b| b[0]);
             crate::check!(count.is_some(), "Unexpected end of PLY file at face {}", i);
             crate::check_eq!(

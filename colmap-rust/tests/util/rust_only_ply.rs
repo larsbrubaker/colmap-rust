@@ -1,6 +1,6 @@
 // Rust-only tests of colmap_rust::util::ply: the exact bytes the text writer produces (Tier A,
 // the `%.6g` of a classic-locale ostream) and the truncated-texcoord check of
-// docs/CPP_DIVERGENCES.md entry 280, over in-memory streams.
+// the `util/ply_mesh_read.rs` header, over in-memory streams.
 
 use std::io::Cursor;
 
