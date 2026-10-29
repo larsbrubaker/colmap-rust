@@ -140,7 +140,9 @@ Plus the gates that run with net 1:
 - **Hash iteration order.** `std::collections::HashMap`/`HashSet` are randomly seeded; never
   iterate one where the order can reach an output. Use `BTreeMap`, a sorted `Vec`, an
   insertion-ordered map, or — where COLMAP's own order matters — the libc++ `unordered_map`
-  emulation (port of colmap-sharp's `LibcxxUnorderedMap`). Document which in a comment.
+  emulation. That emulation is not in this repository yet: it comes with Phase 12's
+  `poisson_meshing`, ported from colmap-sharp's `Util/LibcxxUnorderedMap.cs`. Document which
+  in a comment.
 - **Stable sorts.** `std::sort` is unstable; Rust's `sort_unstable*` differs from it among
   ties. Where tie order can reach an output, sort with an explicit tie-break (usually the
   index) and note it. `std::stable_sort` → `sort_by` (stable).
