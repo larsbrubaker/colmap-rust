@@ -8,10 +8,10 @@
 //!
 //! Tiers: [`evaluate_polynomial`] at a real point and the linear/quadratic roots are plain
 //! arithmetic in COLMAP's order, Tier A. The cubic goes through `cbrt`/`acos`/`cos`
-//! (`math::fns`, `docs/CPP_DIVERGENCES.md` entry 1), Durand-Kerner through complex division
-//! (Smith's algorithm, not libc++'s `logb`/`scalbn` scaling: entry 50), and the companion
-//! matrix through our `EigenSolver` (Francis QR, not Eigen's: entries 32 and 51), so those are
-//! Tier B; `polynomial_test.cc` compares them with tolerances.
+//! (`math::fns`), Durand-Kerner through complex division (Smith's algorithm, not libc++'s
+//! `logb`/`scalbn` scaling: docs/CPP_DIVERGENCES.md entry 50), and the companion matrix through
+//! our `EigenSolver` (Francis QR, not Eigen's: its header and entry 51), so those are Tier B;
+//! `polynomial_test.cc` compares them with tolerances.
 //!
 //! C++'s nullable `real`/`imag` output pointers become one returned [`PolynomialRoots`]
 //! (`None` where C++ returns `false`); see entry 52. `THROW_CHECK`s return `Err`.

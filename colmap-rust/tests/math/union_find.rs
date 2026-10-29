@@ -299,8 +299,8 @@ fn union_find_parents_group_by_root() {
     assert_eq!(groups[&uf.find(&10)].len(), 2);
 }
 
-// Rust-only: `parents()` lists elements in insertion order (docs/CPP_DIVERGENCES.md,
-// entry 42), and roots follow COLMAP's rule (root_x hangs under root_y).
+// Rust-only: `parents()` lists elements in insertion order (see
+// `math/connected_components.rs`), and roots follow COLMAP's rule (root_x hangs under root_y).
 #[test]
 fn rust_only_union_find_parents_in_insertion_order() {
     let mut uf = UnionFind::<i32>::new();

@@ -127,7 +127,7 @@ Plus the gates that run with net 1:
   f32 forms) always go through `colmap_rust::math::fns`, never the `f64`/`f32` methods. It is
   backed by the pure-Rust `libm` crate, which gives the same bits native and wasm (std's does
   not); the cost is 1-2 ulp differences from Apple libm, so Tier A oracle tests of code that
-  calls transcendentals may need a tolerance and cite `docs/CPP_DIVERGENCES.md` entry 1.
+  calls transcendentals may need a tolerance and cite the `math::fns` header (`math/fns.rs`).
   `tests/math/fns_probe.rs` pins the bits on every CI platform, natively and as a
   `wasm32-wasip1` build under wasmtime (`CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo test
   -p colmap-rust --target wasm32-wasip1 --test math`), so native == wasm is enforced.

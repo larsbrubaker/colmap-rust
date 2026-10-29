@@ -1,6 +1,7 @@
 // Rust-only (not COLMAP tests): ports of colmap-sharp's C#-only GraphCutCrossCheckTests,
 // MinSTGraphCutScalingTests and NormalizedMinGraphCutTests. The graph cuts are written from
-// their papers in place of Boost and METIS (docs/CPP_DIVERGENCES.md, entries 44-46), so
+// their papers in place of Boost and METIS (see the headers of `math/graph_cut.rs`,
+// `graph_cut_min_st.rs` and `graph_cut_partitioner.rs`), so
 // graph_cut_test.cc's tiny graphs (ported 1:1 in graph_cut.rs) are not enough to trust them:
 // these check Stoer-Wagner and MinSTGraphCut against exhaustive search, MinSTGraphCut and the
 // partitioner for linear work at scale, and the partitioner's outcome (Tier C) on larger

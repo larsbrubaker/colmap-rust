@@ -175,7 +175,7 @@ fn rust_only_from_two_vectors() {
 #[test]
 fn rust_only_from_two_vectors_opposite() {
     // Exactly and nearly opposite vectors take the half-turn branch (1 + c < 1e-8,
-    // docs/CPP_DIVERGENCES.md entry 4), which must still map the first direction onto the
+    // see `Quaterniond::from_two_vectors`), which must still map the first direction onto the
     // second to rounding accuracy and return a unit quaternion. Covers every choice of the
     // least-aligned coordinate axis and both sides of the threshold.
     let directions = [

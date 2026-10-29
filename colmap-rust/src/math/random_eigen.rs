@@ -16,7 +16,7 @@
 //! Tier A (exact): each coefficient is one `RandomUniformReal(-1, 1)` draw, taken in Eigen's
 //! linear index order (column-major for matrices, whatever the returned storage), so the
 //! same seed gives the same values as COLMAP. [`random_eigen_quaterniond`] goes through
-//! `sqrt`, `sin` and `cos` (`math::fns`, `docs/CPP_DIVERGENCES.md` entry 1).
+//! `sqrt`, `sin` and `cos` (`math::fns`).
 
 use super::fns;
 use super::random::{random_uniform_real, CanonicalFloat};

@@ -5,9 +5,9 @@
 //!
 //! Port of colmap-sharp's `MatrixXd.Arithmetic.cs` and `MatrixXd.Conversions.cs` (MIT). The
 //! type and its storage are in `matrix_x.rs`. Every product coefficient is a left-to-right sum
-//! over k seeded with the k = 0 term, no FMA (Tier B against Eigen's blocked kernels,
-//! docs/CPP_DIVERGENCES.md entry 20). Both sides of a conversion store column-major, so the
-//! conversions are plain buffer copies.
+//! over k seeded with the k = 0 term, no FMA (Tier B against Eigen's blocked kernels; the
+//! dynamic-size divergence in `linalg/mod.rs`). Both sides of a conversion store column-major,
+//! so the conversions are plain buffer copies.
 //! Tests: `colmap-rust/tests/linalg/rust_only_dynamic_matrix.rs`.
 
 use super::matrix_x::require_same_len;

@@ -6,8 +6,8 @@
 //! `Optim/LeastAbsoluteDeviations.cs`. Tests: `tests/optim/least_absolute_deviations.rs`
 //! (`least_absolute_deviations_test.cc` 1:1).
 //!
-//! Tier C: an iterative solver over a Tier B factorization (docs/CPP_DIVERGENCES.md, entry
-//! 33); COLMAP's tests check the converged solution within tolerances.
+//! Tier C: an iterative solver over a Tier B factorization (see the divergence in
+//! `optim/sparse_cholesky.rs`); COLMAP's tests check the converged solution within tolerances.
 //!
 //! Translation notes:
 //! - C++ keeps references to the caller's options and A; this port owns a copy of both. The

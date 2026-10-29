@@ -7,7 +7,7 @@
 //!
 //! Tier A (exact). Pixels and filter taps are float; the filter's mass accumulates in float from
 //! double taps, as the C's `T mass; mass += g + g` does. `exp` goes through
-//! [`crate::math::fns`] (docs/CPP_DIVERGENCES.md entry 1). The gradients are VLFeat's
+//! [`crate::math::fns`]. The gradients are VLFeat's
 //! per-pixel one-sided (border) / central (inside) differences; each output pixel depends only
 //! on its input neighbours, so the traversal is a plain double loop.
 //!

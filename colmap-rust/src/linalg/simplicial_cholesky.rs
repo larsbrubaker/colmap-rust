@@ -23,8 +23,9 @@
 //! Like Eigen's sparse Cholesky, only one triangle of the input is read (Lower by default).
 //! Failure follows Eigen's documented `info()` contract: LLT reports `NumericalIssue` at the
 //! first pivot <= 0; LDLT accepts negative pivots (indefinite matrices) and fails only on a
-//! pivot that is exactly zero. Tier B: same math, different operation order than Eigen
-//! (docs/CPP_DIVERGENCES.md, entry 33). Tests: `tests/linalg/rust_only_simplicial_cholesky.rs`.
+//! pivot that is exactly zero. Tier B: same math, different operation order than Eigen (see
+//! the sparse Cholesky divergence in `optim/sparse_cholesky.rs`). Tests:
+//! `tests/linalg/rust_only_simplicial_cholesky.rs`.
 
 use super::amd_ordering::amd_ordering_with_work;
 use super::{ComputationInfo, SparseMatrixCsc, SymmetricPart, VectorXd};

@@ -187,7 +187,7 @@ fn sparse_cholesky_with_fallback_solver_ill_conditioned_chain() {
 // colmap-sharp's C#-only test (no counterpart in sparse_cholesky_test.cc): once the solver
 // has fallen back to LDLT, a compute on a matrix with a different pattern must re-analyze the
 // LDLT stage too, not factorize the new values against the old pattern
-// (docs/CPP_DIVERGENCES.md, entry 33).
+// (see the translation notes in `optim/sparse_cholesky.rs`).
 #[test]
 fn rust_only_compute_new_pattern_after_fallback() {
     let indefinite = diagonal(&[1.0, 1.0, -1e-20]);

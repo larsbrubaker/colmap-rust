@@ -8,9 +8,31 @@
 //! so every function here is the pure-Rust `libm` crate's, which is the same code on every
 //! target.
 //!
-//! The cost is that results can differ from COLMAP/pycolmap on macOS (Apple libm) by 1-2 ulp:
-//! docs/CPP_DIVERGENCES.md, entry 1, which records the probe evidence. The guarantee is pinned
-//! by `tests/math/fns_probe.rs` against `tests/data/fns_probe_expected{,_f32}.txt`.
+//! Deliberate divergence from COLMAP: COLMAP calls `std::sin`, `std::exp`, `std::log`,
+//! `std::atan2`, `std::pow` and friends (and their `float` overloads), which resolve to the
+//! platform's C libm; the pycolmap oracle runs on macOS, so that is Apple libm. Results here can
+//! differ from COLMAP/pycolmap on macOS by 1-2 ulp for the same input. Apple libm is closed
+//! source and cannot be reproduced in pure Rust, so no backend could match the oracle bit for
+//! bit anyway; being identical across our own targets is the property we can have.
+//!
+//! Evidence: the probe `tests/math/fns_probe.rs` (7154 f64 probes of sin, cos, tan, asin, acos,
+//! atan, atan2, exp, log, log2, log10, pow, sqrt, cbrt, hypot; special values and seeded random
+//! inputs in COLMAP's ranges), run on macOS aarch64 and on a `wasm32-unknown-unknown` build
+//! under node:
+//! - std on wasm32 vs std on macOS (Apple libm): 490 differ (sin 10, cos 14, tan 101, asin 15,
+//!   acos 45, atan 17, atan2 126, exp 15, log 5, log2 2, log10 2, pow 30, cbrt 18, hypot 90;
+//!   sqrt 0), 1 ulp except tan (up to 2 ulp).
+//! - `libm` crate vs Apple libm: 435 differ (same pattern; hypot 35).
+//! - `libm` crate native aarch64 vs wasm32: 0 differ, for the f64 table and for the 8654-probe
+//!   f32 table (`sinf` ... `hypotf`).
+//!
+//! The probe tables (`tests/data/fns_probe_expected{,_f32}.txt`) pin the `libm` crate's bits;
+//! CI runs them on Linux, macOS and Windows, natively and as a `wasm32-wasip1` build.
+//!
+//! Consequence for tests: a Tier A oracle comparison of code that calls a transcendental
+//! (camera-model undistortion, SIFT's Gaussian weights, angle conversions) may need a tolerance
+//! of a few ulp instead of bit equality, and such a test cites this module where it states that
+//! tolerance. Code without transcendentals stays bit-exact.
 //!
 //! The f64 functions use Rust's names (`ln` is C's `log`); the f32 ones use C's `<math.h>`
 //! names (`sinf`, `logf`, ...), since that is how COLMAP's float code spells them.

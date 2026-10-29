@@ -9,7 +9,7 @@
 // Why it exists: std's transcendentals call the platform C libm natively (Apple libm, glibc,
 // UCRT) and compiler-builtins' musl port on wasm32, and differed (490 of 7154 f64 probes,
 // 1-2 ulp, wasm vs macOS). `math::fns` therefore uses the pure-Rust `libm` crate, which is
-// bit-identical native and wasm (docs/CPP_DIVERGENCES.md, entry 1).
+// bit-identical native and wasm (its header records this probe's evidence).
 //
 // The inputs are built from bits and basic arithmetic only, never from the functions under
 // test. Regenerate after changing the inputs or the backend:

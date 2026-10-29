@@ -1,6 +1,6 @@
 // Port of colmap/scene/scene_clustering_test.cc, 1:1 (same test names, graphs and expected
 // memberships), for colmap_rust::scene::scene_clustering::SceneClustering. Tier C (outcome):
-// the partitions come from our graph cut, not METIS (docs/CPP_DIVERGENCES.md entry 46), so,
+// the partitions come from our graph cut, not METIS (see `math/graph_cut_partitioner.rs`), so,
 // as in COLMAP's test, clusters compare as sets of image-id sets.
 
 use std::collections::BTreeSet;

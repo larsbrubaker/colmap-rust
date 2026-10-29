@@ -14,7 +14,7 @@
 //! - B (tolerance): the trigonometric pieces (the scale/orientation constructor,
 //!   `FromShapeParameters`, `ComputeOrientation`, `ComputeShear`, and so `KeypointsToMatrix`)
 //!   go through `math::fns`'s `sinf` / `cosf` / `atan2f`, which may differ from the platform
-//!   libm in the last ulp (docs/CPP_DIVERGENCES.md entry 1); `types_test.cc` compares them
+//!   libm in the last ulp (see that module's header); `types_test.cc` compares them
 //!   with a tolerance.
 //!
 //! Translation notes:

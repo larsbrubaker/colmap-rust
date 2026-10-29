@@ -10,9 +10,32 @@
 //! problem", Proc. AMS 7(1), 1956) with [`super::union_find`] as the disjoint-set forest.
 //!
 //! Tier A when the edge costs (after the max-weight negation below) are distinct: the
-//! minimum spanning tree is then unique, so the parents match COLMAP exactly. Among equal
-//! costs Boost's priority queue picks in heap order; here the earlier edge in the input wins.
-//! See docs/CPP_DIVERGENCES.md, entry 43.
+//! minimum spanning tree is then unique, so the parents match COLMAP exactly.
+//!
+//! Deliberate divergences, all deterministic where COLMAP's behavior is undefined or a heap
+//! detail:
+//! - Ties: edges are stably sorted by cost, so among equal costs the earlier input edge wins.
+//!   COLMAP's `boost::kruskal_minimum_spanning_tree` pops edges from a `std::priority_queue`,
+//!   so with tied weights the two can choose different (equally optimal) trees. The cost
+//!   transform itself (`max_weight - w` in `f32`, `max_weight` starting at 0) is kept, so the
+//!   same weights tie on both sides.
+//! - Input checks: the functions return a `Result`, and an edge endpoint outside
+//!   `0..num_nodes`, a root outside it, or `edges` and `weights` of different lengths fail a
+//!   check, where Boost's `add_edge` would grow the vertex set and COLMAP would then index past
+//!   its adjacency list (undefined behavior).
+//! - NaN weights: `max_weight` is computed as `std::max` does (`(a < b) ? b : a`), so a NaN
+//!   weight never becomes it, and a NaN weight gives a NaN cost. Costs are sorted with
+//!   [`nan_last_cmp`] (numbers by value, every NaN after every number, NaNs tied and kept in
+//!   input order), so NaN edges are taken only when they join components the numeric edges
+//!   left apart, in input order. COLMAP's priority queue with NaN keys violates its ordering
+//!   precondition, so its choice is undefined; the sort needs a total order so that NaN input
+//!   cannot make std's sort panic.
+//!
+//! Evidence: with distinct costs the parents match exactly (spanning_tree_test.cc 1:1);
+//! `rust_only_spanning_tree_ties_take_earlier_edge` and
+//! `rust_only_spanning_tree_rejects_out_of_range_input` pin the tie rule and the checks, and
+//! `rust_only_spanning_tree_with_nan_weights` (200 nodes, 20% NaN weights, and a triangle whose
+//! NaN edge loses both ways) the NaN rule. Same as colmap-sharp entry 3.
 
 use super::union_find::UnionFind;
 use super::utils::nan_last_cmp;
@@ -86,7 +109,7 @@ fn compute_spanning_tree(
     }
     // boost::add_edge on a vecS graph would silently grow the vertex set for an out-of-range
     // endpoint, and COLMAP then indexes past its adjacency list; fail with a check instead
-    // (entry 43).
+    // (see the module header).
     check!(edges.len() == weights.len());
     check!(root >= 0 && root < num_nodes);
 
@@ -115,7 +138,7 @@ fn compute_spanning_tree(
 
     // Kruskal: take edges by increasing cost, keeping each that joins two components. The
     // stable sort keeps input order among equal costs, and NaN costs sort after every number
-    // (entry 43).
+    // (see the module header).
     let mut order: Vec<usize> = (0..edges.len()).collect();
     order.sort_by(|&a, &b| nan_last_cmp(&costs[a], &costs[b]));
 

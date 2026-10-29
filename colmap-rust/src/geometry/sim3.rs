@@ -7,7 +7,8 @@
 //! Tiers: scale and rotation of composition and `inverse`, `to_matrix`, `from_matrix`,
 //! `Display` and `to_file`'s text are Tier A (bit-identical to the pycolmap oracle); applying
 //! the transform and the translations of composition and `inverse` rotate a vector with
-//! `q * v` and are Tier B (docs/CPP_DIVERGENCES.md entries 2 and 80).
+//! `q * v` and are Tier B (see `Quaterniond`'s `Mul<Vector3d>` in `linalg/quaternion.rs`;
+//! docs/CPP_DIVERGENCES.md entry 80).
 //!
 //! Translation notes: the parameters `[qx, qy, qz, qw, tx, ty, tz, s]` are public fields;
 //! `Default` is hand-written as the identity (COLMAP's default constructor); COLMAP's free

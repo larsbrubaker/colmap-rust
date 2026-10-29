@@ -7,7 +7,7 @@
 //
 // The fixture's "cases" come from a -ffp-contract=off build, the arithmetic colmap-rust
 // does. Its "contracted_cases" (Apple clang's default fused multiply-adds) are not asserted:
-// docs/CPP_DIVERGENCES.md, entry 40. The fixture is embedded with include_str! so the
+// see the FMA divergence in `math/random/mod.rs`. The fixture is embedded with include_str! so the
 // wasm32-wasip1 run needs no filesystem access.
 
 use colmap_rust::math::random::libcxx::{self, NormalDistribution};
@@ -20,7 +20,7 @@ const FIXTURE: &str = include_str!("../data/oracle/random.json");
 const SEEDS: [u32; 4] = [0, 1, 42, 4294967295];
 
 // The f64 Gaussian cases call `log`, which goes through `math::fns` (the `libm` crate) where
-// the harness calls Apple libm: docs/CPP_DIVERGENCES.md, entry 1. A last-ulp difference in
+// the harness calls Apple libm (see the `math::fns` header). A last-ulp difference in
 // log(s) moves the drawn value by a few ulp (the accept/reject sequence does not depend on
 // log, so the draws stay aligned). These cases are compared within this absolute tolerance;
 // every other case, including the f32 Gaussians (`logf` agrees on these inputs), is

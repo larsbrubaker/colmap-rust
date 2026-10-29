@@ -6,7 +6,8 @@
 //!
 //! Tier B for products: Eigen evaluates a 6x6 product with its vectorized kernel, which the
 //! pycolmap wheel may contract into FMAs, and no pycolmap binding exposes a 6x6 product to pin
-//! it. The product here is the module's left-to-right sum (docs/CPP_DIVERGENCES.md, entry 5).
+//! it. The product here is the module's left-to-right sum (the fixed-size divergence in
+//! `linalg/mod.rs`).
 
 use super::Matrix3d;
 

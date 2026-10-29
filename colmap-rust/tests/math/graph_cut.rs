@@ -1,7 +1,7 @@
 // Port of COLMAP's src/colmap/math/graph_cut_test.cc (1:1, same test names in snake_case,
 // same values). `ComputeMinGraphCutStoerWagner`'s out-parameters become the returned
 // `(cut_weight, cut_labels)`; `MinSTGraphCut<int, int>` is `MinSTGraphCut::<i32>`; the
-// C++'s returned `NodeHashMap` is a `BTreeMap` (docs/CPP_DIVERGENCES.md, entry 46). The
+// C++'s returned `NodeHashMap` is a `BTreeMap` (see `math/graph_cut_partitioner.rs`). The
 // Rust-only cross-check, scaling and partition tests are in rust_only_graph_cut.rs.
 
 use colmap_rust::math::graph_cut::{

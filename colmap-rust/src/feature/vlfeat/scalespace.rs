@@ -8,7 +8,7 @@
 //! Tier A (exact). Kept quirks: `_vl_scalespace_fill_octave` takes the incremental sigma with
 //! `sqrtf` (a float square root of the double difference rounded to float); the default
 //! geometry's base scale uses octave resolution 3 whatever resolution the caller then sets.
-//! `pow` and `log2` go through [`crate::math::fns`] (docs/CPP_DIVERGENCES.md entry 1).
+//! `pow` and `log2` go through [`crate::math::fns`].
 //!
 //! Translation notes:
 //! - VLFeat's octaves are separately allocated float arrays (uninitialized `vl_malloc`); here

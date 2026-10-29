@@ -111,7 +111,8 @@ def main():
 
 
 def explain_divergences(cases):
-    """Evidence for docs/CPP_DIVERGENCES.md entries 2 and 3: re-derive the two Tier B
+    """Evidence for the divergences documented at `Quaterniond`'s `Mul<Vector3d>` and
+    `from_angle_axis` (colmap-rust/src/linalg/quaternion.rs): re-derive the two Tier B
     fields in plain Python (no FMA unless asked) with colmap-rust's formulas and show what
     the C++ must have done differently to produce the fixture's bits."""
     from math import fma, nextafter, sin, cos, sqrt, inf

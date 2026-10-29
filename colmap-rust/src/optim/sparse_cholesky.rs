@@ -8,7 +8,25 @@
 //! simplicial LLT of [`SimplicialCholesky`] with AMD ordering, which accepts and rejects the
 //! same matrices (both stop at the first pivot <= 0) but groups the floating-point work
 //! differently. The fallback stage is `Eigen::SimplicialLDLT` in COLMAP and
-//! [`SimplicialCholesky`]'s LDLT here. Tier B (docs/CPP_DIVERGENCES.md, entry 33).
+//! [`SimplicialCholesky`]'s LDLT here. Tier B.
+//!
+//! Deliberate divergence, here and in the factorizations of
+//! [`super::least_absolute_deviations`] (whose `SimplicialLLT` is ours too): the fill-reducing
+//! ordering is our AMD (`linalg/amd_ordering.rs`, from the Amestoy-Davis-Duff paper, without
+//! dense-row deferral, initial supervariable detection or mass elimination), so the
+//! permutation, and with it the order of floating-point operations and the last bits of every
+//! solution, differ from CHOLMOD's and Eigen's. Accept/reject decisions follow the same rules
+//! (LLT stops at the first pivot <= 0, LDLT at an exactly zero pivot), but a pivot within
+//! rounding of zero can land on the other side under a different ordering. CHOLMOD and CSparse
+//! are GPL/LGPL and Eigen is MPL-2.0 (`docs/LICENSE_AUDIT.md`), so none of them can be ported;
+//! a supernodal code is a performance refinement over the simplicial one, not a different
+//! result, and can replace it later behind the same API. Evidence: `sparse_cholesky_test.cc`
+//! and `least_absolute_deviations_test.cc` pass 1:1, including the singular, indefinite and
+//! ridge cases whose outcome depends on the pivot rules; `rust_only_simplicial_cholesky.rs`
+//! pins the solutions to the dense LLT within 1e-10 relative error, and
+//! `rust_only_100k_grid_laplacian_work_counts_match_colmap_sharp` shows the ordering and
+//! elimination are colmap-sharp's step for step (same nnz(L), AMD work and factorization work
+//! on a 100k-unknown grid Laplacian). Same as colmap-sharp entry 13.
 //!
 //! Translation notes:
 //! - `Solve`'s `Eigen::VectorXd*` out-parameter becomes a returned `Option`: `None` where
@@ -16,8 +34,10 @@
 //!   result).
 //! - COLMAP's `LOG(WARNING)` on fallback is not emitted (the core has no logger); the
 //!   fallback is visible through [`SparseCholeskyWithFallbackSolver::uses_ldlt`].
-//! - Once fallen back, a new pattern re-analyzes the LDLT stage too (COLMAP's stale-analysis
-//!   bug, docs/CPP_DIVERGENCES.md entry 33).
+//! - Once fallen back, `analyze_pattern`/`compute` with a new pattern re-analyzes the LDLT
+//!   stage too. COLMAP re-analyzes only the supernodal stage, so its next `ldlt_.factorize`
+//!   runs on a stale symbolic analysis (an upstream bug with undefined results in Eigen);
+//!   `rust_only_compute_new_pattern_after_fallback` pins the re-analysis.
 
 use crate::linalg::{
     ComputationInfo, SimplicialCholesky, SimplicialCholeskyKind, SparseMatrixCsc, VectorXd,

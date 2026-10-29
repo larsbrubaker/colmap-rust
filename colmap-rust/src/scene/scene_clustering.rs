@@ -6,7 +6,7 @@
 //! (`scene_clustering_test.cc` 1:1) and `tests/scene/rust_only_scene_clustering.rs`.
 //!
 //! Tier C (outcome): the partition itself comes from our multilevel partitioner, not METIS
-//! (docs/CPP_DIVERGENCES.md entry 46), so the memberships match COLMAP's tests but the labels
+//! (see `math/graph_cut_partitioner.rs`), so the memberships match COLMAP's tests but the labels
 //! and the order of the child clusters can differ.
 //!
 //! Translation notes:

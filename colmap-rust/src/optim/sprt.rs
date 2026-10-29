@@ -5,7 +5,7 @@
 //! (`sprt_test.cc` 1:1).
 //!
 //! Tier A (exact) except the decision threshold, which goes through `log`
-//! ([`crate::math::fns::ln`], `docs/CPP_DIVERGENCES.md` entry 1: 1-2 ulp from Apple libm).
+//! ([`crate::math::fns::ln`]: 1-2 ulp from Apple libm).
 //!
 //! Translation note: `Evaluate`'s two out-parameters are returned in [`SprtEvaluation`]
 //! with the accept/reject flag; COLMAP writes both on every path, so nothing is lost.

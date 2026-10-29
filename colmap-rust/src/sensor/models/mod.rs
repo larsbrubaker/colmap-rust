@@ -38,8 +38,8 @@
 //! - `const T* params` is a slice; `&params[4]` is `&params[4..]`.
 //!
 //! Tier A: every operation keeps COLMAP's evaluation order. Differences from the pycolmap
-//! wheel come only from its FMA contraction and its libm (docs/CPP_DIVERGENCES.md, entries 1
-//! and 100); `tests/sensor/rust_only_camera_model_oracle.rs` pins what is bit-identical.
+//! wheel come only from its FMA contraction (docs/CPP_DIVERGENCES.md, entry 100) and its libm
+//! ([`crate::math::fns`]); `tests/sensor/rust_only_camera_model_oracle.rs` pins what is bit-identical.
 //! Tests: `colmap-rust/tests/sensor.rs`; the Jacobian tests (`models_jacobian_test.cc`), which
 //! differentiate with [`crate::solver::Jet`], are the unit tests in `jacobian_tests.rs`.
 

@@ -6,7 +6,7 @@
 // orientation scores) and every raw float descriptor of every domain-size-pooling scale must be
 // bit-identical, over plain DoG, affine adaptation, upright, domain-size pooling and a first
 // octave of 0, except that a frame matrix entry may be off by one float ulp of the frame's
-// scale (libm, docs/CPP_DIVERGENCES.md entry 1; see run_case). VLFeat has no test suite in COLMAP's tree, so this fixture is the specification.
+// scale (libm, see `math::fns` and run_case). VLFeat has no test suite in COLMAP's tree, so this fixture is the specification.
 // Port of colmap-sharp's VlCovDetTests.CSharpOnly_MatchesUnfusedVLFeatExactly, one test per
 // fixture case. The per-scale descriptor loop is the harness's (COLMAP's sift.cc loop minus the
 // pooling and normalization) over the production patch, gradient and raw-descriptor functions;
@@ -194,7 +194,7 @@ fn run_case(name: &str) -> String {
             f.orientation_score,
         ];
         // The frame matrix may differ from VLFeat's by up to one float ulp of the frame's
-        // scale (docs/CPP_DIVERGENCES.md entry 1): affine adaptation's make-upright rotation
+        // scale (see the `math::fns` header): affine adaptation's make-upright rotation
         // takes atan2 / cos / sin, where the libm crate and Apple libm can differ by an ulp,
         // and a matrix entry that cancels to ~0 (Square256AffineUpright feature 8: a12 is 0.0
         // here, -2^-50 in VLFeat) shows that ulp. Everything else, including every descriptor

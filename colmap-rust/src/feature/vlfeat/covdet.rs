@@ -14,7 +14,7 @@
 //! `VlCovDetFeature` and `VlCovDetExtremum3` all store float), computation is `f64`; every point
 //! where the C rounds to float, or computes in float before promoting, is written out. `VL_MAX`
 //! / `VL_MIN` are comparisons, not `f64::max` / `min`, because they differ on NaN. `pow` and
-//! `log2` go through [`crate::math::fns`] (docs/CPP_DIVERGENCES.md entry 1). Pinned against
+//! `log2` go through [`crate::math::fns`]. Pinned against
 //! VLFeat compiled without FMA contraction by `tests/feature/rust_only_vl_covdet.rs`
 //! (`oracle/sift_harness.c`'s covdet mode).
 //!

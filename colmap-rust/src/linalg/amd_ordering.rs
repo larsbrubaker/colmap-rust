@@ -22,7 +22,8 @@
 //!
 //! Omitted as optimizations only (the result is still a valid, fill-reducing ordering):
 //! dense-row deferral, initial supervariable detection and mass elimination. The permutation
-//! differs from CHOLMOD's and Eigen's (docs/CPP_DIVERGENCES.md, entry 33).
+//! differs from CHOLMOD's and Eigen's (see the sparse Cholesky divergence in
+//! `optim/sparse_cholesky.rs`).
 //!
 //! Every weight is a count of original variables, so |x| below means the summed weights.
 //! Pivots are taken from the head of the lowest non-empty degree bucket; buckets are LIFO

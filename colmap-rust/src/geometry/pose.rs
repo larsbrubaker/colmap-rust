@@ -10,10 +10,11 @@
 //!
 //! Tiers: the scalar conversions (Euler angles, the Jacobians, the y-axis helpers,
 //! `check_cheirality`) are Tier A (COLMAP's arithmetic order; transcendentals through
-//! [`crate::math::fns`], docs/CPP_DIVERGENCES.md entry 1). Everything through an SVD or QR
+//! [`crate::math::fns`]). Everything through an SVD or QR
 //! (`compute_closest_rotation_matrix`, `decompose_projection_matrix`,
 //! `average_unit_vectors`, `average_quaternions`, `gravity_aligned_rotation`) is Tier B
-//! (entries 20 and 30). Sign independence: `compute_closest_rotation_matrix` uses `U V^T`,
+//! (the dynamic-size divergence in `linalg/mod.rs`; SVD signs: `linalg/jacobi_svd.rs`). Sign
+//! independence: `compute_closest_rotation_matrix` uses `U V^T`,
 //! in which each pair of flipped singular vectors cancels; `average_unit_vectors` fixes the
 //! sign of the principal vector by COLMAP's weighted majority vote.
 
@@ -201,7 +202,7 @@ pub fn rotation_from_y_axis_angle(angle: f64) -> Matrix3d {
 /// An empty `weights` means uniform weights; otherwise its length must match and every
 /// weight must be positive.
 ///
-/// The SVD's singular-vector sign is arbitrary (docs/CPP_DIVERGENCES.md entry 30); the
+/// The SVD's singular-vector sign is arbitrary (see `linalg/jacobi_svd.rs`); the
 /// majority vote fixes it as in COLMAP, so only an exact tie can leave it to the SVD.
 pub fn average_unit_vectors(vectors: &MatrixXd, weights: &VectorXd) -> Result<VectorXd> {
     let count = vectors.cols();
@@ -265,7 +266,7 @@ pub fn average_unit_vectors(vectors: &MatrixXd, weights: &VectorXd) -> Result<Ve
 }
 
 /// `values.sum()` left to right from the first term (Eigen's vectorized reduction order is
-/// not reproduced, docs/CPP_DIVERGENCES.md entry 20).
+/// not reproduced; see the dynamic-size divergence in `linalg/mod.rs`).
 fn sum_left_to_right(values: &[f64]) -> f64 {
     values.iter().skip(1).fold(values[0], |acc, &v| acc + v)
 }

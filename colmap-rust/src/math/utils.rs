@@ -6,12 +6,12 @@
 //!
 //! Tier A (exact) for the integer and plain-arithmetic helpers. Two exceptions:
 //! - `sigmoid`/`scale_sigmoid` call `exp` through [`crate::math::fns`], which can differ
-//!   from Apple libm in the last ulp (docs/CPP_DIVERGENCES.md entry 1); math_test.cc compares
+//!   from Apple libm in the last ulp; math_test.cc compares
 //!   them with a tolerance.
 //! - `percentile`/`median`/`median_absolute_deviation` are exact for ordinary input, but with
 //!   NaN in the data (ordered after every number by [`nan_last_cmp`]), or -0.0 and +0.0 tied
 //!   at the selected rank, the selection may pick a different element than libc++'s
-//!   `nth_element` (entry 41).
+//!   `nth_element` (see [`percentile`]).
 //!
 //! Translation notes:
 //! - C++ templates over arithmetic `T` become generics over [`AsF64`] (the
@@ -102,9 +102,9 @@ pub fn rad_to_deg(rad: f64) -> f64 {
 /// (so -0.0 and +0.0 are equivalent, as under C++'s `operator<`), and NaN sorts after every
 /// number, all NaNs equivalent. C++'s `std::sort`/`std::nth_element` with NaN under
 /// `operator<` violate their strict-weak-order precondition, so there is no COLMAP result to
-/// match; this is the deterministic, panic-free rule (docs/CPP_DIVERGENCES.md, entries 41 and
-/// 43). `partial_cmp(..).unwrap_or(Equal)` is not a total order (NaN would equal both 1 and
-/// 2), and std's sort/select may panic on such a comparator.
+/// match; this is the deterministic, panic-free rule (see [`percentile`] and
+/// `math/spanning_tree.rs`). `partial_cmp(..).unwrap_or(Equal)` is not a total order (NaN
+/// would equal both 1 and 2), and std's sort/select may panic on such a comparator.
 #[allow(clippy::eq_op)]
 pub fn nan_last_cmp<T: PartialOrd>(a: &T, b: &T) -> Ordering {
     match a.partial_cmp(b) {
@@ -120,6 +120,24 @@ pub fn nan_last_cmp<T: PartialOrd>(a: &T, b: &T) -> Ordering {
 
 /// `Percentile`: the p-th percentile (p in [0, 100]) with linear interpolation between
 /// values. Reorders the elements in place.
+///
+/// Deliberate divergence: the selection is `select_nth_unstable_by` under [`nan_last_cmp`]
+/// instead of libc++'s `std::nth_element` under `operator<` (also for [`median`] and
+/// [`median_absolute_deviation`]). For NaN-free input the selected order statistics, and so
+/// the result, are identical to COLMAP's. With NaN input the result is exactly that of the data
+/// sorted with the NaNs last: a percentile whose interpolation ranks both fall on numbers is
+/// computed from the numbers only, and one that touches a NaN rank returns NaN (the
+/// largest-below maximum skips NaN, since `a < NaN` is false). With -0.0 and +0.0 tied at the
+/// selected rank, the signed zero returned can differ. With NaN, `std::nth_element` under
+/// `operator<` violates its strict-weak-ordering precondition, so COLMAP's result is undefined
+/// (in practice it depends on libc++'s introselect pivots) and there is nothing definable to
+/// match; a comparator that is not a total order may make std's selection panic, so a total
+/// order is required for library code never to panic on NaN. Evidence: `tests/math/math.rs`
+/// passes math_test.cc's `Percentile`, `Median` and `MedianAbsoluteDeviation` cases with exact
+/// equality, and `rust_only_percentile_with_nan_orders_nan_last` checks 200 values with 20%
+/// NaN: ranks on numbers match the NaN-free sorted numbers, the 100th percentile is NaN,
+/// nothing panics. Same as colmap-sharp's documented `Percentile` caveat (its `MathUtils.cs`
+/// header).
 pub fn percentile<T: AsF64>(elems: &mut [T], p: f64) -> crate::Result<f64> {
     check!(!elems.is_empty());
     check_ge!(p, 0.0);

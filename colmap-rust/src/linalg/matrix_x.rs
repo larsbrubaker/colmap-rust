@@ -16,8 +16,8 @@
 //! panic, like Eigen's asserts. Unlike Eigen, a new matrix is zero-filled.
 //!
 //! Arithmetic order: the module contract in `linalg/mod.rs`. Eigen evaluates dynamic products
-//! with a blocked, vectorized kernel, so they are Tier B against COLMAP
-//! (docs/CPP_DIVERGENCES.md, entry 20).
+//! with a blocked, vectorized kernel, so they are Tier B against COLMAP (the dynamic-size
+//! divergence in `linalg/mod.rs`).
 //! Tests: `colmap-rust/tests/linalg/rust_only_dynamic_matrix.rs`.
 
 use super::{dot, is_approx_slices, maxi, VectorXd, DUMMY_PRECISION};

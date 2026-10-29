@@ -10,7 +10,7 @@
 //! - From a quaternion: angle = 2 atan2(|vec|, |w|) in [0, pi], axis = vec / |vec|, flipped
 //!   when w < 0 so the angle stays in [0, pi]. Only an exactly zero vector part gives angle 0
 //!   about the x axis; tiny ones keep their angle. Oracle-pinned: bit-identical except for
-//!   `fns::atan2`'s last bit (docs/CPP_DIVERGENCES.md, entry 1).
+//!   `fns::atan2`'s last bit (the `libm` crate; see [`crate::math::fns`]).
 //! - From a rotation matrix: through `Quaterniond::from_rotation_matrix`, then as above.
 //! - `to_rotation_matrix` is Rodrigues' formula, R = c I + s [a]x + (1 - c) a a^T. pycolmap
 //!   exposes no Eigen AngleAxis -> matrix call, so its bits are not oracle-pinned (Tier B).

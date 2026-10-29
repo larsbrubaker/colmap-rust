@@ -11,7 +11,8 @@
 //! - COLMAP stores parents in a `NodeHashMap` (`boost::unordered_node_map`), whose iteration
 //!   order is a function of Boost's hash layout. Here [`UnionFind::parents`] iterates in
 //!   insertion order: entries live in a `Vec` and a `HashMap` only maps each element to its
-//!   slot (it is never iterated). See docs/CPP_DIVERGENCES.md, entry 42.
+//!   slot (it is never iterated). The divergence, with its reasons and evidence, is
+//!   documented in [`super::connected_components`]'s header.
 //! - The C++ `Find` recurses; this one walks the path twice (find the root, then repoint
 //!   every node on the path at it), which leaves the map in the same state without recursion
 //!   depth limits on long chains.

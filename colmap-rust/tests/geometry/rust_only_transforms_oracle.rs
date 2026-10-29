@@ -10,11 +10,12 @@
 //   inverse's scale and rotation, to_matrix, from_matrix; the UTM zone; the Display strings
 //   and Sim3d::to_file's text.
 // - Tier B (`tolerance_fields`), each for an FMA contraction in the macOS arm64 wheel that
-//   this port deliberately does not reproduce (docs/CPP_DIVERGENCES.md entries 2 and 80):
-//   everything that rotates a vector with q * v, adjoint_inverse and
-//   get_covariance_for_rigid3d_inverse (3x3 and 6x6 products), the composed and relative
-//   covariances (6x12 dynamic products, also entry 20), and the GPS conversions
-//   (transcendentals through `fns` as well, entry 1). utm_to_ellipsoid also has a 1-ulp
+//   this port deliberately does not reproduce (`Quaterniond`'s `Mul<Vector3d>` in
+//   `linalg/quaternion.rs`; docs/CPP_DIVERGENCES.md entry 80): everything that rotates a
+//   vector with q * v, adjoint_inverse and get_covariance_for_rigid3d_inverse (3x3 and 6x6
+//   products), the composed and relative covariances (6x12 dynamic products, also the
+//   dynamic-size divergence in `linalg/mod.rs`), and the GPS conversions (transcendentals
+//   through `math::fns` as well). utm_to_ellipsoid also has a 1-ulp
 //   latitude difference on 2/80 points (entry 83).
 // Tolerances: |expected - actual| <= relative * max(1, |expected|), and for GPS coordinates
 // in meters additionally within 1e-8 m (their last-bit differences at ~6.4e6 m ECEF carry

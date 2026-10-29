@@ -61,8 +61,8 @@ fn spanning_tree_empty_graph() {
     assert!(!tree.is_valid());
 }
 
-// Rust-only: among equal costs the earlier input edge wins (docs/CPP_DIVERGENCES.md,
-// entry 43), so a tied triangle always keeps edges 0 and 1.
+// Rust-only: among equal costs the earlier input edge wins (see `math/spanning_tree.rs`),
+// so a tied triangle always keeps edges 0 and 1.
 #[test]
 fn rust_only_spanning_tree_ties_take_earlier_edge() {
     let edges = [(0, 1), (1, 2), (0, 2)];
@@ -75,7 +75,8 @@ fn rust_only_spanning_tree_ties_take_earlier_edge() {
     }
 }
 
-// Rust-only: out-of-range input fails a check instead of indexing out of bounds (entry 43).
+// Rust-only: out-of-range input fails a check instead of indexing out of bounds (see
+// `math/spanning_tree.rs`).
 #[test]
 fn rust_only_spanning_tree_rejects_out_of_range_input() {
     assert!(compute_maximum_spanning_tree(2, &[(0, 2)], &[1.0], 0).is_err());
@@ -84,7 +85,7 @@ fn rust_only_spanning_tree_rejects_out_of_range_input() {
 }
 
 // Rust-only: NaN weights never panic; a NaN cost sorts after every number, so NaN edges are
-// taken only to connect what the numeric edges cannot (docs/CPP_DIVERGENCES.md, entry 43).
+// taken only to connect what the numeric edges cannot (see `math/spanning_tree.rs`).
 #[test]
 fn rust_only_spanning_tree_with_nan_weights() {
     let n = 200;

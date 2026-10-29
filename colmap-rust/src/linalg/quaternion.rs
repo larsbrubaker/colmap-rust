@@ -28,12 +28,12 @@
 //! - Tier A, bit-identical: the product (with Eigen's SIMD pairing), `norm` and `inverse`
 //!   (Vector4d's paired reduction), `to_rotation_matrix`, `from_rotation_matrix`
 //!   (`Matrix3d::trace`'s grouping).
-//! - Tier A up to docs/CPP_DIVERGENCES.md entry 1: `angular_distance` and
+//! - Tier A up to the `libm` crate (see [`crate::math::fns`]): `angular_distance` and
 //!   `AngleAxisd::from_quaternion`'s angle are bit-identical with Apple libm's atan2 and within
-//!   1 ulp with `fns::atan2` (the `libm` crate).
-//! - Tier B: `q * v`, which the macOS wheel computes with FMA-contracted cross products
-//!   (docs/CPP_DIVERGENCES.md, entry 2), and `from_angle_axis`, whose `sin` can differ from the
-//!   wheel's by 1 ulp (entry 3). `from_two_vectors` (entry 4) and `slerp` are Tier B.
+//!   1 ulp with `fns::atan2`.
+//! - Tier B: `q * v`, which the macOS wheel computes with FMA-contracted cross products (see
+//!   the `Mul<Vector3d>` impl), and `from_angle_axis`, whose `sin` can differ from the wheel's
+//!   by 1 ulp (see its doc). `from_two_vectors` (see its doc) and `slerp` are Tier B.
 
 use super::{AngleAxisd, Matrix3d, Vector3d, Vector4d, DUMMY_PRECISION};
 use crate::math::fns;
@@ -220,6 +220,20 @@ impl Quaterniond {
     }
 
     /// The quaternion of an angle-axis rotation: `(cos(a/2), sin(a/2) axis)`.
+    ///
+    /// Deliberate divergence: any coefficient can differ from the pycolmap wheel by 1-2 ulp,
+    /// for two reasons. `fns::sin`/`fns::cos` are the `libm` crate's, which differ from Apple
+    /// libm by an ulp on some inputs. And even Apple libm's `sin` does not always reproduce the
+    /// wheel's `sin(a/2)`: on some inputs the wheel rounds one ulp away from it. That cause is
+    /// not established; one hypothesis is that the compiler fused the adjacent `sin` and `cos`
+    /// of the same argument into a `sincos` call that rounds differently. We do not emulate a
+    /// compiler's choice of math routine. Evidence: on the 138 cases of
+    /// `tests/data/oracle/linear_algebra_rotations.json` the coefficients differ from the wheel
+    /// on 15 coefficients with `fns::sin`/`fns::cos` (at most 2 ulp) and on 3 with std's (Apple
+    /// libm); `oracle/linear_algebra_rotations.py` shows the Apple-libm mismatch disappears when
+    /// `sin(a/2)` moves one ulp. `tests/linalg/rust_only_rotation_oracle.rs`
+    /// (`rust_only_tolerance_fields`, field `from_axis_angle`) pins it at 1e-14 relative. Same
+    /// as colmap-sharp entry 7.
     pub fn from_angle_axis(angle_axis: AngleAxisd) -> Self {
         let half_angle = 0.5 * angle_axis.angle;
         let sine = fns::sin(half_angle);
@@ -246,8 +260,21 @@ impl Quaterniond {
     ///   perpendicular to u (maps u to -u; quaternion (0, p)), then the short arc from -u to v
     ///   by the formula above, where (-u) . v = -c is close to 1 and well conditioned.
     ///   p = normalize(u x e), with e the coordinate axis least aligned with u (|u_k|
-    ///   smallest), so |u x e| >= sqrt(2/3). Results can differ from Eigen's in this branch
-    ///   (docs/CPP_DIVERGENCES.md, entry 4).
+    ///   smallest), so |u x e| >= sqrt(2/3).
+    ///
+    /// Deliberate divergence in the nearly opposite branch: Eigen switches branch at
+    /// 1 + c < 1e-12 and picks its perpendicular axis another way, so for 1 + c < 1e-8 the
+    /// result can differ from COLMAP's. For exactly opposite vectors any half turn about a
+    /// perpendicular axis is correct and the two pick different ones; for nearly opposite
+    /// vectors both map u onto v, but Eigen's general formula there carries errors up to ~1e-8
+    /// that this branch does not. Eigen is MPL-2.0 and not ported, so the branch is written from
+    /// first principles; the threshold is where Melax's formula loses more than ~5e-9 relative
+    /// accuracy. The general branch, where all practical inputs land, is unchanged:
+    /// colmap-sharp's synthetic oracle matches pycolmap's frame rotations bit for bit with it
+    /// (view directions are uniform random, so 1 + c < 1e-8 has probability ~5e-9 per frame).
+    /// `tests/linalg/rust_only_quaternion.rs` (`rust_only_from_two_vectors_opposite`) checks
+    /// exactly and nearly opposite inputs (1 + c from 0 to ~5e-9, every least-aligned axis) map
+    /// u onto v within 8e-16 with unit norm. Same as colmap-sharp entry 28.
     pub fn from_two_vectors(a: Vector3d, b: Vector3d) -> Self {
         let v0 = a.normalized();
         let v1 = b.normalized();
@@ -350,6 +377,18 @@ impl Mul for Quaterniond {
 
 /// Rotates `v` by the unit quaternion (q v q*), as t = 2 (u x v), v + w t + u x t. Like Eigen,
 /// q is assumed normalized.
+///
+/// Deliberate divergence: the result differs from the pycolmap 4.2.0 macOS arm64 wheel in the
+/// last bits on about half of the inputs, and code built on it (the `Rigid3d`/`Sim3d` point
+/// transform, the translations of composition and inverse) inherits that. The wheel is built
+/// with floating-point contraction on and evaluates the cross products `a1*b2 - a2*b1` as
+/// `fma(a1, b2, -(a2*b1))`; this port never uses FMA in math paths (CLAUDE.md, "No FMA"), so
+/// its results are the same on every target and are expected to match a C++ build that does
+/// not contract. `oracle/linear_algebra_rotations.py` shows it: re-deriving `q * v` with this
+/// formula gives 69/138 mismatches against the wheel with plain cross products and 0/138 with
+/// the cross products fused. `tests/linalg/rust_only_rotation_oracle.rs`
+/// (`rust_only_tolerance_fields`, field `rotated`) pins the result at 1e-14 relative. Same as
+/// colmap-sharp entry 6.
 impl Mul<Vector3d> for Quaterniond {
     type Output = Vector3d;
     fn mul(self, v: Vector3d) -> Vector3d {

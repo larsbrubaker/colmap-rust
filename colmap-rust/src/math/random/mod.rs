@@ -7,8 +7,28 @@
 //! (random_test.cc 1:1) and `tests/math/rust_only_random_oracle.rs` (bit-exact oracle).
 //!
 //! Tier A (exact): the same seed gives the same draws as COLMAP on macOS built without
-//! floating-point contraction, bit for bit (entry 40 for the FMA caveat; `random_gaussian`
-//! calls `log`, entry 1).
+//! floating-point contraction, bit for bit (`random_gaussian` calls `log`, which goes through
+//! [`crate::math::fns`]).
+//!
+//! Deliberate divergence, real-valued draws are never fused: `random_uniform_real` (for
+//! `min != 0`), `random_gaussian` and `libcxx::NormalDistribution` evaluate libc++'s
+//! `(b - a) * u + a`, `u*u + v*v` and `x * stddev + mean` as separate multiply and add. Apple
+//! clang's default `-ffp-contract=on` fuses these into single-rounding FMAs on arm64, so a
+//! libc++ build with default flags can differ from colmap-rust in the last ulp of those draws.
+//! Integer draws, `random_uniform_real` with `min == 0`, the shuffles and the mt19937 words are
+//! unaffected. Results must be identical on every platform (CLAUDE.md, "No FMA") and Rust never
+//! contracts, while contraction in the C++ build is a compiler and flags choice, not COLMAP
+//! behavior; matching it would mean `mul_add` at exactly the sites a particular clang version
+//! chose to fuse. Evidence: `oracle/fixture_random.py` builds `oracle/random_harness.cc` with
+//! `-ffp-contract=off` and with the default; the draws above differ between the two builds
+//! (recorded as `contracted_cases` in `tests/data/oracle/random.json`), and colmap-rust matches
+//! the `-ffp-contract=off` build bit for bit (`tests/math/rust_only_random_oracle.rs`; the f64
+//! Gaussian cases within 2e-15 because of `fns::ln`, bit for bit when `log` is Apple libm's).
+//! The pycolmap 4.2.0 wheel's `_core` disassembles to about 36,000 `fmadd`/`fmsub` family
+//! instructions, so it is built with contraction on and most likely produces the contracted
+//! numbers. Downstream, a pycolmap fixture that depends on real-valued draws (e.g.
+//! `synthesize_dataset` noise) can therefore differ in the last ulp and is compared at Tier B
+//! or C, not Tier A. Same as colmap-sharp entry 1.
 //!
 //! Translation notes:
 //! - `thread_local std::unique_ptr<std::mt19937> PRNG` becomes a `thread_local!`

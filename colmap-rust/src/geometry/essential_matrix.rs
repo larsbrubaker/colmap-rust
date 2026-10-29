@@ -14,7 +14,7 @@
 //! errors; the fundamental conversions are checked only by the ported tests.
 //! `decompose_essential_matrix`,
 //! `pose_from_essential_matrix` and `epipole_from_essential_matrix` go through the SVD and
-//! are Tier B (docs/CPP_DIVERGENCES.md entry 30).
+//! are Tier B (SVD signs: see `linalg/jacobi_svd.rs`).
 //!
 //! SVD sign independence (singular vector signs are arbitrary and differ from Eigen's):
 //! - `decompose_essential_matrix` makes U and V proper rotations first, as COLMAP does. For

@@ -24,9 +24,38 @@
 //! - Exceptions, each pinned by `oracle/linear_algebra_rotations.py`: where Eigen vectorizes a
 //!   reduction or a product it pairs terms differently, and this module copies what the
 //!   pycolmap oracle shows: [`Vector4d`]'s reductions, [`Quaterniond`]'s product and
-//!   [`Matrix3d::trace`]. Elsewhere Eigen's SIMD order is not reproduced
-//!   (docs/CPP_DIVERGENCES.md, entry 5).
+//!   [`Matrix3d::trace`]. Elsewhere Eigen's SIMD order is not reproduced (below).
 //! - Transcendentals go through [`crate::math::fns`].
+//!
+//! Deliberate divergence, fixed-size types: Eigen vectorizes fixed-size expressions (a norm or
+//! dot product is summed in packet lanes, then reduced horizontally; products use vectorized
+//! kernels). Outside the oracle-pinned exceptions above, the sites here can therefore differ
+//! from COLMAP in the last bits: the 3x3, 3x4, 4x4 and 6x6 matrix products, the Frobenius
+//! norms, `Matrix4d::trace`, and the closed-form 3x3 and 4x4 determinants and inverses. Tier B.
+//! Eigen is MPL-2.0 and not ported (contract rule 2), and its packet order depends on the
+//! target's SIMD width and the compiler (NEON, SSE and AVX builds reduce differently), so there
+//! is no single order to match; a plain sequential order gives the same result on every target,
+//! native and wasm. No pycolmap 4.2.0 binding exposes these products, norms or inverses, so
+//! there is no fixture to pin them: `tests/linalg/rust_only_matrix.rs` checks them against exact
+//! values and algebraic identities, and where a binding does reach Eigen's order (quaternion
+//! norm, product, matrix conversions) `tests/linalg/rust_only_rotation_oracle.rs` pins it bit
+//! for bit. Same as colmap-sharp entry 115 (its fixed-size part).
+//!
+//! Deliberate divergence, dynamic-size types: Eigen evaluates `MatrixXd` / `VectorXd` products,
+//! dot products and norms with blocked, vectorized kernels (packet lanes reduced horizontally,
+//! cache-blocked GEMM). Here (`matrix_x.rs`, `matrix_x_ops.rs`, `vector_x.rs`) every product
+//! coefficient, dot product and squared norm is a plain left-to-right sum seeded with the first
+//! term, no FMA (`dot`, `product` below). The transposed products `transpose_times`,
+//! `transpose_times_vector` and `transpose_times_self` use the same order as the explicit
+//! `transpose() * b`, so they are bit-identical to it. Results can differ from COLMAP in the last
+//! bits wherever a dynamic product is formed. Tier B. Eigen's blocking and packet order depend on
+//! the matrix size, the target's SIMD width and the compiler, so again there is no single order
+//! to match. No pycolmap 4.2.0 binding exposes a dynamic product directly:
+//! `tests/linalg/rust_only_dynamic_matrix.rs` checks products against hand-computed values and
+//! the transposed products bit for bit against the explicit transpose, and the decomposition
+//! oracle tests (`rust_only_decomposition_oracle.rs`, `rust_only_spectral_oracle.rs`) compare
+//! the decompositions built on these products against numpy within their stated tolerances.
+//! Same as colmap-sharp entry 115 (its dynamic-size part).
 //!
 //! Dynamic-size matrices ([`MatrixXd`], [`VectorXd`]) and the row-major feature-data container
 //! ([`RowMajorMatrix`]) live here too, with the dense decompositions COLMAP calls (QR, LU,

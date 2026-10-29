@@ -176,7 +176,7 @@ fn rust_only_full_piv_lu_rank_of_collinear_columns() {
 }
 
 // Degenerate input with eigenvectors requested: the factor is NaN-filled (as JacobiSvd's U/V
-// are), so `eigenvectors()` never panics on bad data (docs/CPP_DIVERGENCES.md entry 31).
+// are), so `eigenvectors()` never panics on bad data (`linalg/self_adjoint_eigen_solver.rs` header).
 #[test]
 fn rust_only_self_adjoint_eigen_solver_nan_input_gives_nan_eigenvectors() {
     let a = MatrixXd::from_row_major(1, 1, &[f64::NAN]);
@@ -197,7 +197,7 @@ fn rust_only_self_adjoint_eigen_solver_nan_input_gives_nan_eigenvectors() {
     assert!(text.contains("not requested"), "{text}");
 }
 
-// Same contract for the general solver (docs/CPP_DIVERGENCES.md entry 32).
+// Same contract for the general solver (`linalg/eigen_solver.rs` header).
 #[test]
 fn rust_only_eigen_solver_nan_input_gives_nan_eigenvectors() {
     let a = MatrixXd::from_row_major(1, 1, &[f64::NAN]);

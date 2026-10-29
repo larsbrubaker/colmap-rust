@@ -26,7 +26,27 @@
 //! source in the residual graph and the T tree the set that can reach the sink; both sets are
 //! the same for every maximum flow. Boost colors free nodes (in neither tree) gray, which
 //! COLMAP reports as connected to the source; so does this. With float capacities it is
-//! Tier B: see docs/CPP_DIVERGENCES.md, entry 45.
+//! Tier B (below).
+//!
+//! Deliberate divergence from Boost: both the algorithm written from the paper and the
+//! up-front push of each node's direct source -> node -> sink flow change the order in which
+//! flow is augmented. With integer capacities that order cannot show in the result; with float
+//! capacities (`MinSTGraphCut<f32>`, as Delaunay meshing uses it) the returned flow is summed in
+//! a different order, so it can differ from COLMAP's by rounding, and a node whose residual path
+//! to a terminal is only a rounding residue can be labeled on the other side of the cut.
+//! Reproducing Boost's exact float rounding would mean reproducing its exact augmentation
+//! order. `is_connected_to_source` / `is_connected_to_sink` return a `Result`, failing a check
+//! for an index out of range or before `compute`, where COLMAP's `colors_.at()` throws
+//! `std::out_of_range`. Integer flow sums that overflow wrap ([`FlowValue`]), where Boost's
+//! signed overflow is undefined behavior. Evidence: the three ported
+//! `graph_cut_min_st_graph_cut*` cases pass;
+//! `rust_only_min_st_graph_cut_matches_exhaustive_min_cut` compares the flow and the labels with exhaustive search on 300 random integer graphs, and
+//! the sink-side labels equal the unique minimal sink-side min cut, which is the same for every
+//! maximum flow and so for Boost too;
+//! `rust_only_min_st_graph_cut_large_grid_with_terminals_on_every_node_is_not_quadratic`
+//! checks, for a 200k-node float grid, that the labeled cut's capacity equals the returned flow
+//! within 1e-3 relative and that the solver's step count stays under 10 per node and edge. Same
+//! as colmap-sharp entry 5.
 //!
 //! Translation notes:
 //! - The C++ template parameter `node_t` becomes `usize` (node indices address arrays here);

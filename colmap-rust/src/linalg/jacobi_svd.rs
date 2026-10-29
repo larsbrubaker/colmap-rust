@@ -24,7 +24,29 @@
 //! `solve()` use the threshold `max(1, diagSize) * epsilon` relative to the largest singular
 //! value; `solve()` returns the minimum-norm least-squares solution with the singular values
 //! at or below the threshold treated as zero. Singular vector signs are arbitrary (see
-//! `jacobi_svd_kernel.rs`, docs/CPP_DIVERGENCES.md). Tier B.
+//! `jacobi_svd_kernel.rs`). Tier B.
+//!
+//! Deliberate divergence from COLMAP's `Eigen::JacobiSVD` (dynamic and fixed 3x3/4x4): the
+//! kernel is a two-sided (Kogbetliantz) cyclic Jacobi SVD written from Golub & Van Loan
+//! §8.6.3 and Brent-Luk-Van Loan (1985), with Demmel-Veselić's relative stopping test plus an
+//! absolute floor eps*||A||_F. What can differ from Eigen: the sign of each singular vector
+//! pair (arbitrary in both), the basis chosen inside a repeated singular value's subspace or a
+//! null space, and the last bits of every value. A 2x2 block with an exactly zero column or
+//! row is rotated from one side only, so an exact null vector (a zero column of A) comes out
+//! exact, which COLMAP's `TriangulatePoint` parallel-ray test (`V(3,3) == 0`) relies on.
+//! `Svd3d`/`Svd4d` are bit-identical to `JacobiSvd` on the same matrix. Eigen is MPL-2.0 and
+//! not ported (contract rule 2); its 2x2 step and sweep order are implementation details with
+//! no published convention precise enough to reproduce its signs or bits, and COLMAP uses
+//! singular vectors only up to sign and null spaces only as spaces. colmap-sharp documents the
+//! same in its file headers and has no separate entry. Evidence:
+//! `tests/linalg/rust_only_spectral_oracle.rs` checks 18 numpy (LAPACK dgesdd) cases in
+//! COLMAP's shapes (3x3 to 20x9, 4x30, rank-deficient, repeated values, zero): singular values
+//! within 1e-12 * s_max, rank exact, U/V orthogonal and U S V^T == A within 1e-12, simple
+//! singular vectors within 1e-9 up to sign, null columns ||A v|| <= 1e-12, minimum-norm solve
+//! within 1e-10 of numpy's pinv, and Svd3d/Svd4d bit-identical to JacobiSvd.
+//! `rust_only_spectral_svd.rs` pins sorting and signs on a diagonal, shapes, non-finite input,
+//! underflow at 1e-170, convergence in <= 8 sweeps on exactly rank-deficient inputs, and the
+//! exact zero-column null vector.
 //!
 //! Tests: `colmap-rust/tests/linalg/rust_only_spectral_svd.rs` and
 //! `rust_only_spectral_oracle.rs`.

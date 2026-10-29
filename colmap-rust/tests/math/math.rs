@@ -261,8 +261,9 @@ fn with_nans(n: usize) -> Vec<f64> {
         .collect()
 }
 
-// Rust-only: NaN input never panics, and NaN sorts after every number (docs/CPP_DIVERGENCES.md,
-// entry 41): a percentile whose ranks land on numbers ignores the NaNs, the top one is NaN.
+// Rust-only: NaN input never panics, and NaN sorts after every number (see
+// `math::percentile`): a percentile whose ranks land on numbers ignores the NaNs, the top one
+// is NaN.
 #[test]
 fn rust_only_percentile_with_nan_orders_nan_last() {
     let data = with_nans(200);

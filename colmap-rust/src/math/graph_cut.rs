@@ -10,16 +10,23 @@
 //! this is the algorithm written from its paper: M. Stoer and F. Wagner, "A Simple Min-Cut
 //! Algorithm", Journal of the ACM 44(4), 1997.
 //!
-//! Tier A for the cut weight (the minimum is unique). When several cuts share that weight,
-//! the side reported can differ from Boost's, and which side is labeled 1 is this code's
-//! choice (the vertices merged into the last-added vertex of the best phase).
-//! graph_cut_test.cc only pins the weight and the label range. See docs/CPP_DIVERGENCES.md,
-//! entry 44.
+//! Tier A for the cut weight (the minimum is unique). Deliberate divergence: when several cuts
+//! share that weight, the one reported can differ from Boost's, and the side labeled 1 is the
+//! set of vertices merged into the last vertex of the best phase (Boost's parity map labels its
+//! own choice). Each phase's queue takes the largest key, then the lowest vertex index. The
+//! port returns `(cut_weight, cut_labels)` instead of filling out-parameters, and checks for at
+//! least two vertices where Boost throws `bad_graph`. COLMAP's contract is the minimum weight
+//! plus a 0/1 label per vertex, and graph_cut_test.cc checks only the weight and the label
+//! range. Evidence: the four ported `graph_cut_compute_min_graph_cut_stoer_wagner*` cases pass,
+//! and `rust_only_stoer_wagner_matches_exhaustive_min_cut` (`tests/math/rust_only_graph_cut.rs`)
+//! compares the weight and the labeled cut against exhaustive search on 200 random graphs. Same
+//! as colmap-sharp entry 4.
 //!
 //! `compute_normalized_min_graph_cut` builds the same CSR graph as COLMAP's `MetisGraph`
-//! wrapper but partitions it with the multilevel partitioner instead of
-//! `METIS_PartGraphKway`. Tier C: the parts are balanced with a small cut, but need not be
-//! METIS's parts. See docs/CPP_DIVERGENCES.md, entry 46.
+//! wrapper (vertex indices by first appearance, parallel edges kept) but partitions it with the
+//! multilevel partitioner instead of `METIS_PartGraphKway`. Tier C: the parts are balanced
+//! with a small cut, but need not be METIS's parts; the divergence is documented in
+//! [`super::graph_cut_partitioner`]'s header.
 
 use super::graph_cut_partitioner;
 use crate::check;
@@ -160,7 +167,7 @@ fn merge(
 /// edges add up.
 ///
 /// COLMAP returns a `NodeHashMap<int, int>`; this returns a `BTreeMap` so that iterating the
-/// result is deterministic (entry 46).
+/// result is deterministic.
 pub fn compute_normalized_min_graph_cut(
     edges: &[(i32, i32)],
     weights: &[i32],

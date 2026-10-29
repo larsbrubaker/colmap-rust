@@ -3,8 +3,8 @@
 //! test of a projection matrix. Neighbor: [`super::camera::Camera`], whose projection and
 //! unprojection they use. Tests: `tests/scene/projection.rs` (`projection_test.cc` 1:1).
 //!
-//! Tier A: COLMAP's operation order; `acos` goes through [`crate::math::fns`]
-//! (docs/CPP_DIVERGENCES.md entry 1). `EIGEN_PI` is [`std::f64::consts::PI`].
+//! Tier A: COLMAP's operation order; `acos` goes through [`crate::math::fns`].
+//! `EIGEN_PI` is [`std::f64::consts::PI`].
 //!
 //! Translation notes:
 //! - COLMAP overloads each function on the pose type (`Rigid3d` or a 3x4 matrix
@@ -114,7 +114,7 @@ pub fn calculate_angular_reprojection_error_from_ray<P: CamFromWorld>(
 pub fn has_point_positive_depth(cam_from_world: &Matrix3x4d, point3d: Vector3d) -> bool {
     // `row(2).dot(point3D.homogeneous())`. The row of a column-major 3x4 matrix is strided,
     // so Eigen cannot use the packet pairing that `Vector4d::dot` copies; the sum is the
-    // module's plain left-to-right order (docs/CPP_DIVERGENCES.md entry 5).
+    // module's plain left-to-right order (the fixed-size divergence in `linalg/mod.rs`).
     let m = cam_from_world;
     m[(2, 0)] * point3d.x + m[(2, 1)] * point3d.y + m[(2, 2)] * point3d.z + m[(2, 3)]
         >= f64::EPSILON

@@ -1,6 +1,6 @@
 //! The k-way graph partitioner behind [`super::graph_cut::compute_normalized_min_graph_cut`].
-//! COLMAP calls `METIS_PartGraphKway` there; METIS is not ported (docs/CPP_DIVERGENCES.md,
-//! entry 46). Port of colmap-sharp's `Mathematics/MultilevelPartitioner.cs` (our own MIT
+//! COLMAP calls `METIS_PartGraphKway` there with default options; METIS is not ported. Port of
+//! colmap-sharp's `Mathematics/MultilevelPartitioner.cs` (our own MIT
 //! code), which was written from the published multilevel scheme, not from METIS's code:
 //!
 //!   - B. Hendrickson and R. Leland, "A Multilevel Algorithm for Partitioning Graphs",
@@ -18,6 +18,33 @@
 //! contract is "a balanced partition with a small cut", and graph_cut_test.cc checks the
 //! label range, that both parts are used, and that the disconnected graph is split along its
 //! components. Tests: `tests/math/graph_cut.rs`.
+//!
+//! Deliberate divergence from METIS: coarsening is heavy-edge matching, followed, when over
+//! 10% of the vertices stay unmatched, by pairing unmatched vertices that share a neighbor and
+//! unmatched isolated vertices, so stars, hub images and many small components still coarsen;
+//! the coarsest graph gets greedy graph growing from eight seeds (a vertex too heavy to fit is
+//! skipped); FM refinement runs at every level. METIS's k-way path instead refines all k parts
+//! at once with its own greedy k-way refinement and randomizes its visit orders with GKlib's
+//! RNG. So the labels, which part gets which number, and the exact cut can differ from
+//! COLMAP's. Each bisection allows 3% over its target weight (METIS's k-way `ufactor` default
+//! of 30), rounded up to a whole vertex so that small graphs can always be split. Self-loops
+//! are ignored (they never cross a cut). The caller returns a `BTreeMap<i32, i32>` (vertex id
+//! -> label) instead of COLMAP's `NodeHashMap<int, int>`, so iterating it is deterministic.
+//! Porting the reached METIS subset (coarsening, recursive-bisection initial partitioning,
+//! 2-way and k-way FM refinement, balancing, GKlib's priority queues and RNG) is large, and a
+//! close match would also need GKlib's random stream reproduced exactly; COLMAP's callers
+//! (scene clustering) need only a balanced partition with a small cut. No METIS code was read
+//! or transcribed, so METIS's notice is not needed.
+//!
+//! Evidence (Tier C): the four ported `graph_cut_compute_normalized_min_graph_cut*` cases
+//! pass. `tests/math/rust_only_graph_cut.rs` checks that planted clusters (2-5 dense clusters
+//! in a ring of light edges, ten random draws each) come out one part per cluster; that random
+//! graphs of 100-400 vertices split into 1, 2, 3, 5 and 8 parts give non-empty parts within
+//! 10% (plus three vertices) of n/k and identical output on a second call; that a 100 x 40
+//! unit grid is bisected with 43 cut edges against an optimum of 40, exactly colmap-sharp's
+//! count on the same graph; and that the partitioner's step count grows less than 6x from
+//! n = 5k to 20k on a star, a 20-hub graph and disconnected pairs (a quadratic step would give
+//! 16x). Same as colmap-sharp entry 77.
 //!
 //! Translation notes: C# `int` edge and vertex weights stay `i32`, with `wrapping_add` where
 //! C# sums them unchecked; gains, cuts and side weights are `i64` as C#'s `long`. C#'s

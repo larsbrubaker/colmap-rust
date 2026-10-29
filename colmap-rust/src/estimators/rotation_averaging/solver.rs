@@ -10,7 +10,7 @@
 //!   those options, so the next solve uses the raised cap. The Rust solver owns a copy, so
 //!   the cap is raised through `set_max_num_iterations`.
 //! - `SupernodalCholmodLLT` selects the LLT-with-LDLT-fallback solver, as does the IRLS phase
-//!   (docs/CPP_DIVERGENCES.md entry 33).
+//!   (CHOLMOD is not ported; see `optim/sparse_cholesky.rs`).
 //! - `LOG(ERROR)` paths return `Ok(false)`; `VLOG` diagnostics are not emitted.
 
 use super::RotationWeightType;

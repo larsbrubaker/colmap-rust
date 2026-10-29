@@ -14,8 +14,9 @@
 //!
 //! Complex-eigenvector phase: ours is fixed by the back-substitution (the block's eigenvector
 //! starts as `(b, lambda - a)`, then the vector is scaled to unit norm without rotating its
-//! phase), which need not be Eigen's (docs/CPP_DIVERGENCES.md). Complex arithmetic follows
-//! .NET's `System.Numerics.Complex` operators (`complex.rs`), so the bits match colmap-sharp.
+//! phase), which need not be Eigen's (the divergence is documented in `eigen_solver.rs`).
+//! Complex arithmetic follows .NET's `System.Numerics.Complex` operators (`complex.rs`), so the
+//! bits match colmap-sharp.
 //!
 //! Tests: `colmap-rust/tests/linalg/rust_only_spectral_eigen.rs` and
 //! `rust_only_spectral_oracle.rs`.

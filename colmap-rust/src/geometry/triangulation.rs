@@ -13,7 +13,8 @@
 //!
 //! Tiers: `calculate_triangulation_angle(s)` and `calculate_angle_between_vectors` are
 //! scalar code (`acos` through [`crate::math::fns`]); every triangulation goes through an SVD
-//! or a symmetric eigensolver and is Tier B (docs/CPP_DIVERGENCES.md entries 30 and 31).
+//! or a symmetric eigensolver and is Tier B (see `linalg/jacobi_svd.rs` and
+//! `linalg/self_adjoint_eigen_solver.rs`).
 //!
 //! Sign independence: each method reads a null vector (the last column of V, or the
 //! eigenvector of the smallest eigenvalue) whose sign is arbitrary, and then only uses it

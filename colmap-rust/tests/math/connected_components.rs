@@ -121,7 +121,7 @@ fn find_largest_connected_component_string_type() {
 }
 
 // Rust-only: components come out by first node in `nodes` order, members in `nodes` order,
-// and ties for the largest go to the first (docs/CPP_DIVERGENCES.md, entry 42).
+// and ties for the largest go to the first (see `math/connected_components.rs`).
 #[test]
 fn rust_only_connected_components_follow_node_order() {
     let nodes = vec![4, 1, 3, 2];
@@ -134,7 +134,7 @@ fn rust_only_connected_components_follow_node_order() {
 }
 
 // Rust-only: COLMAP takes the nodes as a set; a node repeated in the slice counts once, at
-// its first occurrence (docs/CPP_DIVERGENCES.md, entry 42).
+// its first occurrence (see `math/connected_components.rs`).
 #[test]
 fn rust_only_connected_components_dedup_nodes() {
     assert_eq!(

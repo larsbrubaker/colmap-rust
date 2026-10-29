@@ -41,7 +41,8 @@
 //! sorted in decreasing order. A negative diagonal entry flips the sign of the matching U
 //! column. Ties keep their original diagonal position (stable insertion sort). The signs of
 //! singular vector pairs are whatever the rotations produce; like Eigen's, they are
-//! arbitrary, and COLMAP only uses them up to sign (docs/CPP_DIVERGENCES.md). Tier B.
+//! arbitrary, and COLMAP only uses them up to sign (the divergence is documented in
+//! `jacobi_svd.rs`). Tier B.
 //!
 //! `ilogb` / `scalbn` (C#'s `Math.ILogB` / `Math.ScaleB`) are exact operations and come
 //! straight from the `libm` crate. Tests: `colmap-rust/tests/linalg/rust_only_spectral_svd.rs`

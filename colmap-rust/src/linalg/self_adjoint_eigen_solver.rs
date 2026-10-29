@@ -14,8 +14,21 @@
 //!
 //! Semantics follow Eigen's documentation: only the lower triangle of the input is read;
 //! eigenvalues are returned in increasing order (ties keep their diagonal order); the
-//! eigenvector columns are normalized. Eigenvector signs are arbitrary, as in Eigen
-//! (docs/CPP_DIVERGENCES.md). Tier B.
+//! eigenvector columns are normalized. Eigenvector signs are arbitrary, as in Eigen. Tier B.
+//!
+//! Deliberate divergence from COLMAP's `Eigen::SelfAdjointEigenSolver`, which uses
+//! tridiagonalization + QL: eigenvector signs, the basis inside a repeated eigenvalue's
+//! eigenspace and the last bits can differ. On non-finite input (Info is InvalidInput) the
+//! eigenvalues are NaN and, when eigenvectors were requested, the eigenvector matrix is
+//! NaN-filled, as `JacobiSvd` fills U and V, where Eigen leaves them unspecified;
+//! `eigenvectors()` panics only when they were not requested. Eigen is MPL-2.0 and not ported;
+//! Jacobi has no Eigen-specific convention to match, and COLMAP reads the smallest
+//! eigenvalue's eigenvector up to scale. colmap-sharp documents the same in its header (no
+//! separate colmap-sharp entry). Evidence: `rust_only_spectral_oracle.rs` checks 4 numpy
+//! (dsyevd) cases including repeated and zero eigenvalues (eigenvalues within 4e-12, simple
+//! eigenvectors within 1e-9 up to sign, V orthonormal and V D V^T == A within 1e-12);
+//! `rust_only_spectral_eigen.rs` pins the lower-triangle read, ascending order, scales
+//! 1e-170 / 1e160, and the NaN-filled eigenvectors on 1x1 NaN input.
 //!
 //! Tests: `colmap-rust/tests/linalg/rust_only_spectral_eigen.rs` and
 //! `rust_only_spectral_oracle.rs`.
@@ -64,7 +77,7 @@ impl SelfAdjointEigenSolver {
         if !finite {
             eigenvalues.fill(f64::NAN);
             // Requested eigenvectors come back NaN-filled, like JacobiSvd's U/V, so
-            // `eigenvectors()` never panics on bad data (docs/CPP_DIVERGENCES.md entry 31).
+            // `eigenvectors()` never panics on bad data (see the module header).
             return Self {
                 eigenvalues,
                 eigenvectors: compute_eigenvectors.then(|| MatrixXd::constant(n, n, f64::NAN)),

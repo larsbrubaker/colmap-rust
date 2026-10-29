@@ -4,7 +4,7 @@
 //! (gps_test.cc) and `tests/geometry/rust_only_transforms_oracle.rs`.
 //!
 //! Tier B against the pycolmap oracle (relative 1e-14, or 1e-8 m for coordinates in meters):
-//! the transcendentals go through [`crate::math::fns`] (docs/CPP_DIVERGENCES.md entry 1), the
+//! the transcendentals go through [`crate::math::fns`], the
 //! macOS wheel fuses some multiply-adds this port does not (entry 80) and `utm_to_ellipsoid`'s
 //! latitude can be 1 ulp off (entry 83). The UTM zone is Tier A.
 

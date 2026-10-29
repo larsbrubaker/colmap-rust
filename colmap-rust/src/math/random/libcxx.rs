@@ -16,9 +16,9 @@
 //!
 //! Tier A (exact), pinned by `tests/math/rust_only_random_oracle.rs` against
 //! `oracle/fixture_random.py`'s libc++ harness. The integer paths are exact everywhere. The
-//! real paths are plain IEEE `+ - * /` and `sqrt` (never fused: docs/CPP_DIVERGENCES.md entry
-//! 40), except that [`NormalDistribution`] calls `log`, which goes through
-//! [`crate::math::fns`] (docs/CPP_DIVERGENCES.md entry 1).
+//! real paths are plain IEEE `+ - * /` and `sqrt` (never fused: see the FMA divergence in
+//! `math/random/mod.rs`), except that [`NormalDistribution`] calls `log`, which goes through
+//! [`crate::math::fns`].
 //!
 //! Constants are libc++'s template parameters evaluated for `std::mt19937` on macOS, where
 //! `mt19937::result_type` (`uint_fast32_t`) is a 32-bit unsigned int: the engine range
@@ -272,7 +272,7 @@ pub fn generate_canonical<T: CanonicalFloat>(g: &mut Mt19937) -> T {
 }
 
 /// `std::uniform_real_distribution<T>(a, b)(g)`: uniform in `[a, b)`. The multiply-add is
-/// evaluated unfused (docs/CPP_DIVERGENCES.md entry 40).
+/// evaluated unfused (see the FMA divergence in `math/random/mod.rs`).
 pub fn uniform_real<T: CanonicalFloat>(g: &mut Mt19937, a: T, b: T) -> T {
     (b - a) * generate_canonical::<T>(g) + a
 }

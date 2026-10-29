@@ -12,7 +12,7 @@
 //! assumption that it is the same reduction; pycolmap exposes no Eigen dot to check it.
 //!
 //! The macOS arm64 pycolmap wheel contracts some `a*b - c*d` into an FMA (`cross`, for one);
-//! we do not (docs/CPP_DIVERGENCES.md, entry 2).
+//! we do not (see `Quaterniond`'s `Mul<Vector3d>` impl in `linalg/quaternion.rs`).
 
 use super::{mini, DUMMY_PRECISION};
 use crate::math::fns;

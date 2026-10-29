@@ -7,7 +7,7 @@
 //!
 //! Tier A (exact) by construction: pixels are float (`vl_sift_pix`), filter parameters double,
 //! and every mixed expression keeps C's promotion points. `pow` / `powf` / `exp` / `log` /
-//! `sqrt` go through [`crate::math::fns`] (docs/CPP_DIVERGENCES.md entry 1).
+//! `sqrt` go through [`crate::math::fns`].
 //!
 //! Translation notes:
 //! - VLFeat's pointers into the octave / temp buffers become slices plus offsets; the buffers

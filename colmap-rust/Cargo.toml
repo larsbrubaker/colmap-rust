@@ -14,7 +14,7 @@ name = "colmap_rust"
 path = "src/lib.rs"
 
 [dependencies]
-# Pure-Rust libm (musl port): bit-identical on every target; docs/CPP_DIVERGENCES.md entry 1.
+# Pure-Rust libm (musl port): bit-identical on every target; see src/math/fns.rs.
 # Caret requirement on purpose: a libm update that changes any bits is caught by the
 # tests/math/fns_probe.rs tables, which CI checks natively and on wasm32-wasip1 (wasmtime).
 libm = "0.2"

@@ -3,7 +3,7 @@
 //
 // Tiers: linear/quadratic roots are Tier A (exact comparisons where COLMAP uses EXPECT_EQ);
 // the cubic, Durand-Kerner and companion-matrix roots are Tier B with COLMAP's tolerances
-// (docs/CPP_DIVERGENCES.md entries 1, 50, 51). `EigenMatrixNear(v, tol)` is Eigen's
+// (`math::fns`; docs/CPP_DIVERGENCES.md entries 50, 51). `EigenMatrixNear(v, tol)` is Eigen's
 // `isApprox(v, tol)` after a shape check (`expect_near` below). The C++ output pointers
 // become the returned `PolynomialRoots`; `None` stands for `false`. COLMAP's literals are
 // kept digit for digit, hence the excessive_precision allowance.

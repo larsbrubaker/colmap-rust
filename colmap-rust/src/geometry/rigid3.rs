@@ -12,7 +12,8 @@
 //! - Tier B: everything that rotates a vector with `q * v` (applying the transform, the
 //!   translations of `inverse` and composition, `tgt_origin_in_src`), `adjoint_inverse` and
 //!   [`get_covariance_for_rigid3d_inverse`], because the macOS wheel contracts their products
-//!   into FMAs and this port never does (docs/CPP_DIVERGENCES.md entries 2 and 80).
+//!   into FMAs and this port never does (see `Quaterniond`'s `Mul<Vector3d>` in
+//!   `linalg/quaternion.rs` and docs/CPP_DIVERGENCES.md entry 80).
 //!
 //! Translation notes:
 //! - COLMAP stores `params = [qx, qy, qz, qw, tx, ty, tz]` and hands out mutable `Eigen::Map`
@@ -22,9 +23,9 @@
 //! - COLMAP's free `Inverse(Rigid3d)` is [`Rigid3d::inverse`].
 //! - `GetCovarianceForComposedRigid3d` and `GetCovarianceForRelativeRigid3d` take the 12x12
 //!   joint covariance as a [`MatrixXd`] (checked 12x12) and build their 6x12 Jacobians as
-//!   `MatrixXd`, so they are Tier B through its left-to-right products
-//!   (docs/CPP_DIVERGENCES.md entries 20 and 80), pinned by the oracle's `cov_composed` and
-//!   `cov_relative` fields.
+//!   `MatrixXd`, so they are Tier B through its left-to-right products (the dynamic-size
+//!   divergence in `linalg/mod.rs`; docs/CPP_DIVERGENCES.md entry 80), pinned by the oracle's
+//!   `cov_composed` and `cov_relative` fields.
 
 use std::fmt;
 use std::ops::Mul;

@@ -28,9 +28,29 @@
 //! blocks of T (not sorted); a complex pair appears as `(re + i im, re - i im)` with `im > 0`
 //! first; eigenvectors are the columns of a complex matrix, each normalized to unit norm. The
 //! eigenvector of a real eigenvalue is real; the complex phase of a complex eigenvector (and
-//! every sign) is this implementation's, like Eigen's arbitrary (docs/CPP_DIVERGENCES.md).
-//! Info is NoConvergence when the QR iteration exceeds 30 iterations per eigenvalue. The input
-//! is divided by its largest |entry| first and the eigenvalues multiplied back. Tier B.
+//! every sign) is this implementation's, like Eigen's arbitrary. Info is NoConvergence when the
+//! QR iteration exceeds 30 iterations per eigenvalue. The input is divided by its largest
+//! |entry| first and the eigenvalues multiplied back. Tier B.
+//!
+//! Deliberate divergence from COLMAP's `Eigen::EigenSolver` (polynomial roots via the companion
+//! matrix; the 4x4 in generalized_relative_pose.cc): the order of the eigenvalues (our
+//! deflation order vs Eigen's), each eigenvector's sign and, for complex vectors, its phase
+//! (`eigen_solver_vectors.rs`), and the last bits can differ. On non-finite input
+//! (InvalidInput) or no convergence (NoConvergence) the eigenvalues are NaN and requested
+//! eigenvectors are NaN-filled (Eigen leaves them unspecified); `eigenvectors()` panics only
+//! when they were not requested. Complex arithmetic (`linalg::Complex`) follows .NET's
+//! `System.Numerics.Complex` operators (Smith division), so results match colmap-sharp. Eigen is
+//! MPL-2.0 and not ported; its Schur deflation order and eigenvector normalization are not a
+//! documented convention, and no COLMAP caller depends on them: the polynomial-root callers
+//! treat the roots as a set, GR8P's G is symmetric (real eigenvectors, `hnormalized()` removes
+//! scale and sign), GR6P uses eigenvalues only. colmap-sharp documents the same in its headers
+//! (its entry 30 notes the Schur order only as it affects the six-point solvers). Evidence:
+//! `rust_only_spectral_oracle.rs` checks 10 numpy (dgeev) cases (random 3x3..8x8, four
+//! companion matrices, a defective Jordan-block matrix): eigenvalues matched as a multiset
+//! within 1e-9 (1e-7 defective), ||A v - lambda v|| within the same, unit norm within 1e-12,
+//! real vectors exactly real. `rust_only_spectral_eigen.rs` pins pair order, eigenvalues-only
+//! == full solve bitwise on 64x64/17x17/8x8 random, a 9x9 mixed-block and a 7x7 companion
+//! matrix, 1e200-scaled input, and the NaN-filled eigenvectors on 1x1 NaN input.
 //!
 //! Tests: `colmap-rust/tests/linalg/rust_only_spectral_eigen.rs` and
 //! `rust_only_spectral_oracle.rs`.
@@ -71,7 +91,7 @@ impl EigenSolver {
             return Self {
                 eigenvalues: vec![nan; n],
                 // Requested eigenvectors come back NaN-filled, like JacobiSvd's U/V, so
-                // `eigenvectors()` never panics on bad data (docs/CPP_DIVERGENCES.md entry 32).
+                // `eigenvectors()` never panics on bad data (see the module header).
                 eigenvectors: compute_eigenvectors.then(|| ComplexMatrixXd::filled(n, n, nan)),
                 info: ComputationInfo::InvalidInput,
             };

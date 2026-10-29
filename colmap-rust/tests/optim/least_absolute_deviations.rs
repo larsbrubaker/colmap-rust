@@ -3,7 +3,7 @@
 // over both solver types, becomes one test per case named after the suite and case; each runs
 // the case for both types in INSTANTIATE_TEST_SUITE_P's order. Tests
 // `colmap_rust::optim::LeastAbsoluteDeviationSolver` (Tier C over the Tier B sparse
-// Cholesky, docs/CPP_DIVERGENCES.md entry 33).
+// Cholesky; see `optim/sparse_cholesky.rs`).
 
 use colmap_rust::linalg::{SparseMatrixCsc, SparseTriplet, Vector3d, VectorXd};
 use colmap_rust::optim::{

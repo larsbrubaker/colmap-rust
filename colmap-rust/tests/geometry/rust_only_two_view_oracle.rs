@@ -6,9 +6,9 @@
 // (which lists the COLMAP call behind each field).
 //
 // Tier B throughout (SVD, eigen and slerp paths, and 3x3 products whose grouping and FMA
-// contraction differ from Eigen's in the macOS wheel, docs/CPP_DIVERGENCES.md entries 2, 20,
-// 30 and 31). Each field is compared as |expected - actual| <= tolerance * max(1,
-// |expected|); the bounds are colmap-sharp's (set from the largest gap it observed).
+// contraction differ from Eigen's in the macOS wheel; see `Quaterniond`'s `Mul<Vector3d>`, the
+// `linalg/mod.rs` header, `linalg/jacobi_svd.rs` and `linalg/self_adjoint_eigen_solver.rs`).
+// Each field is compared as |expected - actual| <= tolerance * max(1, |expected|); the bounds are colmap-sharp's (set from the largest gap it observed).
 // ComputeRot90FromGravity is exact. The homography scenes carry a little noise: noise-free,
 // a planar scene has two physically valid decompositions and the pick between them comes
 // down to rounding (entry 86). Results COLMAP defines only up to sign are not in the fixture

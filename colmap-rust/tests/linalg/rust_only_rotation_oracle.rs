@@ -8,17 +8,17 @@
 // tightly as the C++ allows):
 // - Tier A, bit-identical on every case: product, matrix, from_matrix, from_general, norm,
 //   inverse (`rust_only_exact_fields`).
-// - Tier A up to entry 1 (`rust_only_atan2_fields`): angle and angle_to call atan2, which is
-//   the `libm` crate's, not Apple libm's (docs/CPP_DIVERGENCES.md, entry 1). With std's atan2
+// - Tier A up to libm (`rust_only_atan2_fields`): angle and angle_to call atan2, which is
+//   the `libm` crate's, not Apple libm's (see the `math::fns` header). With std's atan2
 //   (Apple libm on macOS) both formulas reproduce all 138 cases bit for bit; with `fns::atan2`
 //   14 angles and 13 angle_tos differ by 1 ulp. Pinned at 2 ulp (distance on the bits).
 // - Tier B (`rust_only_tolerance_fields`), each for a reason on the C++ side that we
-//   deliberately do not reproduce, see docs/CPP_DIVERGENCES.md:
+//   deliberately do not reproduce, see the docs in `linalg/quaternion.rs`:
 //   rotated         - the macOS arm64 wheel contracts the cross products inside q * v into
-//                     FMAs (entry 2). With FMA emulated, our formula is exact on all cases;
-//                     the oracle script prints that evidence.
-//   from_axis_angle - the wheel's sin(a/2) can round 1 ulp away from libm sin (entry 3), and
-//                     our sin/cos are the `libm` crate's (entry 1).
+//                     FMAs (see `Mul<Vector3d>`). With FMA emulated, our formula is exact on
+//                     all cases; the oracle script prints that evidence.
+//   from_axis_angle - the wheel's sin(a/2) can round 1 ulp away from libm sin, and our
+//                     sin/cos are the `libm` crate's (see `from_angle_axis`'s doc).
 //   Observed on the 138 cases: rotated differs on 108 coefficients (the same with std math),
 //   from_axis_angle on 15 (3 with std's sin/cos, up to 2 ulp).
 // Tolerance: 1e-14 relative per coefficient (to max(1, |expected|)), a few ulps.
