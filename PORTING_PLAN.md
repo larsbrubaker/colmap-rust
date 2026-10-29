@@ -305,20 +305,19 @@ Fix each one in agg-gui, then remove its workaround here:
   requestAnimationFrame loop, DOM input, WebGPU surface) lives in the agg-gui repo; colmap-web
   uses it rather than carrying its own copy.
 - **Scene ownership: ids, not pointers.** Frames and images store the ids of their rig, camera
-  and frame; methods that need the owners take them as arguments (`scene/mod.rs` header,
-  divergence 170).
+  and frame; methods that need the owners take them as arguments (the `scene/mod.rs` header).
 - **Reconstruction mutators return plain `&mut`.** Consistency after an id change is checked by
-  `is_valid` and the owner-taking methods, not by the setters (divergence 214).
+  `is_valid` and the owner-taking methods, not by the setters (the `scene/reconstruction.rs` header).
 - **SIFT is CPU-only.** SiftGPU is excluded by its licence; a WGSL SIFT could be a later
   colmap-gpu step.
 - **`FeatureExtractor` / `FeatureMatcher` traits follow colmap-sharp**, returning `Result` and
   taking a `CancelToken`.
-- **faiss is replaced by an exact nearest-neighbour search** (divergence 231). The descriptor
+- **faiss is replaced by an exact nearest-neighbour search** (the `feature/index.rs` header). The descriptor
   index cache is `Option<Arc<dyn FeatureDescriptorIndexCache>>`, which Phase 11's matcher cache
   implements; `ThreadSafeLRUCache<ImageId, dyn FeatureDescriptorIndex>` (`util/cache.rs`) implements it.
 - **`ImgFromCamFunc` is `Arc<dyn Fn(Vector3d) -> Option<Vector2d> + Send + Sync>`** (the absolute
   pose estimators, `estimators/solvers/absolute_pose.rs`).
-- **`fast_expn` is a constant table** of correctly rounded `exp` values (divergence 202), an
+- **`fast_expn` is a constant table** of correctly rounded `exp` values (`EXPN_TAB` in `feature/vlfeat/mathop.rs`), an
   exception to the `math::fns` rule.
 - **The database is one in-memory type** (`scene::database::Database`, divergence 265): no
   path-keyed factory; `Database::new()` stands for COLMAP's in-memory path. Methods take `&self`
