@@ -1,7 +1,7 @@
 // Rust-only checks for `Frame` and `Image`, beyond the 1:1 ports in `frame.rs` and `image.rs`:
-// the id-based ownership of docs/CPP_DIVERGENCES.md entry 170 (methods reject a rig, frame or
+// the id-based ownership of the `scene` module header (methods reject a rig, frame or
 // camera that is not the one the ids name; equality and printing with and without the frame)
-// and the out-of-range point access of entry 171.
+// and the out-of-range point access of the `scene/image.rs` header.
 
 use colmap_rust::geometry::rigid3::Rigid3d;
 use colmap_rust::linalg::{Quaterniond, Vector2d, Vector3d};

@@ -5,10 +5,18 @@
 //!
 //! Tier A (plain data). Translation notes:
 //! - `Element(idx)` / `SetElement(idx, ..)` use `std::vector::at`, which throws
-//!   `std::out_of_range`; here they index the `Vec` and panic out of range. They are internal
-//!   invariants (callers iterate `0..length()`), and a `Result` on every element access of
-//!   every track would burden the hot loops of triangulation and bundle adjustment.
+//!   `std::out_of_range`; here [`Track::element`], [`Track::element_mut`] and
+//!   [`Track::set_element`] index the `Vec` and panic out of range.
 //! - `DeleteElement(idx)` is a `THROW_CHECK_LT` and returns `Err` like the other checks.
+//!
+//! The panic is a deliberate divergence: no COLMAP code catches that exception, because
+//! callers iterate `0..Length()`, so an out-of-range index is a bug in the caller, an internal
+//! invariant where CLAUDE.md's error rule allows a panic. A `Result` on every element access
+//! would burden the per-observation loops of triangulation and bundle adjustment for a
+//! condition that cannot occur in correct code. `tests/scene/rust_only_scene_types.rs` pins it
+//! in `rust_only_track_element_out_of_range_panics` and
+//! `rust_only_track_delete_element_out_of_range_fails_check`. `Image`'s point access takes the
+//! same divergence (the `scene/image.rs` header).
 
 use std::fmt;
 

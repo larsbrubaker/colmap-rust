@@ -6,7 +6,8 @@
 //! (the matching `reconstruction_test.cc` cases).
 //!
 //! Tier A. Translation notes:
-//! - Points are visited in ascending id order (entry 213), so `ConvertToPLY` lists them by id.
+//! - Points are visited in ascending id order (the `scene/reconstruction.rs` header), so
+//!   `ConvertToPLY` lists them by id.
 //! - The color extractors take the images from the host instead of reading
 //!   `path / image.Name()` from disk: `load_image` receives the image's name and returns its
 //!   bitmap, or `None` where COLMAP's `Bitmap::Read` fails. COLMAP reads with `as_rgb = true`;

@@ -8,8 +8,21 @@
 //! Tier A (exact) against unfused VLFeat: the VLFeat layer is bit-exact
 //! (`tests/feature/rust_only_vl_sift_filter.rs`), and the normalization sums in Eigen's
 //! reduction order. Against the macOS arm64 pycolmap wheel, which fuses multiply-adds, the
-//! same keypoints come out with last-bit drift (`tests/feature/rust_only_sift.rs`,
-//! docs/CPP_DIVERGENCES.md entry 230).
+//! same keypoints come out with last-bit drift (`tests/feature/rust_only_sift.rs`).
+//!
+//! That drift is a deliberate divergence. COLMAP's `SiftCPUFeatureExtractor` runs VLFeat, which
+//! the macOS arm64 pycolmap wheel compiles with Apple clang's default `-ffp-contract=on`:
+//! multiply-adds in the Gaussian convolution, the DoG refinement and the descriptor binning are
+//! fused into FMAs that round once. This port never fuses (CLAUDE.md "No FMA"), so against that
+//! wheel it gives the same keypoints, in the same order and count, with last-bit drift: keypoint
+//! values differ by up to about 1e-3 and descriptor bytes by at most one grey level, on at most
+//! 0.1% of the bytes. Fusing depends on the compiler and target, so it cannot be reproduced on
+//! every platform (wasm has no guaranteed FMA); unfused VLFeat is the portable reference, and
+//! against it the port is bit-exact (`tests/feature/rust_only_vl_sift_filter.rs`, fixture
+//! `sift_vlfeat.json`, VLFeat compiled with `-ffp-contract=off`).
+//! `rust_only_sift_matches_pycolmap_*` (`tests/feature/rust_only_sift.rs`) checks the nine
+//! `sift.json` cases against the wheel within 2e-3 per keypoint value, 1 per descriptor byte and
+//! 0.1% mismatched bytes. Same as colmap-sharp entry 41.
 //!
 //! Translation notes:
 //! - Cancellation (not in COLMAP): the filter checks the token between scale levels, and

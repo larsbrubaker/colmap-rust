@@ -5,13 +5,13 @@
 // truncation and the orientation limit). Port of colmap-sharp's
 // SiftOracleTests.CSharpOnly_MatchesPycolmapWithinFmaTolerance, one test per fixture case.
 //
-// Not bit-exact, on purpose (docs/CPP_DIVERGENCES.md entry 230): the macOS arm64 wheel's VLFeat
-// is compiled with Apple clang's default -ffp-contract=on, which fuses a*b + c into FMAs that
-// round once; the port never fuses. The bit-exact Tier A check of the same code is
-// rust_only_vl_sift_filter.rs, against VLFeat compiled unfused. Here the same keypoints must
-// come out (same count and order, so the same detections and DoG-level truncation), with
-// values within the drift fusing causes. The bounds are colmap-sharp's (observed there: at most
-// 1.03e-3 in a keypoint value, 1 grey level in a descriptor byte, at most 0.05% of the bytes).
+// Not bit-exact, on purpose (the `feature/sift/cpu_extractor.rs` header): the macOS arm64 wheel's
+// VLFeat is compiled with Apple clang's default -ffp-contract=on, which fuses a*b + c into FMAs
+// that round once; the port never fuses. The bit-exact Tier A check of the same code is
+// rust_only_vl_sift_filter.rs, against VLFeat compiled unfused. Here the same keypoints must come
+// out (same count and order, so the same detections and DoG-level truncation), with values within
+// the drift fusing causes. The bounds are colmap-sharp's (observed there: at most 1.03e-3 in a
+// keypoint value, 1 grey level in a descriptor byte, at most 0.05% of the bytes).
 
 use colmap_rust::feature::extractor::{FeatureExtractionOptions, FeatureExtractor};
 use colmap_rust::feature::sift::cpu_extractor::{

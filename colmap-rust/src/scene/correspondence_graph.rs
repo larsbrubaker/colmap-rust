@@ -15,17 +15,38 @@
 //!   order depends on the hash backend. The outputs that expose it, [`image_pairs`] and
 //!   [`num_matches_between_all_images`], come out here in insertion order (the order
 //!   `add_two_view_geometry` added the pairs), as in colmap-sharp: the pairs live in a `Vec`
-//!   that is never removed from, with a `HashMap` from pair id to position for lookups;
-//!   docs/CPP_DIVERGENCES.md entry 210. Images are in a `BTreeMap`; their order is never
+//!   that is never removed from, with a `HashMap` from pair id to position for lookups (the
+//!   pair-order divergence below). Images are in a `BTreeMap`; their order is never
 //!   observable (each image is flattened independently).
 //! - `CorrespondenceRange` (a `[beg, end)` pointer pair) is a slice borrowed from the graph.
 //! - Self-matches and invalid and duplicate matches are dropped and counted as in COLMAP,
-//!   without COLMAP's `LOG(WARNING)` lines (the core has no logger; entry 211).
+//!   without COLMAP's `LOG(WARNING)` lines ([`CorrespondenceGraph::add_two_view_geometry`]).
 //! - A missing image or point index is an [`ErrorKind::OutOfRange`] error, where COLMAP's
 //!   `std::unordered_map::at` / `std::vector::at` throw `std::out_of_range`.
 //! - A rejected `add_two_view_geometry` (missing image, pair already added) leaves the graph
 //!   unchanged, where COLMAP has already added the match count to both images' totals
-//!   (entry 212).
+//!   ([`CorrespondenceGraph::add_two_view_geometry`]).
+//!
+//! Deliberate divergence, the pair order: [`image_pairs`] and
+//! [`num_matches_between_all_images`] enumerate the image pairs in the order
+//! `add_two_view_geometry` added them. COLMAP iterates its `FlatHashMap<image_pair_t,
+//! ImagePair>`, whose order is the hash table's: `std::unordered_map` or
+//! `boost::unordered_flat_map`, whichever `COLMAP_HASH_MAP_BACKEND` the build picked, so it is
+//! not even the same across COLMAP builds. `NumMatchesBetweenAllImages` returns a
+//! `NodeHashMap`; here it is a `Vec<(pair id, number of matches)>`, since every COLMAP caller
+//! (`ObservationManager`, `PoseGraph::Load`, `SceneClustering`, `DatabaseCache`) only iterates
+//! it. CLAUDE.md requires deterministic iteration, and reproducing either backend's bucket
+//! layout would mean porting it; the order is not part of COLMAP's contract
+//! (`correspondence_graph_test.cc` compares `ImagePairs()` with `UnorderedElementsAre` and reads
+//! `NumMatchesBetweenAllImages()` by key). Insertion order rather than ascending pair id keeps
+//! colmap-rust and colmap-sharp walking the pairs in the same order, so pipelines that iterate
+//! them (the pose graph and the global mapper) agree between the two ports. Every per-point
+//! correspondence list, `extract_matches_between_images` and
+//! `extract_transitive_correspondences` are in COLMAP's order already (they come from vectors,
+//! not hash iteration). `tests/scene/correspondence_graph.rs` passes 1:1;
+//! `rust_only_correspondence_graph_pairs_in_insertion_order`
+//! (`tests/scene/rust_only_correspondence_graph.rs`) pins the order. Same as colmap-sharp
+//! entry 14.
 //!
 //! [`image_pairs`]: CorrespondenceGraph::image_pairs
 //! [`num_matches_between_all_images`]: CorrespondenceGraph::num_matches_between_all_images
@@ -113,7 +134,7 @@ struct ImagePair {
 pub struct CorrespondenceGraph {
     finalized: bool,
     images: BTreeMap<ImageId, ImageEntry>,
-    /// The image pairs in insertion order (entry 210); never removed from.
+    /// The image pairs in insertion order (the file header); never removed from.
     image_pairs: Vec<(ImagePairId, ImagePair)>,
     /// Position of each pair id in `image_pairs`. Only looked up, never iterated.
     image_pair_index: HashMap<ImagePairId, usize>,
@@ -223,7 +244,7 @@ impl CorrespondenceGraph {
     }
 
     /// `NumMatchesBetweenAllImages`: the number of matches of every pair as `(pair id,
-    /// number of matches)`, in insertion order (entry 210).
+    /// number of matches)`, in insertion order (the file header).
     pub fn num_matches_between_all_images(&self) -> Vec<(ImagePairId, Point2DIdx)> {
         self.image_pairs
             .iter()
@@ -231,7 +252,7 @@ impl CorrespondenceGraph {
             .collect()
     }
 
-    /// `ImagePairs`: every image pair id in the graph, in insertion order (entry 210).
+    /// `ImagePairs`: every image pair id in the graph, in insertion order (the file header).
     pub fn image_pairs(&self) -> Vec<ImagePairId> {
         self.image_pairs
             .iter()
@@ -249,8 +270,28 @@ impl CorrespondenceGraph {
 
     /// `AddTwoViewGeometry`: adds the two-view geometry and inlier matches between two
     /// images. Ignores a self-match, matches whose point indices are out of bounds, and
-    /// duplicate matches between the same image points (COLMAP warns about each; entry
-    /// 211). Fails if either image is missing or the pair was already added.
+    /// duplicate matches between the same image points. Fails if either image is missing or
+    /// the pair was already added.
+    ///
+    /// Deliberate divergence, no log lines: COLMAP emits a `LOG(WARNING)` line for a
+    /// self-match (`image_id1 == image_id2`), for each match whose point index is out of
+    /// bounds and for each duplicate match. This drops and counts them exactly as COLMAP does,
+    /// without the log lines: the core crate has no logging facility (COLMAP's glog is not
+    /// ported), the lines are diagnostic only, and the counts, which are the function's
+    /// contract, are unchanged. `correspondence_graph_out_of_bounds` and
+    /// `correspondence_graph_duplicate` (1:1) check the counts;
+    /// `rust_only_correspondence_graph_self_match_is_ignored` the self-match.
+    ///
+    /// Deliberate divergence, a rejected call changes nothing: COLMAP adds the match count to
+    /// both images' `num_correspondences` before its `THROW_CHECK(inserted)` for a pair that
+    /// was already added (and before `ImagePairToPairId` rejects an id beyond
+    /// `kMaxNumImages`), so the throw leaves both totals inflated. This checks the pair (and
+    /// that both images exist) first, so an `Err` leaves the graph as it was. A failed call
+    /// that half-applies is a bug: after it, the counts the incremental mapper uses to pick its
+    /// initial pair no longer match the stored correspondences, and no caller relies on the
+    /// inflated totals. Pinned by
+    /// `rust_only_correspondence_graph_rejected_duplicate_pair_leaves_graph_unchanged` and
+    /// `rust_only_correspondence_graph_missing_image_is_out_of_range`.
     pub fn add_two_view_geometry(
         &mut self,
         image_id1: ImageId,

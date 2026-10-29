@@ -1,7 +1,8 @@
 // Rust-only tests for colmap_rust::scene::reconstruction: the accessor errors, operator<<,
-// TearDown on a hand-built model, and docs/CPP_DIVERGENCES.md entries 213-216 (ascending id
-// order, id changes caught by is_valid, DeleteAllPoints2DAndPoints3D's triangulated count,
-// failed operations leaving the reconstruction unchanged).
+// TearDown on a hand-built model, and the divergences of the `scene/reconstruction.rs` header
+// and of `delete_all_points2d_and_points3d` (ascending id order, id changes caught by
+// is_valid, DeleteAllPoints2DAndPoints3D's triangulated count, failed operations leaving the
+// reconstruction unchanged).
 
 use colmap_rust::geometry::rigid3::Rigid3d;
 use colmap_rust::linalg::{Vector2d, Vector3d, Vector3ub};
@@ -105,7 +106,7 @@ fn rust_only_reconstruction_iterates_in_ascending_id_order() {
         reconstruction.register_frame(frame_id).unwrap();
     }
     reconstruction.image_mut(3).unwrap().set_name("image1");
-    // Two images named "image1": the smallest id wins (entry 213).
+    // Two images named "image1": the smallest id wins (the reconstruction header).
     assert_eq!(
         reconstruction
             .find_image_with_name("image1")
@@ -125,7 +126,7 @@ fn rust_only_reconstruction_changed_ids_are_invalid() {
     let reconstruction = model(2, &[1, 2]);
     assert!(reconstruction.is_valid());
     // Moving an attached image to another camera or frame is not rejected at the setter
-    // (entry 214); is_valid reports it.
+    // (the reconstruction header); is_valid reports it.
     let mut moved_camera = reconstruction.clone();
     moved_camera.image_mut(1).unwrap().set_camera_id(9).unwrap();
     assert!(!moved_camera.is_valid());
@@ -151,7 +152,7 @@ fn rust_only_reconstruction_delete_all_points2d_and_points3d_resets_counts() {
     assert_eq!(reconstruction.num_points3d(), 0);
     for image in reconstruction.images().values() {
         assert_eq!(image.num_points2d(), 0);
-        // COLMAP leaves this at 1 (entry 215).
+        // COLMAP leaves this at 1 (`delete_all_points2d_and_points3d`'s doc).
         assert_eq!(image.num_points3d(), 0);
     }
     assert!(reconstruction.is_valid());
@@ -169,7 +170,8 @@ fn rust_only_reconstruction_failed_operations_leave_it_unchanged() {
         .unwrap();
     let before = reconstruction.clone();
 
-    // A track through a missing image (entry 216): nothing is marked, the id is not used.
+    // A track through a missing image (the reconstruction header): nothing is marked, the id is
+    // not used.
     let bad = Point3D {
         track: track(&[(1, 1), (7, 0)]),
         ..Point3D::default()

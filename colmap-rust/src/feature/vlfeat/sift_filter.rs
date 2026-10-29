@@ -22,7 +22,21 @@
 //!   checks never touch the numbers.
 //! - `vl_sift_process_first_octave` resets the gradient cache's octave (`grad_o`), which
 //!   VLFeat resets only in `vl_sift_new`, so a filter reused for a new image never takes the
-//!   previous image's gradient (docs/CPP_DIVERGENCES.md entry 201).
+//!   previous image's gradient.
+//!
+//! That reset is a deliberate divergence. VLFeat caches the polar gradient of the current
+//! octave and records which octave it holds in `grad_o`, which only `vl_sift_new` resets. A
+//! filter reused for a second image of the same size keeps the first image's `grad_o`: when the
+//! first image's last octave with keypoints is the second image's first octave, VLFeat's
+//! orientations and descriptors of the second image's first octave are computed from the
+//! *first* image's gradient. COLMAP's `SiftCPUFeatureExtractor` reuses its filter across images
+//! of equal size, so its results can depend on the order images are processed. That is a bug
+//! in VLFeat's reuse path: a feature's descriptor should depend only on its own image, and a
+//! fresh filter (what VLFeat computes for the first image) is the correct result.
+//! `rust_only_vl_sift_filter_reused_filter_matches_fresh_one`
+//! (`tests/feature/rust_only_vl_sift_filter.rs`) fails with the reset removed. Same as
+//! colmap-sharp entry 43 (the gradient part; its cancellation part is a [`CancelToken`] here
+//! and changes no numbers).
 //!
 //! [`ErrorKind::Cancelled`]: crate::util::check::ErrorKind::Cancelled
 
@@ -227,7 +241,7 @@ impl VlSiftFilter {
         self.o_cur = o_min;
         self.keys.clear();
 
-        // Not in VLFeat, which resets grad_o only in vl_sift_new (entry 201).
+        // Not in VLFeat, which resets grad_o only in vl_sift_new (the file header).
         self.grad_o = o_min - 1;
 
         let w = shift_left(width, -self.o_cur);

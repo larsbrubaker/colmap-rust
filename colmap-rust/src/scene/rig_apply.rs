@@ -15,8 +15,8 @@
 //! - The other hash maps are only looked up, never iterated.
 //!
 //! COLMAP's `LOG(INFO)` ("Configured: ...") and `LOG(WARNING)` (a non-reference camera whose
-//! images are not registered) lines are dropped: the core has no logger (entry 211's
-//! reasoning); the warning's case leaves the sensor's pose unknown, exactly as in COLMAP.
+//! images are not registered) lines are dropped: the core has no logger, and the lines
+//! are diagnostic only; the warning's case leaves the sensor's pose unknown, exactly as in COLMAP.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 

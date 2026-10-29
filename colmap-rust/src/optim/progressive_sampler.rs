@@ -16,7 +16,8 @@
 //!   `[0, n - 2]` and the mandatory element is index `n`, so index `n - 1` is skipped and
 //!   index `n` can equal `total_num_samples` (for example on the first call when
 //!   `num_samples == total_num_samples`). COLMAP's RANSAC then reads past the end of the data;
-//!   [`super::Sampler::sample_xy`] fails a check instead (`docs/CPP_DIVERGENCES.md`, entry 140).
+//!   [`super::Sampler::sample_xy`] fails a check instead (the divergence in the
+//!   `optim/sampler.rs` header).
 
 use super::Sampler;
 use crate::math::random::random_uniform_integer;

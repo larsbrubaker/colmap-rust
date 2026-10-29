@@ -20,7 +20,7 @@
 //!   (`Eigen::Vector3d(RandomGaussian(...), RandomGaussian(...), ...)`), they are drawn left to
 //!   right, as clang (the macOS pycolmap wheel) evaluates constructor arguments.
 //! - Iteration order: COLMAP visits `Reconstruction::Points3D()` in hash order; here it is
-//!   ascending id order (entries 213 and 240).
+//!   ascending id order (the `scene/reconstruction.rs` header and entry 240).
 //! - COLMAP's optional `Database*` is two functions: [`synthesize_dataset`] (no database, the
 //!   form every other module's tests call) and [`synthesize_dataset_with_database`].
 
@@ -184,7 +184,7 @@ fn synthesize(
     crate::check_ge!(options.num_points3d, 0);
     crate::check!(options.track_length == -1 || options.track_length >= 2);
     // COLMAP warns when track_length exceeds the number of images; pruning then removes
-    // nothing (no track is longer), and the core has no logger (entry 211's reasoning).
+    // nothing (no track is longer), and the core has no logger (the line is diagnostic only).
     crate::check_ne!(options.feature_type, FeatureExtractorType::Undefined);
     crate::check_ge!(options.num_points2d_without_point3d, 0);
     crate::check_ge!(options.sensor_from_rig_translation_stddev, 0.0);

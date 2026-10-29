@@ -16,7 +16,7 @@
 //! - `rowwise().normalize()` divides each row by its norm unconditionally (unlike
 //!   `Matrix::normalize()`), so a zero row becomes NaN, as in COLMAP.
 //! - `ExtractTopScaleFeatures` uses `std::partial_sort`, which leaves equal scales in an
-//!   unspecified order; here ties keep their input order (docs/CPP_DIVERGENCES.md entry 200).
+//!   unspecified order; here ties keep their input order ([`extract_top_scale_features`]).
 //! - Its `THROW_CHECK`s return `Err`.
 
 use super::types::{FeatureDescriptors, FeatureDescriptorsData, FeatureDescriptorsFloatData};
@@ -67,7 +67,20 @@ pub fn feature_descriptors_to_unsigned_byte(
 
 /// Port of `colmap::ExtractTopScaleFeatures`: keeps the `num_features` keypoints of largest
 /// scale (and their descriptor rows), largest first. A no-op when there are no more than
-/// that many. Equal scales keep their input order (entry 200).
+/// that many. Equal scales keep their input order.
+///
+/// Deliberate divergence, the tie order: COLMAP selects the largest scales with
+/// `std::partial_sort`, which leaves keypoints of equal scale in an unspecified,
+/// implementation-defined order (libc++'s heap-based selection). This sorts by scale, largest
+/// first, with the input index as the tie-break (`f32::total_cmp`, so a NaN scale also has a
+/// fixed place, where COLMAP's `>` comparator is not a strict weak order). Equal scales are
+/// common: the SIFT extractor emits one keypoint per orientation, and all of them share the
+/// scale. Reproducing libc++'s heap order would tie the result to one standard library; the
+/// index tie-break is deterministic and stable. Only the order among equal scales differs, and
+/// *which* keypoints are kept differs only when a tie straddles the cut, where COLMAP's choice
+/// is arbitrary too. `extract_top_scale_features_nominal` (`tests/feature/utils.rs`, 1:1,
+/// distinct scales) passes unchanged; `rust_only_extract_top_scale_features_ties_keep_input_order`
+/// (`tests/feature/rust_only_feature_utils.rs`) pins the ties. Same as colmap-sharp entry 40.
 pub fn extract_top_scale_features(
     keypoints: &mut FeatureKeypoints,
     descriptors: &mut FeatureDescriptors,
@@ -85,7 +98,7 @@ pub fn extract_top_scale_features(
         .enumerate()
         .map(|(i, k)| (i, k.compute_scale()))
         .collect();
-    // Largest scale first, ties by input index (entry 200). `total_cmp` orders NaN scales
+    // Largest scale first, ties by input index (the doc above). `total_cmp` orders NaN scales
     // deterministically; COLMAP's `>` comparator is not a strict weak order with NaN.
     scales.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
 

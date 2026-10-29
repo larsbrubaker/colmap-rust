@@ -5,11 +5,11 @@
 //!
 //! Tier A (plain data and pose composition in COLMAP's order).
 //!
-//! **Ids into owning maps** (docs/CPP_DIVERGENCES.md entry 170). COLMAP's `Image` holds raw
-//! `Camera* camera_ptr_` and `Frame* frame_ptr_` that the reconstruction sets and clears. Here
-//! an image stores only the ids; whoever owns the cameras, frames and rigs (the
-//! reconstruction) passes them to the methods that need them, and each method checks it was
-//! handed the image's own camera / frame and the frame's rig:
+//! **Ids into owning maps** (the ownership divergence in the [`super`] module header). COLMAP's
+//! `Image` holds raw `Camera* camera_ptr_` and `Frame* frame_ptr_` that the reconstruction sets
+//! and clears. Here an image stores only the ids; whoever owns the cameras, frames and rigs (the
+//! reconstruction) passes them to the methods that need them, and each method checks it was handed
+//! the image's own camera / frame and the frame's rig:
 //! - `SetCameraPtr` / `SetFramePtr` are [`Image::verify_camera`] / [`Image::verify_frame`]:
 //!   the same checks, with nothing stored;
 //! - `CamFromWorld`, `ProjectionCenter`, `ViewingDirection`, `IsRefInFrame` take
@@ -22,7 +22,18 @@
 //!   `SetCameraId` / `SetFrameId` no longer refuse to change the id of a bound image.
 //!
 //! Point access by index panics out of range where COLMAP throws `std::out_of_range`
-//! (`std::vector::at`), like `Track` (docs/CPP_DIVERGENCES.md entry 171).
+//! (`std::vector::at`), like `Track` (the `scene/track.rs` header). That is a deliberate
+//! divergence: COLMAP's `Image::Point2D(idx)`, `SetPoint3DForPoint2D` and
+//! `ResetPoint3DForPoint2D` go through `std::vector::at`; [`Image::point2d`],
+//! [`Image::point2d_mut`], [`Image::set_point3d_for_point2d`] and
+//! [`Image::reset_point3d_for_point2d`] index the `Vec` and panic.
+//! `SetPoint3DForPoint2D`'s `THROW_CHECK_NE(point3D_id, kInvalidPoint3DId)` stays an `Err`. No
+//! COLMAP code catches the exception: callers index with feature indices taken from the image
+//! itself or from its correspondences, so an out-of-range index is a caller bug, an internal
+//! invariant where CLAUDE.md's error rule allows a panic, and a `Result` on every point access
+//! would burden triangulation and bundle adjustment. `tests/scene/rust_only_frame_image.rs`
+//! pins it in `rust_only_image_point2d_out_of_range_panics` and
+//! `rust_only_image_set_point3d_out_of_range_panics`.
 
 use std::fmt;
 
@@ -207,12 +218,12 @@ impl Image {
         frame.is_some_and(|frame| frame.frame_id() == self.frame_id && frame.has_pose())
     }
 
-    /// `Point2D(idx)`. Panics out of range (docs/CPP_DIVERGENCES.md entry 171).
+    /// `Point2D(idx)`. Panics out of range (the file header).
     pub fn point2d(&self, point2d_idx: Point2DIdx) -> &Point2D {
         &self.points2d[point2d_idx as usize]
     }
 
-    /// `Point2D(idx)` (non-const). Panics out of range (entry 171).
+    /// `Point2D(idx)` (non-const). Panics out of range (the file header).
     pub fn point2d_mut(&mut self, point2d_idx: Point2DIdx) -> &mut Point2D {
         &mut self.points2d[point2d_idx as usize]
     }
@@ -253,7 +264,7 @@ impl Image {
     }
 
     /// `SetPoint3DForPoint2D`: mark the point as triangulated, i.e. part of the track of
-    /// `point3d_id`. Panics out of range (entry 171).
+    /// `point3d_id`. Panics out of range (the file header).
     pub fn set_point3d_for_point2d(
         &mut self,
         point2d_idx: Point2DIdx,
@@ -269,7 +280,7 @@ impl Image {
     }
 
     /// `ResetPoint3DForPoint2D`: mark the point as not triangulated. Panics out of range
-    /// (entry 171).
+    /// (the file header).
     pub fn reset_point3d_for_point2d(&mut self, point2d_idx: Point2DIdx) {
         let point2d = &mut self.points2d[point2d_idx as usize];
         if point2d.has_point3d() {

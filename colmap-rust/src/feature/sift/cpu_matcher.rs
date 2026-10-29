@@ -19,7 +19,7 @@
 //!   transposed matrix. Here one fused integer scan yields both directions (identical results,
 //!   `super::match_kernels` header).
 //! - The default path searches the [`crate::feature::index`] index, which is exact here (faiss
-//!   is approximate for 512+ descriptors; docs/CPP_DIVERGENCES.md entry 231).
+//!   is approximate for 512+ descriptors; the `feature/index.rs` header).
 //!
 //! The GPU matcher (SiftGPU) and SIFT LightGlue (ONNX) are excluded.
 

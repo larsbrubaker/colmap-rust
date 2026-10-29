@@ -7,7 +7,7 @@
 //! Tier A (exact). The priority queue orders by `(gain, point3D_id)`, a total order over the
 //! queued entries (a point is re-queued only after it was popped), so the selection does not
 //! depend on the heap implementation or on the order points are pushed. The result lists the
-//! redundant ids in ascending id order (the reconstruction's `BTreeMap`, entry 213), where
+//! redundant ids in ascending id order (the reconstruction's `BTreeMap`; its header), where
 //! COLMAP's is its hash map's; its tests compare order-insensitively. The per-image maps are
 //! looked up only, never iterated.
 

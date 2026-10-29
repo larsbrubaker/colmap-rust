@@ -5,9 +5,9 @@
 // Database) and SetRigsAndFramesResetsNumRegImages. COLMAP's `ReconstructionEq` matcher
 // (reconstruction_matchers.h) is `expect_reconstruction_eq`, and the test's
 // `ExpectEqualSerialization` writes both models' text files to strings. A copy is the
-// derived `Clone` (copy construction and assignment alike; entry 170). `Frame::ResetRigPtr`
-// has no counterpart (frames hold only their rig's id), and the image-to-frame pointer check is
-// `expect_valid_ptrs`.
+// derived `Clone` (copy construction and assignment alike; the `scene` module header).
+// `Frame::ResetRigPtr` has no counterpart (frames hold only their rig's id), and the
+// image-to-frame pointer check is `expect_valid_ptrs`.
 
 use colmap_rust::scene::database::Database;
 use colmap_rust::scene::reconstruction::Reconstruction;

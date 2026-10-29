@@ -8,10 +8,10 @@
 //!
 //! Translation notes:
 //! - `ExtractSortedIds` sorts a hash map's ids so the writers' output does not depend on the
-//!   map; the reconstruction's maps are `BTreeMap`s (entry 213), whose keys already come in
+//!   map; the reconstruction's maps are `BTreeMap`s (its header), whose keys already come in
 //!   ascending order, so the writers iterate them directly.
 //! - `ExtractImageToFramePtr` maps image ids to frame pointers; here to frame ids
-//!   ([`extract_image_to_frame_id`], entry 170).
+//!   ([`extract_image_to_frame_id`]; the ownership divergence in the [`crate::scene`] header).
 
 use std::collections::HashMap;
 use std::path::Path;

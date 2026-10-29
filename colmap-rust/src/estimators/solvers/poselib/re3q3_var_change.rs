@@ -8,16 +8,39 @@
 //! PoseLib draws the change of variables from Eigen's `Quaternion::UnitRandom()` and
 //! `setRandom()`, which read the C library's process-global `std::rand()`. Here the draw comes
 //! from a fresh mt19937 with a fixed seed on every call, through libc++'s
-//! `uniform_real_distribution`, with Shoemake's uniform rotation (Graphics Gems III) for the
-//! quaternion, so the result depends only on the input and is thread-safe
-//! (docs/CPP_DIVERGENCES.md entries 220 and 221).
+//! `uniform_real_distribution` (`math::random::libcxx::uniform_real`), with Shoemake's
+//! uniform rotation (Graphics Gems III) for the quaternion, so the result depends only on the
+//! input and is thread-safe. `re3q3_rotation`'s pre-rotation draws the same way
+//! ([`super::re3q3::solve_rotation`]).
+//!
+//! That is a deliberate divergence. PoseLib's `re3q3` (P4Pf's three-quadratics solver) retries
+//! a near-degenerate system (all three elimination determinants below 1e-10) after this random
+//! affine change of variables: a uniform rotation and a shift in [-1, 1]^3. `std::rand()` is a
+//! process-global stream whose sequence depends on the C library and on every earlier call in
+//! the process, so COLMAP's result in this branch is not reproducible even against itself;
+//! porting it would add hidden global state shared across threads, which CLAUDE.md rules out
+//! (sequential and parallel runs must agree). Eigen's `UnitRandom` code is MPL-2.0 and is not
+//! ported, so the rotation follows the published method it cites. A fixed per-call seed (0)
+//! keeps the result a pure function of the input. Only the degenerate branch is affected; the
+//! regular path is a straight port. Same as colmap-sharp entry 26.
+//!
+//! Evidence: a change of variables followed by `refine_3q3` against the original coefficients
+//! targets the same system, so the solution set agrees up to solver tolerance whichever random
+//! matrix is drawn. `rust_only_degenerate_elimination_uses_random_var_change`
+//! (`tests/estimators/rust_only_re3q3.rs`; x^2 = 1, y^2 = 4, z^2 = 9, where every elimination
+//! determinant is 0) finds all eight solutions, each satisfying the original system to 1e-8.
+//! colmap-sharp cross-checked C++ PoseLib fa7280f (clang++, Eigen 3.4) in a scratch harness:
+//! for `std::srand` seeds 1..20 it also returns 8 solutions with max residual below 3e-9, and
+//! for x^2 = 1, y^2 = 4, z = x + y (a linear third equation) it returns 0 solutions for every
+//! seed, as the port does (upstream behavior, pinned by
+//! `rust_only_linear_equation_returns_no_solutions_like_poselib`).
 
 use super::re3q3::{refine_3q3, solve};
 use crate::linalg::{Quaterniond, Vector3d};
 use crate::math::fns;
 use crate::math::random::{libcxx, Mt19937};
 
-/// The fixed seed of the random change of variables (docs/CPP_DIVERGENCES.md entry 220).
+/// The fixed seed of the random change of variables (the file header).
 const RANDOM_VAR_CHANGE_SEED: u32 = 0;
 
 /// `re3q3`'s retry after an affine change of variables `x = R x' + s`: solves the

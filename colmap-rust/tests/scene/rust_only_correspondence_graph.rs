@@ -1,6 +1,6 @@
 // Rust-only tests for colmap_rust::scene::correspondence_graph: the error paths COLMAP
 // throws on (std::out_of_range from map/vector `at`, THROW_CHECK), the rejected-add
-// atomicity and the pair order of docs/CPP_DIVERGENCES.md entries 210-212.
+// atomicity and the pair order of the `scene/correspondence_graph.rs` header.
 
 use colmap_rust::feature::types::FeatureMatch;
 use colmap_rust::scene::correspondence_graph::{Correspondence, CorrespondenceGraph};

@@ -18,7 +18,24 @@
 //!   loop does not allocate per trial.
 //! - Every sampled index is checked against the data length. COLMAP reads past the end of
 //!   the data when `ProgressiveSampler` yields index `total_num_samples` (undefined
-//!   behavior); here that is a check failure (`docs/CPP_DIVERGENCES.md`, entry 140).
+//!   behavior); here that is a check failure.
+//!
+//! Deliberate divergence, the index check: `ProgressiveSampler` (ported faithfully) makes
+//! index `n` the mandatory element of a progressive sample, and `n` can equal
+//! `total_num_samples`: on the first sample when `num_samples == total_num_samples`, and in
+//! general on the sample where the growth schedule reaches the last element. COLMAP's
+//! `Sampler::SampleXY` then reads `X[total_num_samples]`, past the end of the `std::vector`
+//! (undefined behavior: garbage or a crash). [`Sampler::sample_x`] and [`Sampler::sample_xy`]
+//! check every sampled index against the data length and return COLMAP's "Check failed" error
+//! instead. Undefined behavior has no Rust equivalent to match (an out-of-bounds index
+//! panics), and silently clamping or shifting the index would change the sampler's Tier A
+//! sequence that `progressive_sampler_test.cc` pins. COLMAP 4.2.0 instantiates
+//! `ProgressiveSampler` nowhere outside its own test, so no pipeline reaches this path.
+//! `tests/optim/progressive_sampler.rs` (1:1) and the seeded sequence in
+//! `tests/optim/rust_only_sampler_sequence.rs` pass unchanged;
+//! `rust_only_progressive_sampler_index_past_end_fails_check` (`tests/optim/rust_only_ransac.rs`)
+//! runs RANSAC with PROSAC on exactly `MIN_NUM_SAMPLES` pairs and expects the check failure.
+//! Same as colmap-sharp entry 16.
 
 use crate::{check_eq, check_lt, Result};
 use std::cell::RefCell;

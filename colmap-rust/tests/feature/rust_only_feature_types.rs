@@ -2,9 +2,8 @@
 // - the enums' COLMAP spellings round-trip and an unknown spelling is MAKE_ENUM_CLASS's error;
 // - the `THROW_CHECK`s of the keypoint constructors and `Rescale` return `Err`;
 // - descriptor conversions reject UNDEFINED and a byte row that is not whole floats;
-// - SIFT float -> u8 saturates out of range and maps NaN to 0 (docs/CPP_DIVERGENCES.md
-//   entry 180);
-// - the matrix conversions check the column count (entry 181).
+// - SIFT float -> u8 saturates out of range and maps NaN to 0 (`FeatureDescriptors::from_float`);
+// - the matrix conversions check the column count (the `feature/types.rs` header).
 
 use colmap_rust::feature::types::{
     keypoints_from_matrix, matches_from_matrix, FeatureDescriptors, FeatureDescriptorsFloat,

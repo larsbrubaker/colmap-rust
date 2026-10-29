@@ -9,7 +9,7 @@
 //! float/double expressions keep the C promotion points, spelled out at the call sites.
 //! COLMAP builds VLFeat without SSE2 on arm64 (`thirdparty/VLFeat/CMakeLists.txt`), so the
 //! scalar code here is the code the macOS wheel runs. The `fast_expn` table is a constant of
-//! correctly rounded values rather than `exp` calls (docs/CPP_DIVERGENCES.md entry 202).
+//! correctly rounded values rather than `exp` calls ([`EXPN_TAB`]).
 
 /// `VL_PI` (`3.141592653589793`, the same double as `std::f64::consts::PI`).
 pub const VL_PI: f64 = std::f64::consts::PI;
@@ -105,13 +105,23 @@ pub const EXPN_MAX: f64 = 25.0;
 
 /// `sift.c`'s `expn_tab` as `fast_expn_init` fills it: `exp(-k * (EXPN_MAX / EXPN_SZ))` for
 /// `k = 0..=256`, each value the correctly rounded double of that exponential (written as bits
-/// so no parse can round it). Apple libm, which the pycolmap wheel and the VLFeat fixture run,
-/// returns exactly these values for all 257 arguments; the `libm` crate's `exp` is 1 ulp off
-/// for some of them, which moves SIFT orientations by an ulp. A constant table gives
-/// VLFeat-on-macOS's bits on every target, native and wasm (docs/CPP_DIVERGENCES.md entry
-/// 202). Generated with Python's `decimal` at 80 digits, then rounded to double;
-/// `tests/feature/rust_only_vl_sift_filter.rs` checks it against [`crate::math::fns::exp`]
-/// (within 1 ulp) and the fixture pins it end to end.
+/// so no parse can round it).
+///
+/// A constant rather than `exp` calls is a deliberate divergence. VLFeat fills the table by
+/// calling the platform `exp`; this port routes every transcendental through
+/// [`crate::math::fns`] (the `libm` crate), whose `exp` is 1 ulp from the correctly rounded
+/// value for some of these 257 arguments. The table weights every orientation-histogram vote
+/// and descriptor sample, and a 1 ulp difference in it moved SIFT orientations by an ulp
+/// against the VLFeat fixture. Apple libm, which the pycolmap wheel and the fixture run,
+/// returns exactly the correctly rounded values for all 257 arguments (checked against
+/// Python's `decimal` at 80 digits), so the constant gives VLFeat-on-macOS's bits on every
+/// target, native and wasm, which is what routing through `math::fns` aims for. Generated with
+/// Python's `decimal` at 80 digits, then rounded to double. In
+/// `tests/feature/rust_only_vl_sift_filter.rs` the six
+/// `rust_only_vl_sift_filter_matches_unfused_vlfeat_*` tests are bit-exact with the table
+/// (with `libm`'s `exp`, four of them fail on an orientation's last bit), and
+/// `rust_only_vl_sift_expn_table_is_exp` checks every entry within 1 ulp of
+/// [`crate::math::fns::exp`].
 pub const EXPN_TAB: [f64; EXPN_SZ + 1] = [
     f64::from_bits(0x3ff0000000000000),
     f64::from_bits(0x3fed05d24612c2af),

@@ -8,9 +8,11 @@
 //! Translation notes:
 //! - `IsValid`'s pointer checks (`HasRigPtr`, `RigPtr() == &rigs_.at(..)`, and the camera
 //!   and frame ones) become the id checks they guarded: the referenced object exists and
-//!   holds this one (entry 170). COLMAP's `LOG(WARNING)` naming the first broken
-//!   association is not emitted (the core has no logger, entry 211's reasoning).
-//! - Iteration is in ascending id order (entry 213): `find_image_with_name` returns the
+//!   holds this one (the ownership divergence in the [`crate::scene`] module header).
+//!   COLMAP's `LOG(WARNING)` naming the first broken association is not emitted (the core
+//!   has no logger, and the line is diagnostic only).
+//! - Iteration is in ascending id order (the `scene/reconstruction.rs` header):
+//!   `find_image_with_name` returns the
 //!   smallest-id image among several with the same name.
 
 use std::collections::BTreeSet;
@@ -162,7 +164,7 @@ impl Reconstruction {
     }
 
     /// `FindImageWithName`: the image with the given name, the smallest id among several
-    /// (entry 213); `None` if there is none.
+    /// (the `scene/reconstruction.rs` header); `None` if there is none.
     pub fn find_image_with_name(&self, name: &str) -> Option<&Image> {
         self.images.values().find(|image| image.name() == name)
     }
@@ -219,7 +221,8 @@ impl Reconstruction {
     }
 
     /// `ComputeMeanReprojectionError`: the mean error of the points that have one, 0 if
-    /// none has. Sums in ascending point id order (entry 213).
+    /// none has. Sums in ascending point id order (the
+    /// `scene/reconstruction.rs` header).
     pub fn compute_mean_reprojection_error(&self) -> f64 {
         let mut error_sum = 0.0;
         let mut num_valid_errors = 0usize;

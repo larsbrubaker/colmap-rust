@@ -9,8 +9,9 @@
 //! (`loransac_test.cc`) and `tests/optim/rust_only_ransac.rs`.
 //!
 //! Tier C (outcome), as RANSAC. The same serial-loop translation as [`super::ransac`]
-//! applies (`docs/CPP_DIVERGENCES.md`, entry 141): COLMAP's speculative "is better" check
-//! and the locked commit become two plain checks in the same order.
+//! applies (the serial-loop divergence in the `optim/ransac.rs` header): COLMAP's
+//! speculative "is better" check and the locked commit become two plain checks in the same
+//! order.
 
 use super::ransac::int_to_size_t;
 use super::{
@@ -126,8 +127,8 @@ where
         let mut dyn_max_num_trials = max_num_trials;
         let mut abort_flag = false;
 
-        // COLMAP's parallel region, run once on this thread (entry 141). Per-thread copies
-        // of the mutable objects.
+        // COLMAP's parallel region, run once on this thread (the `optim/ransac.rs` header).
+        // Per-thread copies of the mutable objects.
         let mut thread_sampler = Sa::new(E::MIN_NUM_SAMPLES);
         thread_sampler.initialize(num_samples)?;
         let mut thread_estimator = self.estimator.clone();

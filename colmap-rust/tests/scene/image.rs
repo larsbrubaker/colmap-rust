@@ -2,7 +2,7 @@
 // colmap_rust::scene::image::Image. EXPECT_ANY_THROW becomes `is_err()`.
 //
 // COLMAP's image holds `Camera*` and `Frame*`; the Rust image holds the ids and takes the
-// camera, frame and rig as parameters (docs/CPP_DIVERGENCES.md entry 170). The pointer checks
+// camera, frame and rig as parameters (the `scene` module header). The pointer checks
 // become checks of the id-based API: `SetCameraPtr` / `SetFramePtr` succeeding is
 // `verify_camera` / `verify_frame` being `Ok`, and two images sharing a frame pointer are two
 // images with the same frame id resolving to the same frame.

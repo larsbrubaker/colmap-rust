@@ -5,7 +5,7 @@
 // colmap-sharp's scratch harness on the same input. PoseLib pre-rotates the problem by a
 // std::rand rotation, so its solutions vary with the seed at the 1e-10 level (seeds 1..5 all
 // gave these four poses); the port draws that rotation from a fixed seed
-// (docs/CPP_DIVERGENCES.md entry 221). Tier B: the solution set is compared
+// (`re3q3::solve_rotation`'s doc). Tier B: the solution set is compared
 // order-insensitively, since its order depends on the random pre-rotation. The PoseLib values
 // are kept digit for digit, hence the excessive_precision allowance.
 

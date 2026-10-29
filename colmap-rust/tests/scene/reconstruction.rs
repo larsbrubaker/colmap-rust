@@ -6,7 +6,7 @@
 // image-directory tests in reconstruction_ply.rs. COLMAP's `ExpectValidPtrs` (every frame's rig
 // pointer and every image's camera and frame pointers point into the reconstruction) is
 // `expect_valid_ptrs`: the ids it guards resolve and pass the `verify_*` checks
-// (docs/CPP_DIVERGENCES.md entry 170). `EXPECT_ANY_THROW` is `is_err()`; a `try` / `catch`
+// (the `scene` module header). `EXPECT_ANY_THROW` is `is_err()`; a `try` / `catch`
 // with `HasSubstr` checks the `Err` message, the Rust expression text where COLMAP's is C++
 // (util/check.rs).
 

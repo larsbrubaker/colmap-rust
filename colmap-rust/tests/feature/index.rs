@@ -2,7 +2,7 @@
 // colmap_rust::feature::index. TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) is
 // one test per INSTANTIATE_TEST_SUITE_P row, named after the row:
 // `parameterized_feature_descriptor_index_tests_nominal_<extractor>_<count>`. COLMAP's only
-// index type is FAISS; here it is the exact search (docs/CPP_DIVERGENCES.md entry 231), so
+// index type is FAISS; here it is the exact search (the `feature/index.rs` header), so
 // the 1000-descriptor rows, where COLMAP's faiss uses its IVF index, run the same search.
 
 use colmap_rust::feature::index::{create_feature_descriptor_index, FeatureDescriptorIndexType};

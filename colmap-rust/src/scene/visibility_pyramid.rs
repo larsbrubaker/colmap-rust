@@ -11,6 +11,16 @@
 //! - `CellForPoint` converts `max_dim * x / width` to `size_t` before clamping, which is UB
 //!   for negative or NaN coordinates in C++; Rust's `as usize` saturates them to 0, i.e. the
 //!   first cell, and the clamp then keeps the result in range.
+//!
+//! Defining those two undefined-behavior cases is a deliberate divergence: undefined behavior
+//! has no result to match, and these are the values a caller would expect (a coordinate
+//! beyond the range lands in the last cell, as in COLMAP). COLMAP's only user, the
+//! incremental mapper's observation manager, builds pyramids with
+//! `kNumPoint3DVisibilityPyramidLevels = 6` levels and the image's size, where both versions
+//! agree. `tests/scene/visibility_pyramid.rs` (1:1, 1 to 7 levels) passes unchanged;
+//! `tests/scene/rust_only_scene_types.rs` pins the two cases in
+//! `rust_only_visibility_pyramid_eight_levels_max_score` and
+//! `rust_only_visibility_pyramid_out_of_range_points_clamp`.
 
 use crate::math::utils::clamp;
 use crate::util::check::Result;

@@ -28,12 +28,26 @@
 //!   unsupported descriptor type, return `Err`.
 //! - The descriptors' `type` field is `extractor_type` (`type` is a Rust keyword).
 //! - Converting SIFT descriptors from float casts each value to `u8` with Rust's saturating
-//!   `as`, where COLMAP's `static_cast` is undefined out of range (entry 180). The
+//!   `as`, where COLMAP's `static_cast` is undefined out of range
+//!   ([`FeatureDescriptors::from_float`]). The
 //!   learned-feature types reinterpret float32 bytes in the platform's byte order, exactly
 //!   like COLMAP's `memcpy`.
 //! - `KeypointsFromMatrix` / `MatchesFromMatrix` take a [`RowMajorMatrix`] and check its
 //!   column count at run time, where Eigen's `Ref<Matrix<.., Dynamic, 4>>` fixes it in the
-//!   type (entry 181).
+//!   type.
+//!
+//! The run-time column check is a deliberate divergence: COLMAP's `KeypointsFromMatrix` and
+//! `MatchesFromMatrix` take `Eigen::Ref<const Matrix<.., Dynamic, 4 or 2, RowMajor>>`, so a
+//! fixed-size source with the wrong column count does not compile, and a dynamic one trips an
+//! Eigen assertion (undefined behavior in a release build). [`keypoints_from_matrix`] and
+//! [`matches_from_matrix`] take a dynamic `RowMajorMatrix` and return the
+//! `THROW_CHECK_EQ`-style `Err` for any other column count; `keypoints_from_matrix` also
+//! returns the keypoint constructor's `Err` for a negative scale, where COLMAP throws. The
+//! Rust matrix type has no compile-time column count, and a checked error is the closest
+//! equivalent and never reads past a row. colmap-sharp checks the column count the same way
+//! (`FeatureKeypoints.KeypointsFromMatrix` / `MatchesFromMatrix`). Pinned by
+//! `rust_only_feature_matrix_conversions_check_columns`
+//! (`tests/feature/rust_only_feature_types.rs`).
 
 use std::fmt;
 
@@ -423,9 +437,21 @@ impl FeatureDescriptors {
         }
     }
 
-    /// `FromFloat`: SIFT values are cast to `u8` (saturating, entry 180); the learned-feature
-    /// float32 values are reinterpreted as bytes. `Err("Unsupported feature type: <type>")`
-    /// for any other type.
+    /// `FromFloat`: SIFT values are cast to `u8` (saturating); the learned-feature float32
+    /// values are reinterpreted as bytes. `Err("Unsupported feature type: <type>")` for any
+    /// other type.
+    ///
+    /// The SIFT cast is a deliberate divergence: COLMAP's `static_cast<uint8_t>` is undefined
+    /// behavior for a value outside `[0, 256)` or NaN. Rust's `as u8` truncates toward zero
+    /// like `static_cast` for in-range values, clamps out-of-range values to 0 or 255, and maps
+    /// NaN to 0. Undefined behavior has no result to match; saturation is the value a caller
+    /// would expect from a byte descriptor, and SIFT's own descriptors are already quantized to
+    /// 0..255 before they reach this conversion, so in-range inputs (every input COLMAP
+    /// produces) give COLMAP's bytes. `feature_descriptors_sift_conversion`
+    /// (`tests/feature/types.rs`, 1:1) passes;
+    /// `rust_only_feature_descriptors_sift_cast_saturates`
+    /// (`tests/feature/rust_only_feature_types.rs`) pins `[12.9, 255, 300, -4, NaN, 0.5]` →
+    /// `[12, 255, 255, 0, 0, 0]`.
     pub fn from_float(float_desc: &FeatureDescriptorsFloat) -> Result<FeatureDescriptors> {
         let rows = float_desc.data.rows();
         let float_cols = float_desc.data.cols();
@@ -580,8 +606,8 @@ pub fn keypoints_to_matrix(feature_keypoints: &[FeatureKeypoint]) -> FeatureKeyp
 }
 
 /// Port of `colmap::KeypointsFromMatrix`: keypoints from an N x 4 matrix
-/// `[x, y, scale, orientation]`. `Err` for another column count (entry 181) or a negative
-/// scale.
+/// `[x, y, scale, orientation]`. `Err` for another column count (the file header) or a
+/// negative scale.
 pub fn keypoints_from_matrix(keypoints: &FeatureKeypointsMatrix) -> Result<FeatureKeypoints> {
     check_eq!(keypoints.cols(), KEYPOINT_MATRIX_COLS);
     (0..keypoints.rows())
@@ -607,7 +633,7 @@ pub fn matches_to_matrix(feature_matches: &[FeatureMatch]) -> FeatureMatchesMatr
 }
 
 /// Port of `colmap::MatchesFromMatrix`: matches from an N x 2 matrix of point2D indices.
-/// `Err` for another column count (entry 181).
+/// `Err` for another column count (the file header).
 pub fn matches_from_matrix(matches: &FeatureMatchesMatrix) -> Result<FeatureMatches> {
     check_eq!(matches.cols(), 2);
     Ok((0..matches.rows())

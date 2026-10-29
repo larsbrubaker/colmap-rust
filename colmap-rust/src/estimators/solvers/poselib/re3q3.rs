@@ -15,8 +15,8 @@
 //!   (`coeffs(k, j) = coeffs[k + 3 j]`), so a call allocates nothing on the heap.
 //! - When all three elimination matrices are near-singular, PoseLib retries after a random
 //!   affine change of variables drawn from `std::rand()`; here it comes from a fresh
-//!   fixed-seed mt19937 (docs/CPP_DIVERGENCES.md entry 220). `re3q3_rotation`'s random
-//!   pre-rotation likewise uses a fixed seed (entry 221).
+//!   fixed-seed mt19937 (the `re3q3_var_change.rs` header). `re3q3_rotation`'s random
+//!   pre-rotation likewise uses a fixed seed ([`solve_rotation`]).
 //! - Upstream behavior, kept: a system with a purely linear equation (for example x^2 = 1,
 //!   y^2 = 4, z = x + y, which has four finite solutions) returns 0 solutions. An affine
 //!   change of variables cannot give a linear equation quadratic terms, so every elimination
@@ -36,8 +36,8 @@ use super::sturm::{bisect_sturm, DEFAULT_TOL};
 use crate::linalg::{Matrix3d, Vector3d, Vector4d};
 use crate::math::random::Mt19937;
 
-/// The fixed seed of `re3q3_rotation`'s random pre-rotation (docs/CPP_DIVERGENCES.md entry
-/// 221). Distinct from the change-of-variables seed so the two draws are not the same
+/// The fixed seed of `re3q3_rotation`'s random pre-rotation ([`solve_rotation`]). Distinct
+/// from the change-of-variables seed so the two draws are not the same
 /// rotation.
 const ROTATION_PRECONDITION_SEED: u32 = 1;
 
@@ -156,8 +156,25 @@ pub fn rotation_to_3q3(rcoeffs: &[f64], coeffs: &mut [f64]) {
 /// PoseLib first rotates the problem by a random rotation R0 so that no solution sits at the
 /// Cayley transform's singularity (a rotation by pi), solves in Cayley parameters, and
 /// composes R0 back. Port of the 3 x 10 overload of `poselib::re3q3::re3q3_rotation`
-/// (`re3q3_rotation_impl`). R0 comes from a fixed-seed mt19937 rather than `std::rand()`
-/// (docs/CPP_DIVERGENCES.md entry 221).
+/// (`re3q3_rotation_impl`). R0 comes from a fixed-seed mt19937 rather than `std::rand()`.
+///
+/// That is a deliberate divergence. Unlike `re3q3`'s change of variables (the
+/// `re3q3_var_change.rs` header), this draw happens on *every* call, not only for degenerate
+/// input; it is how COLMAP's `GP3PEstimator` reaches it, through [`super::gp3p`]. PoseLib
+/// takes R0 from Eigen's `Quaternion::UnitRandom()`, i.e. from the process-global
+/// `std::rand()`; the port draws it (Shoemake's uniform rotation) from a fresh `Mt19937`
+/// seeded with 1 on every call. `std::rand()` is hidden global state whose sequence depends on
+/// the C library and on every earlier call, so COLMAP's gp3p is not reproducible even against
+/// itself, and porting it would make sequential and parallel runs disagree; Eigen's
+/// `UnitRandom` is MPL-2.0 and not ported. The seed differs from the change of variables' so
+/// the two draws are not the same rotation. Consequence: for a fixed input the port always
+/// uses the same R0, so an input whose true rotation is (close to) R0 composed with a rotation
+/// by pi is always ill-conditioned here, where PoseLib would be only for an unlucky draw. That
+/// set has measure zero and RANSAC draws other samples. colmap-sharp ran PoseLib fa7280f's
+/// gp3p (clang++, Eigen 3.4) in a scratch harness: it returns the same four poses for
+/// `std::srand` seeds 1..5 on a fixed three-ray input, agreeing to about 1e-10 across seeds,
+/// and `rust_only_matches_poselib_solution_set` (`tests/estimators/rust_only_gp3p.rs`) returns
+/// those same four poses to 1e-8. Same as colmap-sharp entry 29.
 pub fn solve_rotation(
     rcoeffs: &[f64],
     solutions: &mut [Vector4d],

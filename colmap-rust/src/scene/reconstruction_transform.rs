@@ -12,8 +12,8 @@
 //! and the FMA divergence in the `geometry/rigid3.rs` header).
 //!
 //! Translation notes: COLMAP's default arguments are the `DEFAULT_*` constants below; Rust
-//! has none, so every caller passes them. Points are visited in ascending id order (entry
-//! 213), which only changes the centroid's summation order.
+//! has none, so every caller passes them. Points are visited in ascending id order (the
+//! `scene/reconstruction.rs` header), which only changes the centroid's summation order.
 
 use std::collections::BTreeSet;
 

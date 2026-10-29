@@ -7,12 +7,12 @@
 //! `tests/scene/reconstruction_io.rs` (the `Export*` cases). `ExportRecon3D` and
 //! `ExportVRML` are in `reconstruction_export_recon3d_vrml.rs`, re-exported here.
 //!
-//! Tier A (exact): COLMAP streams the main file at `precision(17)` and each point's
-//! observation line through a fresh `std::ostringstream` at the default precision 6, both
-//! `%g` ([`format_double`]). Images are written in registered order and points in ascending
-//! id order (entry 213; COLMAP iterates its hash map). An unsupported camera model returns
-//! `false` after the lines written so far, as COLMAP's half-written file has them; COLMAP's
-//! `LOG(WARNING)` there is not emitted (the core has no logger).
+//! Tier A (exact): COLMAP streams the main file at `precision(17)` and each point's observation
+//! line through a fresh `std::ostringstream` at the default precision 6, both `%g`
+//! ([`format_double`]). Images are written in registered order and points in ascending id order
+//! (the `scene/reconstruction.rs` header; COLMAP iterates its hash map). An unsupported camera
+//! model returns `false` after the lines written so far, as COLMAP's half-written file has them;
+//! COLMAP's `LOG(WARNING)` there is not emitted (the core has no logger).
 
 use std::io::Write;
 use std::path::Path;

@@ -1,7 +1,7 @@
 // Rust-only tests (PoseLib has no re3q3 unit test and COLMAP none either; ports of
 // colmap-sharp's C#-only `Re3q3Tests`) of colmap_rust::estimators::solvers::poselib::re3q3.
 // They pin the random change-of-variables branch, which COLMAP's absolute_pose_test.cc cases
-// never reach (docs/CPP_DIVERGENCES.md entry 220). Tier B: solutions are checked against the
+// never reach (the `re3q3_var_change.rs` header). Tier B: solutions are checked against the
 // system.
 
 use colmap_rust::estimators::solvers::poselib::re3q3;

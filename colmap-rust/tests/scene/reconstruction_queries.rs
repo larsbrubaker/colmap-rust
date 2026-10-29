@@ -189,7 +189,7 @@ fn reconstruction_is_valid() {
     assert!(reconstruction.is_valid());
 
     // Test empty frame pointer for image: with ids, the image loses its frame id
-    // (docs/CPP_DIVERGENCES.md entry 170).
+    // (the `scene` module header).
     {
         let mut reconstruction_copy = reconstruction.clone();
         reconstruction_copy

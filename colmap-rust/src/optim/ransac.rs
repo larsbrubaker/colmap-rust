@@ -11,7 +11,7 @@
 //! Translation notes:
 //! - The trial loop always runs serially on the calling thread, which is COLMAP's own
 //!   `num_threads == 1` path and its non-OpenMP build for every `num_threads`
-//!   (`docs/CPP_DIVERGENCES.md`, entry 141). `num_threads` is still validated exactly as
+//!   (the serial-loop divergence below). `num_threads` is still validated exactly as
 //!   COLMAP does, and the thread-0 seed (`random_seed + 0`) is used. The atomic trial
 //!   counter and abort flag become plain locals with the same update order, so
 //!   `report.num_trials` counts the final `fetch_add` that ends the loop, as COLMAP's does.
@@ -20,6 +20,26 @@
 //!   `max_num_trials` converts back to `int` by truncation, as C++'s assignment does.
 //! - `static_cast<size_t>(std::ceil(...))` is `as usize`, which saturates where C++ is
 //!   undefined (a trial count beyond `size_t`).
+//!
+//! Deliberate divergence, the serial trial loop (here and in [`super::loransac`]): with
+//! `RANSACOptions::num_threads > 1` (or -1), COLMAP built with OpenMP runs the trial loop on
+//! several threads, each with its own sampler seeded `random_seed + thread index`, sharing an
+//! atomic trial counter and a mutex-guarded best model. This port validates `num_threads`
+//! exactly as COLMAP does (`Check()`, and "Parallel RANSAC only supports RandomSampler" for
+//! any other sampler with more than one effective thread) and then runs the loop once on the
+//! calling thread with the thread-0 seed, which is what COLMAP itself does when built without
+//! OpenMP ("the block runs once serially"). COLMAP's parallel result depends on thread
+//! scheduling (which thread claims which trial index, and which thread's model reaches the
+//! shared best first), so it is not reproducible even against itself, and CLAUDE.md requires
+//! sequential and parallel runs to give the same result. A deterministic parallel scheme (for
+//! example fixed per-trial seeds) would be a different algorithm from both COLMAP builds and
+//! waits until profiling shows RANSAC is a bottleneck. In `tests/optim/rust_only_ransac.rs`,
+//! `rust_only_ransac_parallel_line_fit` and `rust_only_loransac_parallel_line_fit`
+//! (`num_threads = 4`) pass the same checks as the serial runs, and
+//! `rust_only_parallel_requires_random_sampler` pins the kept validation; the 1:1
+//! `ransac_parallel_similarity_transform` and `loransac_parallel_similarity_transform`
+//! (`tests/optim/ransac.rs`, `tests/optim/loransac.rs`) pass on the serial loop. Same as
+//! colmap-sharp entry 17.
 
 use super::{
     Estimator, InlierSupportMeasurer, MeasuredSupport, RandomSampler, Sampler, SupportMeasurer,
@@ -278,7 +298,7 @@ impl<E: Estimator, S: SupportMeasurer, Sa: Sampler> Ransac<E, S, Sa> {
         let mut dyn_max_num_trials = max_num_trials;
         let mut abort_flag = false;
 
-        // COLMAP's parallel region, run once on this thread (entry 141). Per-thread copies
+        // COLMAP's parallel region, run once on this thread (the file header). Per-thread copies
         // of the mutable objects.
         let mut thread_sampler = Sa::new(E::MIN_NUM_SAMPLES);
         thread_sampler.initialize(num_samples)?;

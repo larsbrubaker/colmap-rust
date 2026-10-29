@@ -4,12 +4,12 @@
 //! Tests: `tests/estimators/alignment.rs` (`MergeReconstructions`,
 //! `MergeReconstructionsInconsistentImageNames`, `AlignReconstructionToOrigRigScales`).
 //!
-//! Deterministic order (docs/CPP_DIVERGENCES.md entry 277): COLMAP copies the missing
-//! images in the iteration order of a `FlatHashSet`, which decides the order their frames
-//! are registered in the target (`RegFrameIds`); the port copies them in the source's
-//! `RegImageIds` order. The source points are merged in `Points3D` order (ascending id,
-//! entry 213), which decides the ids the new target points get, and the original rigs are
-//! visited in ascending rig id order.
+//! Deterministic order (docs/CPP_DIVERGENCES.md entry 277): COLMAP copies the missing images in
+//! the iteration order of a `FlatHashSet`, which decides the order their frames are registered in
+//! the target (`RegFrameIds`); the port copies them in the source's `RegImageIds` order. The
+//! source points are merged in `Points3D` order (ascending id, the `scene/reconstruction.rs`
+//! header), which decides the ids the new target points get, and the original rigs are visited in
+//! ascending rig id order.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -41,7 +41,7 @@ fn copy_registered_image(
         tgt_reconstruction.add_rig(src_reconstruction.rig(rig_id)?.clone())?;
     }
     if !tgt_reconstruction.exists_frame(src_image.frame_id()) {
-        // COLMAP's ResetRigPtr is implicit: frames hold rig ids (entry 170).
+        // COLMAP's ResetRigPtr is implicit: frames hold rig ids (the `scene` module header).
         tgt_reconstruction.add_frame(src_frame.clone())?;
         let cam_from_tgt_world = transform_camera_world(
             tgt_from_src,
@@ -54,7 +54,8 @@ fn copy_registered_image(
             .set_cam_from_world(&tgt_rig, src_image.camera_id(), cam_from_tgt_world)?;
     }
 
-    // COLMAP's ResetCameraPtr / ResetFramePtr are implicit: images hold ids (entry 170).
+    // COLMAP's ResetCameraPtr / ResetFramePtr are implicit: images hold ids (the `scene`
+    // module header).
     tgt_reconstruction.add_image(src_image.clone())
 }
 

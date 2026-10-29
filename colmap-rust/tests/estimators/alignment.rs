@@ -4,7 +4,7 @@
 //
 // Each test starts with set_prng_seed(0), as COLMAP's gtest_main does. The Rust
 // Reconstruction iterates its objects in ascending id order where COLMAP iterates hash maps
-// (docs/CPP_DIVERGENCES.md entry 213), so the RANSAC samples can differ from COLMAP's; the
+// (the `scene/reconstruction.rs` header), so the RANSAC samples can differ from COLMAP's; the
 // assertions are outcome checks.
 
 use std::collections::BTreeMap;

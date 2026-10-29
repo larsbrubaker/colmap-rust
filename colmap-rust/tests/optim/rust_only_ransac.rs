@@ -1,8 +1,8 @@
 // Rust-only tests (no COLMAP counterpart) of colmap_rust::optim::{Ransac, LoRansac}, on the
 // line estimators of test_estimators.rs. They pin LO-RANSAC's local refit, both through
 // `EstimateAsLocal` and with a Refine-only `LocalEstimator`, COLMAP's trial counting, the
-// options check, and colmap-sharp's two C#-only RANSAC checks (docs/CPP_DIVERGENCES.md
-// entries 140 and 141). Tier C (outcome).
+// options check, and colmap-sharp's two C#-only RANSAC checks (the divergences in the
+// `optim/sampler.rs` and `optim/ransac.rs` headers). Tier C (outcome).
 
 use crate::test_estimators::{
     fit_line_lsq, generate_line_data, Line, LineEstimator, LineLsqEstimator, LineRefiner,
@@ -75,7 +75,7 @@ fn rust_only_ransac_counts_the_final_trial_increment() {
 
 #[test]
 fn rust_only_progressive_sampler_index_past_end_fails_check() {
-    // docs/CPP_DIVERGENCES.md entry 140 (colmap-sharp's
+    // The index check in the `optim/sampler.rs` header (colmap-sharp's
     // CSharpOnly_ProgressiveSamplerIndexPastEndFailsCheck): with exactly MIN_NUM_SAMPLES
     // pairs, PROSAC's first sample includes index total_num_samples; COLMAP reads past the
     // end of the data there, this port fails a check.
@@ -92,7 +92,8 @@ fn rust_only_progressive_sampler_index_past_end_fails_check() {
 
 #[test]
 fn rust_only_parallel_requires_random_sampler() {
-    // docs/CPP_DIVERGENCES.md entry 141 (colmap-sharp's CSharpOnly_ParallelRequiresRandomSampler):
+    // The serial loop in the `optim/ransac.rs` header (colmap-sharp's
+    // CSharpOnly_ParallelRequiresRandomSampler):
     // COLMAP rejects num_threads != 1 for any sampler but RandomSampler; the serial port keeps
     // that validation.
     let data = generate_line_data(10, 0, 0.0);

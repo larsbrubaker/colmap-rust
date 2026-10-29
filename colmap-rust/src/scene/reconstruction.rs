@@ -12,24 +12,70 @@
 //! order).
 //!
 //! Translation notes:
-//! - Ownership (docs/CPP_DIVERGENCES.md entry 170): frames and images store ids, not
-//!   pointers. Where COLMAP's `AddFrame` / `AddImage` set or compare a `Set*Ptr`, this checks
-//!   the same conditions with `Frame::verify_rig`, `Image::verify_camera` and
+//! - Ownership (the divergence in the [`crate::scene`] module header): frames and images store
+//!   ids, not pointers. Where COLMAP's `AddFrame` / `AddImage` set or compare a `Set*Ptr`, this
+//!   checks the same conditions with `Frame::verify_rig`, `Image::verify_camera` and
 //!   `Image::verify_frame` against the objects in its maps. A copy is the derived `Clone`;
 //!   COLMAP's copy constructor re-links pointers, which ids do not need.
 //! - The maps are `BTreeMap`s, so every iteration (and `find_image_with_name` among
 //!   duplicate names) is in ascending id order, where COLMAP iterates `NodeHashMap`s
-//!   (entry 213). `reg_frame_ids` is COLMAP's vector, in registration order.
+//!   (the iteration-order divergence below). `reg_frame_ids` is COLMAP's vector, in
+//!   registration order.
 //! - A missing object is an [`ErrorKind::OutOfRange`] error with COLMAP's message
 //!   ("Rig with ID 1 does not exist"), where COLMAP throws `std::out_of_range`.
 //! - The mutable accessors hand out `&mut` objects as COLMAP's non-const accessors do.
 //!   Changing an attached image's camera or frame id, or a frame's rig id, through them is
-//!   not rejected at the setter (there is no pointer to guard it, entry 170); `is_valid`
-//!   reports it, and every owner-taking method of `Frame` / `Image` rejects the mismatched
-//!   objects (entry 214).
+//!   not rejected at the setter (there is no pointer to guard it); `is_valid` reports it, and
+//!   every owner-taking method of `Frame` / `Image` rejects the mismatched objects (the
+//!   id-change divergence below).
 //! - Not yet ported (later Phase 4 slices): `Load` (needs `DatabaseCache`),
 //!   `TranscribeImageIdsToDatabase` (needs `Database`), the PLY import/export,
 //!   `ExtractColors*` and `CreateImageDirs`.
+//!
+//! Deliberate divergence, iteration order: COLMAP keeps rigs, cameras, frames, images and 3D
+//! points in `NodeHashMap`s, whose iteration order is unspecified (it depends on the hash-map
+//! backend and its history). The `BTreeMap`s here iterate in ascending id order, so where
+//! that order reaches an output the result can differ from a given COLMAP build:
+//! `find_image_with_name` returns the smallest-id image when several share a name (and so
+//! `find_common_reg_image_ids` pairs with that one); `rigs()` / `cameras()` / `frames()` /
+//! `images()` / `points3d()` and `point3d_ids()` enumerate in ascending id order for every
+//! caller, and `compute_mean_reprojection_error` sums in that order. `reg_frame_ids()` and
+//! `reg_image_ids()` are COLMAP's vector, in registration order, unchanged. CLAUDE.md requires
+//! deterministic iteration; COLMAP relies on no particular order (its tests only use
+//! order-free properties), so ascending id is the natural deterministic choice and needs no
+//! extra state. `tests/scene/reconstruction.rs` passes; `tests/scene/rust_only_reconstruction.rs`
+//! `rust_only_reconstruction_iterates_in_ascending_id_order` pins the order. Same as
+//! colmap-sharp entry 21.
+//!
+//! Deliberate divergence, changing an attached image's or frame's ids: in COLMAP,
+//! `Image::SetCameraId` and `Frame::SetRigId` throw once the object is bound to a camera / rig
+//! pointer (`THROW_CHECK(!HasCameraPtr())`), so the image or frame inside a reconstruction
+//! cannot be moved to another camera or rig by accident; `SetFrameId` has no such guard.
+//! [`Reconstruction::image_mut`] / [`Reconstruction::frame_mut`] hand out `&mut Image` /
+//! `&mut Frame`, and the setters do not know the object is in a reconstruction, so such a
+//! change is not rejected when made. `is_valid` reports it (the camera, rig or frame must
+//! exist and hold the object), and every owner-taking method of `Frame` / `Image` rejects
+//! mismatched objects, so a broken association never yields a wrong pose silently. With ids
+//! into owning maps there is no pointer to guard; a guarded mutable view (a wrapper type
+//! forwarding every safe setter) would double the `Image` / `Frame` API for a mistake no
+//! COLMAP code makes (COLMAP's own code changes these ids only on objects outside a
+//! reconstruction, or in `SetRigsAndFrames`, which re-verifies them). If a later port needs
+//! the guard, `image_mut` becomes that view. `rust_only_reconstruction_changed_ids_are_invalid`
+//! (`tests/scene/rust_only_reconstruction.rs`) and `reconstruction_is_valid`
+//! (`tests/scene/reconstruction.rs`, whose "empty frame pointer" case clears the image's frame
+//! id) pin it.
+//!
+//! Deliberate divergence, rejected operations leave the reconstruction unchanged: several
+//! COLMAP operations throw part-way, after they changed something. `AddPoint3D(point3D_id,
+//! point3D)` raises `max_point3D_id_` and marks the track's image points one by one before it
+//! fails on a missing image, an image point observing another 3D point, or an id already in
+//! use; `AddObservation` marks the image point before it looks up the 3D point; and
+//! `DeletePoint3D` resets image points one by one before it fails on a missing track image.
+//! Here each checks everything it can fail on first, so an `Err` leaves the reconstruction as
+//! it was (including the next id `add_point3d` hands out). A failed call that half-applies is
+//! a bug: afterwards image points claim a 3D point that does not exist (or no longer claim one
+//! that does), and `IsValid()` is false. No caller relies on the partial state.
+//! `rust_only_reconstruction_failed_operations_leave_it_unchanged` pins it.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -189,7 +235,7 @@ impl Reconstruction {
             .ok_or_else(|| does_not_exist("Point3D", point3d_id))
     }
 
-    /// `Rigs`, in ascending id order (entry 213).
+    /// `Rigs`, in ascending id order (the file header).
     pub fn rigs(&self) -> &BTreeMap<RigId, Rig> {
         &self.rigs
     }
@@ -335,7 +381,7 @@ impl Reconstruction {
                 }
             }
         }
-        // COLMAP's SetRigPtr (or its pointer comparison); entry 170.
+        // COLMAP's SetRigPtr (or its pointer comparison); the `scene` module header.
         frame.verify_rig(rig)?;
         let is_registered = frame.has_pose();
         let frame_id = frame.frame_id();
@@ -416,7 +462,7 @@ impl Reconstruction {
 
     /// `AddPoint3D(point3D_id, point3D)`: adds the point under the given id and marks every
     /// track element's image point as observing it. Fails, leaving the reconstruction
-    /// unchanged (entry 216), if the id is taken, a track image is missing or a track image
+    /// unchanged (the file header), if the id is taken, a track image is missing or a track image
     /// point already observes another 3D point.
     pub fn add_point3d_with_id(&mut self, point3d_id: Point3DId, point3d: Point3D) -> Result<()> {
         crate::check!(!self.points3d.contains_key(&point3d_id));
@@ -463,7 +509,7 @@ impl Reconstruction {
 
     /// `AddObservation`: adds an observation of an untriangulated image point to a 3D point.
     pub fn add_observation(&mut self, point3d_id: Point3DId, track_el: TrackElement) -> Result<()> {
-        // Look the point up first so a missing point leaves the image unchanged (entry 216).
+        // Look the point up first so a missing point leaves the image unchanged (the file header).
         if !self.exists_point3d(point3d_id) {
             return Err(does_not_exist("Point3D", point3d_id));
         }
@@ -519,7 +565,7 @@ impl Reconstruction {
     /// `DeletePoint3D`: removes the point and resets every image point that observed it.
     pub fn delete_point3d(&mut self, point3d_id: Point3DId) -> Result<()> {
         // Note: Do not change order of these instructions.
-        // Every track image is looked up before anything changes (entry 216).
+        // Every track image is looked up before anything changes (the file header).
         for track_el in self.point3d(point3d_id)?.track.elements() {
             self.image(track_el.image_id)?;
         }
@@ -553,7 +599,17 @@ impl Reconstruction {
     }
 
     /// `DeleteAllPoints2DAndPoints3D`: removes every 3D point and every image's points,
-    /// leaving each image's triangulated count at 0 (COLMAP leaves it stale; entry 215).
+    /// leaving each image's triangulated count at 0.
+    ///
+    /// Deliberate divergence: COLMAP clears the 3D points and calls
+    /// `image.SetPoints2D(std::vector<Eigen::Vector2d>(0))`, which resizes the image points but
+    /// does not touch `num_points3D_`, so every image that had triangulated points keeps a
+    /// stale count: its `NumPoints3D()` is still non-zero with no points left, and `IsValid()`
+    /// is false. That count is a bug; it makes the reconstruction fail its own validity check
+    /// and inflates `ComputeNumObservations`, and nothing relies on it.
+    /// `rust_only_reconstruction_delete_all_points2d_and_points3d_resets_counts`
+    /// (`tests/scene/rust_only_reconstruction.rs`) pins it (COLMAP would leave `num_points3d`
+    /// at 1 and `is_valid` false).
     pub fn delete_all_points2d_and_points3d(&mut self) -> Result<()> {
         self.points3d.clear();
         for image in self.images.values_mut() {
@@ -614,8 +670,8 @@ impl Reconstruction {
     }
 
     /// `DeRegisterFrame`: deletes the observations of the frame's images, resets its pose and
-    /// unregisters it. A frame that is not registered is ignored (COLMAP warns; entry 211's
-    /// reasoning, the core has no logger).
+    /// unregisters it. A frame that is not registered is ignored (COLMAP warns; the core has no
+    /// logger, and the line is diagnostic only).
     pub fn deregister_frame(&mut self, frame_id: FrameId) -> Result<()> {
         if !self.reg_frame_ids.contains(&frame_id) {
             return Ok(());

@@ -1,9 +1,9 @@
 // Rust-only checks for the scene data types, beyond the 1:1 ports next to this file:
 // - every metadata method of `Camera` returns the `DomainError` of the `scene/camera.rs`
 //   header for an unknown model, and `create_from_model_id` rejects it;
-// - `Track::element` out of range panics (entry 160);
+// - `Track::element` out of range panics (the `scene/track.rs` header);
 // - `VisibilityPyramid` with 8 levels keeps the full `max_score` and clamps negative and NaN
-//   coordinates into the first cell (entry 161).
+//   coordinates into the first cell (the `scene/visibility_pyramid.rs` header).
 
 use colmap_rust::scene::camera::Camera;
 use colmap_rust::scene::track::Track;

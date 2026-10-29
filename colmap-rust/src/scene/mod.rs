@@ -4,7 +4,32 @@
 //! `Rig`, `Image` to its `Camera` and `Frame`), the Rust types store only the ids, and the
 //! owner of the maps (the reconstruction) passes the referenced objects to the methods that
 //! need them, e.g. `frame.sensor_from_world(&rig, sensor_id)` or
-//! `image.cam_from_world(&frame, &rig)`; docs/CPP_DIVERGENCES.md entry 170.
+//! `image.cam_from_world(&frame, &rig)`.
+//!
+//! That is a deliberate divergence. COLMAP's reconstruction sets the pointers (`SetRigPtr`,
+//! `SetCameraPtr`, `SetFramePtr`) and clears them (`Reset*Ptr`), and methods such as
+//! `Frame::SensorFromWorld`, `Image::CamFromWorld` and `Image::ProjectPoint` follow them. Here
+//! each owner-taking method fails unless the frame / camera has the image's id and the rig has
+//! the frame's rig id, where COLMAP fails on a null pointer; `Set*Ptr` become `verify_*`
+//! methods with the same checks and nothing stored, and rebinding (COLMAP's `Set*Ptr` on a
+//! bound object, which adopts the new id) is setting the id, then verifying. The `frame` and
+//! `image` headers list each method's counterpart. `RigPtr`, `CameraPtr`, `FramePtr`,
+//! `Has*Ptr` and `Reset*Ptr` have none, and `Frame::set_rig_id` / `Image::set_camera_id` /
+//! `Image::set_frame_id` drop COLMAP's `THROW_CHECK(!Has*Ptr())`: there is no binding to
+//! protect, and a frame or image inside a reconstruction is only reached through it (what the
+//! reconstruction checks instead is in the `reconstruction` header).
+//!
+//! Why: CLAUDE.md's translation rule makes pointer graphs ids into owning maps. Shared mutable
+//! pointers between the reconstruction's maps cannot be expressed in safe Rust without
+//! `Rc<RefCell<..>>` everywhere, which would make every pose read in bundle adjustment and the
+//! mapper a runtime borrow check. Passing the owner keeps frames and images plain data that
+//! clone, move between threads and serialize without fix-ups (COLMAP's reconstruction
+//! re-links every pointer after a copy; with ids there is nothing to re-link).
+//! `tests/scene/frame.rs` and `tests/scene/image.rs` port `frame_test.cc` and
+//! `image_test.cc` 1:1, with the pointer tests (`SetResetRigPtr`, `CameraPtr`, `FramePtr`,
+//! `ConstructCopy`, `AssignCopy`) as behaviour tests of the id-based API under the C++ names;
+//! `tests/scene/rust_only_frame_image.rs` checks that every owner-taking method rejects the
+//! wrong rig, frame or camera, and the two equality forms.
 //!
 //! - [`point2d`]: `point2d.h` / `point2d.cc`, a feature and the 3D point it observes;
 //! - [`point3d`]: `point3d.h` / `point3d.cc`, a triangulated point with its track;

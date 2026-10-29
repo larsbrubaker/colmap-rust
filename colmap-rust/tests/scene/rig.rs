@@ -5,8 +5,8 @@
 // text); `Database::Open(kInMemorySqliteDatabasePath)` is `Database::new()`. COLMAP's gtest
 // main seeds the PRNG with 0 before every test, so each test that draws calls
 // `set_prng_seed(0)` first. `ResetRigPtr`/`ResetCameraPtr`/`ResetFramePtr` have no
-// counterpart: the Rust scene types hold ids, not pointers (docs/CPP_DIVERGENCES.md
-// entry 170).
+// counterpart: the Rust scene types hold ids, not pointers (the `scene` module
+// header).
 
 use colmap_rust::geometry::rigid3::Rigid3d;
 use colmap_rust::linalg::{Vector3d, Vector4d};

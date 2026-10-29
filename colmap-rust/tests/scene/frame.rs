@@ -2,7 +2,7 @@
 // colmap_rust::scene::frame::Frame. EXPECT_ANY_THROW becomes `is_err()`.
 //
 // COLMAP's frame holds a `Rig*`; the Rust frame holds the rig id and takes the rig as a
-// parameter (docs/CPP_DIVERGENCES.md entry 170). The pointer checks become checks of the
+// parameter (the `scene` module header). The pointer checks become checks of the
 // id-based API: `SetRigPtr(&rig)` succeeding is `verify_rig(&rig)` being `Ok`, `HasRigPtr()`
 // false on a fresh frame is no rig verifying against it, and `AddDataId` on a frame with a
 // rig is `add_data_id_in_rig`.

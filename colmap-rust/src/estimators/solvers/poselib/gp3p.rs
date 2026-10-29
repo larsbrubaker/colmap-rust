@@ -10,7 +10,7 @@
 //! Translation notes:
 //! - The 6 x 13 system A and the 3 x 10 rotation system AR are column-major stack arrays.
 //! - `re3q3_rotation` draws its random pre-rotation from a fixed-seed mt19937 rather than
-//!   `std::rand()` (docs/CPP_DIVERGENCES.md entry 221).
+//!   `std::rand()` (the divergence in [`super::re3q3::solve_rotation`]'s doc).
 //!
 //! Tier B. Tests: `tests/estimators/rust_only_gp3p.rs`.
 

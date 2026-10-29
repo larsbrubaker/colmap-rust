@@ -5,10 +5,10 @@
 //!
 //! Tier A (plain data and pose composition in COLMAP's order).
 //!
-//! **Ids into owning maps** (docs/CPP_DIVERGENCES.md entry 170). COLMAP's `Frame` holds a raw
-//! `Rig* rig_ptr_` that the reconstruction sets (`SetRigPtr`) and clears (`ResetRigPtr`). Here a
-//! frame stores only its rig's id; whoever owns the rigs (the reconstruction) passes the rig to
-//! the methods that need it:
+//! **Ids into owning maps** (the ownership divergence in the [`super`] module header). COLMAP's
+//! `Frame` holds a raw `Rig* rig_ptr_` that the reconstruction sets (`SetRigPtr`) and clears
+//! (`ResetRigPtr`). Here a frame stores only its rig's id; whoever owns the rigs (the
+//! reconstruction) passes the rig to the methods that need it:
 //! - `SetRigPtr(&rig)` is [`Frame::verify_rig`]: the same checks (valid rig id, the frame's rig
 //!   id, every camera measurement a sensor of the rig), with nothing stored;
 //! - `SensorFromWorld` and `SetCamFromWorld` take `&Rig` and fail unless it is the frame's rig,

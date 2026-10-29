@@ -1,7 +1,7 @@
 // Rust-only tests for colmap_rust::feature::utils: the Eigen packet order of the row norms
 // (ported from colmap-sharp's FeatureUtilsTests CSharpOnly_* tests), NaN for a zero row, the
-// quantization's rounding and saturation, the top-scale tie order (docs/CPP_DIVERGENCES.md
-// entry 200) and the checks that return `Err`.
+// quantization's rounding and saturation, the top-scale tie order
+// (`extract_top_scale_features`'s doc) and the checks that return `Err`.
 
 use colmap_rust::feature::types::{FeatureDescriptors, FeatureKeypoint, FeatureKeypoints};
 use colmap_rust::feature::utils::{

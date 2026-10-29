@@ -9,7 +9,28 @@
 //! Here the index is an exact k-nearest-neighbour search written from the definition: it
 //! returns exactly what COLMAP's `IndexFlatL2` returns for fewer than 512 descriptors, and for
 //! 512 or more the true nearest neighbours where faiss's IVF index (`nprobe = 8`) is
-//! approximate (docs/CPP_DIVERGENCES.md entry 231).
+//! approximate.
+//!
+//! That is a deliberate divergence. COLMAP's `FeatureDescriptorIndex` uses an exact
+//! `IndexFlatL2` for fewer than 512 indexed descriptors, and for 512 or more an inverted-file
+//! index (`IndexIVFScalarQuantizer` with `QT_8bit_direct` for SIFT, `IndexIVFFlat` otherwise;
+//! 4 sqrt(N) k-means centroids, searched with `nprobe = 8`). The IVF search only visits the 8
+//! nearest clusters, so it can miss a query's true nearest or second-nearest neighbour. This
+//! index always returns the exact k nearest neighbours, and other descriptor types sum
+//! `(a - b)^2` where faiss's flat index uses the ||a||^2 + ||b||^2 - 2ab expansion. Porting
+//! faiss, k-means training included, would reproduce a randomized approximation whose exact
+//! output also depends on faiss's OpenMP partitioning and BLAS. The exact search is the result
+//! the IVF index approximates, and it makes the default (index) matching path agree with
+//! COLMAP's own brute-force matcher, which is what `SiftCPUFeatureMatcherFaissVsBruteForce`
+//! asserts. On an image pair with 512+ features the SIFT matches can therefore differ from
+//! COLMAP's default CPU matcher wherever faiss's approximation missed a neighbour (COLMAP
+//! returns fewer or different matches there); they equal COLMAP's `cpu_brute_force_matcher`
+//! matches except where acos-of-dot and sqrt-of-L2 round a threshold comparison differently,
+//! which COLMAP's two paths also do. `tests/feature/index.rs` (`index_test.cc` 1:1, including
+//! the 1000-descriptor rows, where COLMAP uses IVF) and
+//! `sift_cpu_feature_matcher_faiss_vs_brute_force_nominal` (`tests/feature/sift_matching.rs`,
+//! `sift_test.cc` 1:1) pass; `rust_only_index_float_queries_on_byte_index_and_large_k_order`
+//! checks the order against the definition. Same as colmap-sharp entry 42.
 //!
 //! Tier A below 512 descriptors, and exact nearest neighbours in general:
 //! - SIFT descriptors whose float values are integers in [0, 255] (what
