@@ -6,6 +6,8 @@
 //   - `README.md`, `CLAUDE.md`, `PORTING_PLAN.md` (the plan for open work) and
 //     `THIRD_PARTY_NOTICES.md` at the repository root;
 //   - `docs/LICENSE_AUDIT.md`, the legal record of which upstream code may be ported;
+//   - `docs/later/<idea>.md`, one level deep: an idea written down for later, not scheduled
+//     work, deleted when it is built or dropped;
 //   - a license file anywhere, one whose name is `LICENSE`, `LICENCE` or `COPYING`, or ends in
 //     `-LICENSE` / `_LICENSE` (e.g. `colmap-app/assets/fonts/font-awesome-LICENSE.md`);
 //   - anything under `.claude/` (agent instructions and skills).
@@ -33,7 +35,8 @@ const WHAT_TO_DO: &str = "Documentation lives in the code: move what each file s
      the owning crate's root or the module's `mod.rs`, and a deliberate divergence from COLMAP \
      goes beside the code that differs), then delete the file. Markdown is allowed only for the \
      root README.md, CLAUDE.md, PORTING_PLAN.md and THIRD_PARTY_NOTICES.md, \
-     docs/LICENSE_AUDIT.md, license files and .claude/ (CLAUDE.md, \"Documentation\").";
+     docs/LICENSE_AUDIT.md, an idea for later in docs/later/<idea>.md, license files and \
+     .claude/ (CLAUDE.md, \"Documentation\").";
 
 /// True for a Markdown file by its extension, whatever its case.
 fn is_markdown(path: &str) -> bool {
@@ -60,12 +63,20 @@ fn is_license_file(path: &str) -> bool {
     })
 }
 
+/// True for an idea written down for later: a file directly inside `docs/later/`, not in a
+/// folder below it.
+fn is_later_idea(path: &str) -> bool {
+    path.strip_prefix("docs/later/")
+        .is_some_and(|name| !name.is_empty() && !name.contains('/'))
+}
+
 /// Whether the gate refuses `path` (relative to the root, `/`-separated): a Markdown file
 /// outside the allowed places.
 fn is_refused(path: &str) -> bool {
     is_markdown(path)
         && !ALLOWED_PATHS.contains(&path)
         && !path.starts_with(".claude/")
+        && !is_later_idea(path)
         && !is_license_file(path)
 }
 
@@ -145,6 +156,13 @@ fn rust_only_markdown_placement_classifies_examples() {
     assert!(is_skipped_dir("web/node_modules", false));
     assert!(is_skipped_dir("web/playwright-report", false));
     assert!(is_skipped_dir("colmap-app/target", true));
+}
+
+#[test]
+fn markdown_placement_allows_an_idea_for_later_one_level_deep() {
+    assert!(!is_refused("docs/later/idea.md"));
+    assert!(is_refused("docs/later/sub/idea.md"));
+    assert!(is_refused("docs/later.md"));
 }
 
 #[test]

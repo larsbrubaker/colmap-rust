@@ -248,7 +248,9 @@ Markdown outside the code is limited to `README.md`, `CLAUDE.md`, `PORTING_PLAN.
 open work) and `THIRD_PARTY_NOTICES.md` at the root, `docs/LICENSE_AUDIT.md` (the legal record of
 which upstream code may be ported, kept like the notices), license files (such as
 `colmap-app/assets/fonts/font-awesome-LICENSE.md`) and `.claude/` (agent instructions and
-skills). `markdown_placement` refuses any other Markdown file.
+skills). An idea for later, written down when Lars asks for it, lives in `docs/later/<idea>.md`:
+it is not scheduled work and needs no plan entry; delete it when it is built or dropped.
+`markdown_placement` refuses any other Markdown file.
 
 ## Plans and progress
 
