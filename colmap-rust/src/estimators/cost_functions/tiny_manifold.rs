@@ -18,7 +18,7 @@
 //!   the manifold's own behavior, so in Rust it is just the manifold.
 //! - [`TinySphereManifold`] is C++'s `SphereManifold<3>`, the only size COLMAP implements.
 //!   Its tangent basis uses Hughes & Moller's unit-orthogonal vector, not Eigen's
-//!   `unitOrthogonal()` (docs/CPP_DIVERGENCES.md, entry 251).
+//!   `unitOrthogonal()` (the divergence in `unit_orthogonal`'s doc).
 //! - C++'s compile-time `kAmbientSize`/`kTangentSize` are the trait's sizes; the product's
 //!   block scratch lives on the stack (a fixed 64-double buffer per block, ample for every
 //!   COLMAP product), so the solver stays allocation-free.
@@ -92,7 +92,26 @@ impl TinySphereManifold {
 /// Unit Vector", Journal of Graphics Tools 4(4), 1999: zero the component of smallest
 /// magnitude (the first one on a tie), swap the other two and negate one. The other two
 /// cannot both be zero for a nonzero v, so the result is well defined. Stands in for Eigen's
-/// `unitOrthogonal()`, whose choice for 3-vectors Eigen does not document (divergence 251).
+/// `unitOrthogonal()`, whose choice for 3-vectors Eigen does not document.
+///
+/// That is a deliberate divergence. COLMAP's `SphereManifold<3>`
+/// (`estimators/cost_functions/tiny_manifold.h`) builds the tangent basis at x as
+/// `b1 = x_hat.unitOrthogonal()`, `b2 = x_hat.cross(b1)`; [`TinySphereManifold`] builds `b1`
+/// here, normalized, and `b2` is the same cross product. The two constructions can pick a
+/// different unit vector in the tangent plane, so the tangent coordinates of a step, and with
+/// them TinySolver's Jacobi scaling and iterates, can differ from COLMAP's while spanning the
+/// same plane. Eigen documents only that `unitOrthogonal()` returns some unit vector orthogonal
+/// to the input; its choice for 3-vectors is an implementation detail of MPL-2.0 code we may not
+/// transcribe (CLAUDE.md contract 2). Any orthonormal tangent basis gives a valid retraction and
+/// Plus Jacobian; TinySolver is Tier C, so what must agree is the converged result, which does
+/// not depend on the basis. In `tests/estimators/tiny_manifold.rs` the 1:1
+/// `sphere_manifold_plus_stays_on_unit_sphere` and
+/// `sphere_manifold_plus_jacobian_matches_finite_diff` (orthogonality to x within 1e-12, the
+/// finite-difference Jacobian within 1e-6) and the product manifold tests pass. colmap-sharp
+/// records the downstream effect of the same basis: where TinySolver stops before converging
+/// (the 25-iteration cap of `EssentialMatrixTangentSampsonEstimator`'s refinement, LO-RANSAC's
+/// ten refit rounds), the relative poses its global-SfM oracle test re-estimates agree with
+/// pycolmap to 6.5e-7 deg. Same as colmap-sharp entry 19.
 fn unit_orthogonal(v: Vector3d) -> Vector3d {
     let ax = v.x.abs();
     let ay = v.y.abs();

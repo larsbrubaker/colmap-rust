@@ -18,7 +18,8 @@
 //!   are both a double.
 //!
 //! Strict JSON (no trailing commas, no comments) matches Boost's parser, which rejects both.
-//! The rotation and translation arrays must have exactly 4 and 3 entries (entry 274).
+//! The rotation and translation arrays must have exactly 4 and 3 entries (the divergence in
+//! `read_doubles`' doc).
 
 use crate::geometry::rigid3::Rigid3d;
 use crate::linalg::{Quaterniond, Vector3d};
@@ -164,7 +165,18 @@ fn get_child<'a>(node: &'a JsonValue, key: &str) -> Result<&'a JsonValue> {
 
 /// The node's children as doubles. COLMAP writes them into a fixed-size Eigen vector by
 /// running index without a size check (undefined behavior for any other count); here the
-/// count must be exactly `count` (entry 274).
+/// count must be exactly `count`.
+///
+/// That is a deliberate divergence. COLMAP's `ReadRigConfig` writes the entries of
+/// `cam_from_rig_rotation` and `cam_from_rig_translation` into an `Eigen::Vector4d` and
+/// `Rigid3d::translation()` by running index; [`read_rig_config`] returns a "Check failed"
+/// error ("... must have 4 entries" / "... must have 3 entries") unless there are exactly 4 and
+/// 3 entries. Fewer entries leave COLMAP with uninitialized coefficients and more entries write
+/// out of bounds; both are undefined behavior with no result to match. Every well-formed config
+/// reads the same: `tests/scene/rig.rs` (`rig_test.cc` 1:1) passes, including
+/// `read_rig_config_nominal`, which reads a 4-entry rotation and a 3-entry translation, and
+/// `rust_only_read_rig_config_pose_needs_four_and_three_entries`
+/// (`tests/scene/rust_only_rig.rs`) pins the check. Same as colmap-sharp entry 80.
 fn read_doubles(node: &JsonValue, count: usize, key: &str) -> Result<Vec<f64>> {
     let mut values = Vec::new();
     for child in node.children() {

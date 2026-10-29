@@ -10,18 +10,28 @@
 //! `null`, any of them at the top level, and nothing but white space after it. Trailing
 //! commas, comments, single quotes, raw control characters in strings and lone surrogates are
 //! errors, as in Boost. Nesting deeper than [`MAX_DEPTH`] is an error (Boost recurses without
-//! a limit; docs/CPP_DIVERGENCES.md entry 275).
+//! a limit; the divergence below).
 //!
 //! The tree keeps what `property_tree` keeps: a number keeps its source text (Boost stores
 //! every value as text and converts on access), an object keeps every member in source order,
 //! duplicates included, and [`JsonValue::get`] finds the first member with a key, as ptree's
 //! `get_child` does. [`JsonValue::ptree_data`] and [`JsonValue::children`] are ptree's view
 //! of a node.
+//!
+//! Deliberate divergence, the nesting limit: `boost::property_tree::read_json` recurses once per
+//! nested array or object without a limit, so a deeply nested file overflows the stack.
+//! [`parse_json`] returns an error ("nesting deeper than 512 levels") past [`MAX_DEPTH`] (512)
+//! nested arrays and objects. Every document within the limit parses as Boost's parser does. A
+//! stack overflow is a crash, natively and in the browser (whose wasm stack is small), so an
+//! error is the only safe answer; real rig configs nest three levels.
+//! `rust_only_json_nesting_limit` (`tests/util/rust_only_json.rs`) parses 512 levels, fails 513,
+//! and fails a million without a crash.
 
 use crate::util::check::{ColmapError, ErrorKind, Result};
 
 /// The deepest nesting of arrays and objects the reader accepts. Real rig configs nest three
-/// levels; the limit only stops hostile input from overflowing the stack (entry 275).
+/// levels; the limit only stops hostile input from overflowing the stack (the divergence in
+/// the file header).
 pub const MAX_DEPTH: usize = 512;
 
 /// A parsed JSON value.

@@ -1,7 +1,8 @@
 // Port of colmap/scene/synthetic_test.cc, part 3, 1:1 (same test names, values and checks):
 // the SynthesizeNoise tests (colmap_rust::scene::synthetic_noise::
 // synthesize_noise_with_database over the in-memory Database) and SynthesizeImages.Nominal,
-// whose images reach a sink instead of `image_path` (docs/CPP_DIVERGENCES.md entry 268): the
+// whose images reach a sink instead of `image_path` (the divergence in
+// `synthesize_images`' doc): the
 // test checks every image's bitmap has its camera's size, as COLMAP's reads each file back
 // and checks. Each test calls `set_prng_seed(0)` first, as COLMAP's gtest main does.
 

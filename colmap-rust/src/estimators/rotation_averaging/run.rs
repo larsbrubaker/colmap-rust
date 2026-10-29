@@ -10,7 +10,7 @@
 //!   (a hash map): the quaternion averages of `InitializeRigRotationsFromImages` sum their
 //!   samples in that order, and `CreateExpandedReconstruction` numbers the singleton rigs
 //!   (ascending rig id, then sensor) and the new frames (ascending frame id, then data id) in
-//!   it (docs/CPP_DIVERGENCES.md entry 278).
+//!   it (the ascending id divergence in the [`super`] module header).
 //! - `LOG(ERROR)` paths return `Ok(false)`; `LOG(INFO)` messages are not emitted.
 
 use std::collections::{BTreeMap, HashSet};

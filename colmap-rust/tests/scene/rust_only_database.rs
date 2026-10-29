@@ -1,7 +1,7 @@
 // Rust-only tests of colmap_rust::scene::database: the SQLite behavior the in-memory store
 // reproduces (AUTOINCREMENT ids, UNIQUE indices, foreign keys and cascades, the deprecated
-// pose prior API, the keypoint blob widths) and the all-or-nothing writes of
-// docs/CPP_DIVERGENCES.md entry 266. database_test.cc covers none of these directly.
+// pose prior API, the keypoint blob widths) and the all-or-nothing writes (the divergence in
+// the scene/database_write.rs header). database_test.cc covers none of these directly.
 
 use colmap_rust::feature::types::{FeatureDescriptors, FeatureKeypoint};
 use colmap_rust::geometry::pose_prior::PosePrior;

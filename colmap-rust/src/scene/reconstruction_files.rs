@@ -57,9 +57,18 @@ impl Reconstruction {
         self.write_binary(path)
     }
 
-    /// Empties the model before a read. COLMAP's `ReadText` / `ReadBinary` clear the maps but
-    /// keep the registered-frame list and counts, so reading into a used reconstruction left
-    /// them stale; here everything is reset (entry 242).
+    /// Empties the model before a read.
+    ///
+    /// That is a deliberate divergence. COLMAP's `ReadText` / `ReadBinary` clear the rig,
+    /// camera, frame, image and 3D point maps, but keep the registered-frame list, the
+    /// registered-image count and the largest 3D point id. Reading into a reconstruction that
+    /// already held registered frames leaves frames that no longer exist registered, so
+    /// `NumRegFrames()` is wrong and `IsValid()` fails. Here `read_text` / `read_binary` start
+    /// from an empty reconstruction: stale registration of frames that are gone is a bug, and
+    /// nothing relies on it (COLMAP reads into fresh reconstructions in practice).
+    /// `rust_only_reconstruction_read_resets_registration`
+    /// (`tests/scene/rust_only_reconstruction_io.rs`) pins it; COLMAP would report 5
+    /// registered frames for a file with 3.
     fn clear_for_read(&mut self) {
         *self = Reconstruction::new();
     }

@@ -11,7 +11,8 @@
 //!   in the names' byte order; a `BTreeMap<String, _>` orders the same (UTF-8 bytes).
 //! - COLMAP hands the reconstruction its rigs and frames in `NodeHashMap` order, which sets
 //!   the registration order of the frames and is implementation-defined per build and
-//!   standard library. Here they go in ascending id order (docs/CPP_DIVERGENCES.md entry 276).
+//!   standard library. Here they go in ascending id order (the divergence in
+//!   `update_rigs_and_frames_from_database`' doc).
 //! - The other hash maps are only looked up, never iterated.
 //!
 //! COLMAP's `LOG(INFO)` ("Configured: ...") and `LOG(WARNING)` (a non-reference camera whose
@@ -294,7 +295,22 @@ fn update_rig_and_camera_calibs_from_reconstruction(
 
 /// Port of `UpdateRigsAndFramesFromDatabase`: rebuilds the reconstruction's rigs and frames
 /// from the database's, matching images by name. Rigs and frames reach `SetRigsAndFrames` in
-/// ascending id order (entry 276).
+/// ascending id order.
+///
+/// That is a deliberate divergence. COLMAP collects the reconstruction's rigs and frames in
+/// `NodeHashMap`s and passes them to `Reconstruction::SetRigsAndFrames` in the maps' iteration
+/// order, and `AddFrame` registers posed frames in that order, so it decides the order of
+/// `RegFrameIds()`. Here they are collected in `BTreeMap`s, so the frames are registered in
+/// ascending frame id order. In COLMAP 4.2.0 `NodeHashMap` is `boost::unordered_node_map` or
+/// `std::unordered_map`, depending on the build (`util/hash_containers.h`); either way its
+/// iteration order is implementation-defined (it depends on the build configuration, the hash
+/// and the standard library), so there is no single order to match, and CLAUDE.md requires a
+/// deterministic order. The sets of rigs, frames and registered frames do not depend on it:
+/// `apply_rig_config_*` (`tests/scene/rig.rs`, `rig_test.cc` 1:1) pass with COLMAP's counts,
+/// none of which depends on the order, and
+/// `rust_only_apply_rig_config_derives_sensor_from_rig_from_reconstruction`
+/// (`tests/scene/rust_only_rig.rs`) pins the ascending registration order. Same as colmap-sharp
+/// entry 81.
 fn update_rigs_and_frames_from_database(
     database: &Database,
     reconstruction: &mut Reconstruction,

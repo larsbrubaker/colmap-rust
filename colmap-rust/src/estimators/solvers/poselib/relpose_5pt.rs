@@ -15,8 +15,29 @@
 //! root.
 //!
 //! The null space comes from an unpivoted Householder QR instead of PoseLib's
-//! `fullPivHouseholderQr` (docs/CPP_DIVERGENCES.md entry 250): same space, different basis,
-//! same solution set. Tier B. Tests: `tests/estimators/rust_only_relpose_5pt.rs`.
+//! `fullPivHouseholderQr`: same space, different basis, same solution set. Tier B. Tests:
+//! `tests/estimators/rust_only_relpose_5pt.rs`.
+//!
+//! That is a deliberate divergence. PoseLib's `relpose_5pt` (the minimal case of COLMAP's
+//! `EssentialMatrixFivePointEstimator`) takes the 4D null space of its five epipolar
+//! constraints from the last four columns of the full Q of
+//! `epipolar_constraints.fullPivHouseholderQr()` (a 9 x 5 matrix). This port takes the same
+//! four columns from an unpivoted Householder QR (`linalg::householder::factor_in_place` /
+//! `apply_q`). Both are orthonormal bases of the same space; only the basis inside it differs,
+//! and with it the intermediate polynomial coefficients (`compute_trace_constraints`, the
+//! degree-10 determinant polynomial and its roots, which parametrize the solutions in basis
+//! coordinates). Eigen (MPL-2.0) is not ported, and full-pivoting Householder QR has no
+//! published convention precise enough to reproduce Eigen's Q column for column. The solution
+//! set does not depend on the basis: the solver returns every unit-norm
+//! E = x N0 + y N1 + z N2 + N3 in the null space that meets the cubic constraints, and a change
+//! of orthonormal basis maps that set onto itself (up to the sign of each E). What can differ is
+//! numerical conditioning near the back substitution's 1e-6 switch to the three-row QR solve and
+//! the Sturm bracketing tolerance, where a near-degenerate root can be kept on one side and
+//! dropped on the other. `rust_only_recovers_true_essential_matrix` checks that on 100 random
+//! minimal problems every solution has unit norm and satisfies the five epipolar constraints to
+//! 1e-8, and the true E is among the solutions up to sign; colmap-sharp's 1:1
+//! `EssentialMatrixFivePointEstimatorTests_Nominal` cases pass on the same construction. Not
+//! compared against C++ PoseLib intermediates. Same as colmap-sharp entry 27.
 
 use super::relpose_5pt_det::determinant_polynomial;
 use super::sturm::{bisect_sturm, DEFAULT_TOL};

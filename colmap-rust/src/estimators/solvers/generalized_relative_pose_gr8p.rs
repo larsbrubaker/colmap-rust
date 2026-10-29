@@ -16,8 +16,20 @@
 //!   eigenvalues are real and [`EigenSolver`] returns real eigenvectors for them. COLMAP's
 //!   `V.real().colwise().hnormalized()` then divides each by its last entry, which removes
 //!   the scale and sign that are the only freedom left. The order of the four candidates
-//!   follows the Schur order, which may differ from Eigen's (docs/CPP_DIVERGENCES.md entry
-//!   261).
+//!   follows the Schur order, which may differ from Eigen's. That is a deliberate divergence:
+//!   `GR8PEstimator::Estimate` reads the four translations from `Eigen::EigenSolver<Matrix4d>`
+//!   and returns them in Eigen's eigenvector order, and [`EigenSolver`] (colmap-sharp's
+//!   Hessenberg and Francis QR port) can order them differently and round the last bits
+//!   differently. Eigen (MPL-2.0) is not ported, and its deflation order is not a documented
+//!   convention. Since every eigenvalue and eigenvector is real and `hnormalized()` removes the
+//!   only freedom left, the candidate set is the same up to rounding. RANSAC scores all four,
+//!   so the order only matters when two candidates have exactly the same support and score,
+//!   where the first one wins. The seven `..._gr8p_*` instantiations of COLMAP's
+//!   `ParameterizedGRNPEstimatorTests.GR8P` (`tests/estimators/generalized_relative_pose.rs`)
+//!   pass 1:1: RANSAC over 16 correspondences finds the true `rig2_from_rig1` within rtol and
+//!   ttol 1e-2 in one of ten trials. Not compared against C++ Eigen. Same choice as
+//!   colmap-sharp's `GeneralizedRelativePose.GR8P.cs` (which records it in its file header,
+//!   not as a numbered entry).
 //! - `ComposePlueckerData`: only the direction half of COLMAP's 6-vector Pluecker coordinate
 //!   is ever read (`head<3>()`), so the moment half is not formed.
 //! - The sums `xxF ... zxF`, `x1P ... z2P`, `m11P`, `m12P`, `m22P` are bundled in [`Terms`];

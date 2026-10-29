@@ -9,7 +9,7 @@
 //!   relative pose (the refiner of `EssentialMatrixTangentSampsonEstimator`).
 //! - [`TinyFocalSampsonErrorCostFunctor`]: pixel-space Sampson error of a pose plus a shared
 //!   log-focal (the refiner of `relpose_shared_focal`). C++ differentiates it by autodiff;
-//!   here its Jacobian is closed-form like the others (docs/CPP_DIVERGENCES.md, entry 252).
+//!   here its Jacobian is closed-form like the others (the divergence in its doc).
 //! - [`TinyOneSidedFocalTangentSampsonErrorCostFunctor`]: a pose plus the first view's
 //!   log-focal (the refiner of `relpose_one_sided_focal`).
 //! - [`TinyFundamentalSampsonErrorCostFunctor`]: a fundamental matrix in Bartoli and Sturm's
@@ -254,8 +254,29 @@ fn shared_focal_scaled(e: Matrix3d, inv_f: f64) -> Matrix3d {
 /// C++ differentiates this functor with Ceres autodiff
 /// (`ceres::TinySolverAutoDiffFunction`). Here the 8-parameter Jacobian is closed-form,
 /// dr/dF contracted with dF/d[q, t, log_f], as for the neighboring functors: the same
-/// derivative up to rounding (docs/CPP_DIVERGENCES.md, entry 252). The residual follows the
-/// C++ arithmetic of `SampsonError` exactly.
+/// derivative up to rounding. The residual follows the C++ arithmetic of `SampsonError`
+/// exactly.
+///
+/// That is a deliberate divergence. COLMAP's `TinyFocalSampsonErrorCostFunctor`
+/// (`estimators/cost_functions/tiny_sampson_error.h`), the refiner of
+/// `RelativePoseSharedFocalEstimator::Refine`, is a templated functor that TinySolver
+/// differentiates through Jets. This one evaluates the same residual,
+/// `SampsonError(F, point1, point2)` with F = diag(1/f, 1/f, 1) E diag(1/f, 1/f, 1), in the same
+/// arithmetic order; in the Jacobian the pose columns are COLMAP's dE/d[q, t] carried through
+/// the focal scaling, and dF/d(log_f) negates F with the top-left 2x2 block doubled and F(2, 2)
+/// zeroed. It is the exact derivative of the same function, so it differs from autodiff's only
+/// by rounding, and TinySolver's iterates can differ in the last bits. The closed form is the
+/// pattern COLMAP itself uses for the neighboring tangent, one-sided focal and fundamental
+/// functors in the same header, and it is cheaper than autodiff; TinySolver is Tier C, so what
+/// must agree is the converged result. In `tests/estimators/tiny_sampson_error.rs`,
+/// `tiny_focal_sampson_error_cost_functor_matches_squared_sampson_error` (the 1:1
+/// `TinyFocalSampsonErrorCostFunctor.MatchesSquaredSampsonError`, residuals within 1e-9) and
+/// `rust_only_tiny_focal_sampson_error_cost_functor_jacobian_matches_finite_difference` (every
+/// column, log-focal included, against central differences within 1e-5 at two poses and
+/// focals; scaling the log-focal column wrongly fails it) pass. The 1:1
+/// `relative_pose_shared_focal_estimator_refine_from_initial_model`
+/// (`tests/estimators/relpose_shared_focal.rs`) converges from a 10% focal error to within 1%
+/// on all 50 draws, and fails with that same mutation.
 #[derive(Clone, Copy, Debug)]
 pub struct TinyFocalSampsonErrorCostFunctor<'a> {
     points1: &'a [Vector2d],

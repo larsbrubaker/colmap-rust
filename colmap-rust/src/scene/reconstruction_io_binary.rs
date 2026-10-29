@@ -14,7 +14,8 @@
 //! - A stream that ends early is an error here; COLMAP reads unspecified values
 //!   (`util/endian.rs` header).
 //! - A sensor type or camera model number that names no enumerator, and an image name that
-//!   is not UTF-8, are errors (a Rust enum or `String` cannot hold them; entry 241).
+//!   is not UTF-8, are errors (a Rust enum or `String` cannot hold them; the malformed-file
+//!   divergence in the [`super::reconstruction_io_utils`] header).
 //! - Widths and heights are `u64` in the file and `usize` in [`crate::scene::camera::Camera`];
 //!   on wasm32 a value above `u32::MAX` would truncate, and none is a real image size.
 

@@ -1,7 +1,7 @@
 // Rust-only tests of colmap_rust::estimators::generalized_pose's guards where COLMAP's
 // generalized_pose.cc has undefined behavior: empty correspondence lists, and a camera index
-// list shorter than the points (docs/CPP_DIVERGENCES.md, entry 263). The COLMAP cases are in
-// `generalized_pose.rs`.
+// list shorter than the points (the divergence in the generalized_pose.rs header). The COLMAP
+// cases are in `generalized_pose.rs`.
 
 use colmap_rust::estimators::generalized_pose::{
     estimate_generalized_absolute_pose, estimate_generalized_relative_pose,

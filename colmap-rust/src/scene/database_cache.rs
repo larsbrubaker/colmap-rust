@@ -10,8 +10,24 @@
 //!
 //! Decisions:
 //! - Rigs, cameras, frames and images live in `BTreeMap`s, so they enumerate in ascending id
-//!   order where COLMAP iterates `NodeHashMap`s (entry 267). The id sets used only for
-//!   lookups are std hash sets; nothing iterates them into an output.
+//!   order where COLMAP iterates `NodeHashMap`s. The id sets used only for lookups are std
+//!   hash sets; nothing iterates them into an output.
+//!
+//!   That is a deliberate divergence. COLMAP's `NodeHashMap`s iterate in an order that depends
+//!   on the build's hash-map backend; here `rigs()`, `cameras()`, `frames()` and `images()`
+//!   enumerate in ascending id order, like `Reconstruction` (the `scene/reconstruction.rs`
+//!   header). Where that order reaches an output: `find_image_with_name` returns the
+//!   smallest-id image when several share a name (possible only through `add_image`; database
+//!   names are unique), and the correspondence graph receives its images in ascending id order
+//!   (the order of `AddImage` calls is not observable). Pairs are added in the database's pair
+//!   id order in `load` and in the source graph's insertion order (the
+//!   `scene/correspondence_graph.rs` header) in `create_from_cache`, both as in COLMAP. `Load`
+//!   keeps COLMAP's `emplace` semantics: an object already in the cache is not replaced.
+//!   CLAUDE.md requires deterministic iteration, and COLMAP relies on no particular order here
+//!   (its tests use order-free properties), so ascending id is the natural choice.
+//!   `tests/scene/database_cache.rs` (`database_cache_test.cc` 1:1) passes with COLMAP's
+//!   expectations; `rust_only_create_from_cache_keeps_whole_frames` pins the filtering. Same as
+//!   colmap-sharp entry 33.
 //! - The correspondence graph is owned by value: [`DatabaseCache::correspondence_graph`] and
 //!   [`DatabaseCache::correspondence_graph_mut`] stand for COLMAP's const and non-const
 //!   `shared_ptr` accessors; a caller that shares the cache wraps it in an `Arc`.

@@ -7,8 +7,9 @@
 //!
 //! Lines are read with `std::getline` + `StringTrim` semantics, blank and '#' lines are
 //! skipped, and values are parsed token by token in the classic locale
-//! ([`crate::util::line_tokens`]; entry 241 for where a token-whole parse differs from
-//! libc++'s character-wise one). A line that is not UTF-8 is an error (entry 241).
+//! ([`crate::util::line_tokens`]). A token-whole parse differs from libc++'s character-wise
+//! one, and a line that is not UTF-8 is an error (the malformed-file divergence in the
+//! [`super::reconstruction_io_utils`] header).
 //! `THROW_CHECK(line_stream >> a >> b)` fails with "Check failed: line_stream >> value".
 //! Tier A: correctly rounded parsing gives the bits COLMAP reads.
 

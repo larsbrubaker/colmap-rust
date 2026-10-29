@@ -21,9 +21,22 @@
 //!   [`GeneralizedRelativePose`] enum.
 //! - Camera indices are `usize` (`size_t`), so `ThrowCheckCameras`' `>= 0` check always holds.
 //! - `IsPanoramicRig` takes the smallest camera index as its reference, where COLMAP takes the
-//!   first element of a hash set (docs/CPP_DIVERGENCES.md, entry 262).
-//! - Empty correspondence lists return `Ok(None)` where COLMAP dereferences an empty range
-//!   (docs/CPP_DIVERGENCES.md, entry 263).
+//!   first element of a hash set (the divergence at `is_panoramic_rig`).
+//! - Deliberate divergence, empty and misaligned input: `ThrowCheckCameras` dereferences
+//!   `std::minmax_element` of the camera index list, and `EstimateStructureLessAbsolutePose`
+//!   calls `IsPanoramicRig`, which dereferences the first element of the index set: both are
+//!   undefined behavior for an empty list. `EstimateGeneralizedRelativePose` also reads
+//!   `camera_idxs1[i]` and `camera_idxs2[i]` for every point without checking their lengths.
+//!   Here an empty index list has nothing to check, [`estimate_structure_less_absolute_pose`]
+//!   returns `Ok(None)` (COLMAP's `false`) for no correspondences, as the other two estimators
+//!   already do, and [`estimate_generalized_relative_pose`] fails a check
+//!   (`camera_idxs1.len() == num_points`) when an index list is shorter or longer than the
+//!   points. An out-of-range read is a bug, not behavior to reproduce; returning "no pose" for
+//!   no correspondences matches COLMAP's other two estimators, and colmap-sharp makes the same
+//!   choice (in comments, not as a numbered entry). Results for valid input are unchanged.
+//!   Pinned by `rust_only_generalized_pose_empty_correspondences_find_no_pose` and
+//!   `rust_only_generalized_relative_pose_short_camera_idxs_is_an_error`
+//!   (`tests/estimators/rust_only_generalized_pose.rs`).
 
 use crate::estimators::pose::{estimate_relative_pose, PoseEstimate};
 use crate::estimators::solvers::{
@@ -214,7 +227,7 @@ pub fn estimate_generalized_relative_pose(
     }
     // COLMAP indexes `camera_idxs1[i]` / `camera_idxs2[i]` for every point without checking
     // their lengths; a check keeps a short list an error rather than an out-of-range read
-    // (docs/CPP_DIVERGENCES.md, entry 263).
+    // (the empty and misaligned input divergence in the file header).
     check_eq!(camera_idxs1.len(), num_points);
     check_eq!(camera_idxs2.len(), num_points);
 
@@ -318,7 +331,7 @@ pub fn estimate_structure_less_absolute_pose(
     options.check()?;
 
     // Not in COLMAP, whose IsPanoramicRig dereferences the first element of an empty set
-    // (docs/CPP_DIVERGENCES.md, entry 263).
+    // (the empty and misaligned input divergence in the file header).
     if world_points2d.is_empty() {
         return Ok(None);
     }
@@ -368,7 +381,7 @@ pub fn estimate_structure_less_absolute_pose(
 
 // Port of the anonymous `ThrowCheckCameras`. COLMAP's `std::minmax_element` on an empty index
 // list dereferences `end()` (undefined); an empty list has nothing to check here
-// (docs/CPP_DIVERGENCES.md, entry 263).
+// (the empty and misaligned input divergence in the file header).
 fn throw_check_cameras(
     camera_idxs: &[usize],
     cams_from_rig: &[Rigid3d],
@@ -384,8 +397,18 @@ fn throw_check_cameras(
 
 // Port of the anonymous `IsPanoramicRig`: whether every camera in `camera_idxs` has the same
 // origin in the rig (relative tolerance 1e-6). The reference camera is the smallest index,
-// where COLMAP takes the first element of a `FlatHashSet` (docs/CPP_DIVERGENCES.md, entry
-// 262). Callers pass a non-empty list.
+// where COLMAP takes the first element of a `FlatHashSet`. Callers pass a non-empty list.
+//
+// That is a deliberate divergence. COLMAP puts the camera indices in a `FlatHashSet`, takes
+// the set's first element as the reference and checks every other camera's origin against it
+// with `isApprox(reference, 1e-6)`; the set's iteration order is unspecified, and hash
+// iteration order is not reproducible across containers (CLAUDE.md). The reference only
+// matters when the origins agree to about 1e-6 relative with one camera but not with another
+// (`isApprox` is not transitive), which never happens for a real rig, whose cameras are either
+// co-centered (panoramic) or centimeters apart. COLMAP's
+// `EstimateGeneralizedRelativePose.Nominal`, which covers panoramic and non-panoramic rigs, and
+// `EstimateStructureLessAbsolutePose.PanoramicWorldCameras` pass 1:1
+// (`tests/estimators/generalized_pose.rs`). Same as colmap-sharp entry 46.
 fn is_panoramic_rig(camera_idxs: &[usize], cams_from_rig: &[Rigid3d]) -> bool {
     let mut camera_idx_set = camera_idxs.to_vec();
     camera_idx_set.sort_unstable();

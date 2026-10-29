@@ -12,7 +12,7 @@
 //! it.
 //!
 //! Tier A for ids, counts and poses given the PRNG stream; the 3D points' order of visits
-//! differs from COLMAP's hash order (docs/CPP_DIVERGENCES.md entry 240).
+//! differs from COLMAP's hash order (the iteration-order divergence below).
 //!
 //! Translation notes:
 //! - Randomness: every draw goes through `math::random` (COLMAP's thread-local PRNG) in
@@ -20,9 +20,28 @@
 //!   (`Eigen::Vector3d(RandomGaussian(...), RandomGaussian(...), ...)`), they are drawn left to
 //!   right, as clang (the macOS pycolmap wheel) evaluates constructor arguments.
 //! - Iteration order: COLMAP visits `Reconstruction::Points3D()` in hash order; here it is
-//!   ascending id order (the `scene/reconstruction.rs` header and entry 240).
+//!   ascending id order (the `scene/reconstruction.rs` header and the divergence below).
 //! - COLMAP's optional `Database*` is two functions: [`synthesize_dataset`] (no database, the
 //!   form every other module's tests call) and [`synthesize_dataset_with_database`].
+//!
+//! Deliberate divergence, iteration order (here, in [`super::synthetic_matches`] and in
+//! [`super::synthetic_noise`]): COLMAP's `SynthesizeDataset` projects the reconstruction's 3D
+//! points into each image, and `track_length` pruning visits them, in
+//! `Reconstruction::Points3D()` order, which is the order of COLMAP's hash map; its CHAINED
+//! match configuration writes the pairs of a `NodeHashMap`; `SynthesizeNoise` adds 2D and 3D
+//! point noise visiting `Images()` and `Points3D()`, and `SynthesizeImages` renders the images
+//! in `Images()` order. The three files visit all of them in ascending id order (the
+//! reconstruction's `BTreeMap`s; a `BTreeMap` of pairs for CHAINED). The PRNG draws are the
+//! same and in the same sequence; what differs is the order of each image's 2D points before
+//! the shuffle, which point's track receives which pruning shuffle, which pair receives which
+//! outlier-match shuffle, which point receives which noise draws, and the descriptor seeds
+//! `SynthesizeImages` gives points without a 3D point. So a seeded run gives the same cameras,
+//! rigs, frame poses and 3D point positions as pycolmap's, but different 2D point orders,
+//! pruned tracks and noise assignment. CLAUDE.md requires deterministic iteration, and
+//! COLMAP's tests rely only on order-free properties (counts, track lengths, error bounds,
+//! connectivity, equality of two seeded runs): `tests/scene/synthetic.rs`,
+//! `synthetic_database.rs` and `synthetic_noise.rs` (`synthetic_test.cc` 1:1, all 18 cases)
+//! and every test that synthesizes its scene pass. Same as colmap-sharp entry 31.
 
 use std::collections::BTreeSet;
 
@@ -465,8 +484,13 @@ fn write_pose_prior(
     image: &Image,
     cam_from_world: &Rigid3d,
 ) -> Result<()> {
-    // C++ dereferences a null `database` here (undefined behavior); the port fails cleanly
-    // (docs/CPP_DIVERGENCES.md entry 269).
+    // Deliberate divergence: with `prior_position` or `prior_gravity` set, COLMAP writes the
+    // prior through `database->WritePosePrior` without checking the pointer, so calling it
+    // without a database dereferences null (undefined behavior, in practice a crash). A null
+    // dereference is a bug, not behavior to reproduce: the port returns an `InvalidArgument`
+    // error at the first image instead, and the database form behaves exactly as COLMAP's.
+    // Pinned by `rust_only_synthesize_dataset_pose_priors_need_a_database`
+    // (`tests/scene/synthetic_database.rs`).
     let Some(database) = database else {
         return Err(crate::util::check::ColmapError::new(
             crate::util::check::ErrorKind::InvalidArgument,
@@ -583,7 +607,8 @@ fn synthesize_points2d(
 }
 
 /// Prunes every longer track to exactly `track_length` observations, dropping a random
-/// subset. Points are visited in ascending id order (entry 240).
+/// subset. Points are visited in ascending id order (the iteration-order
+/// divergence in the file header).
 fn prune_tracks(track_length: i32, reconstruction: &mut Reconstruction) -> Result<()> {
     for point3d_id in reconstruction.point3d_ids() {
         let track = &reconstruction.point3d(point3d_id)?.track;

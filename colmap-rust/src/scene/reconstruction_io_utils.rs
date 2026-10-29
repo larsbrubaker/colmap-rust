@@ -12,6 +12,27 @@
 //!   ascending order, so the writers iterate them directly.
 //! - `ExtractImageToFramePtr` maps image ids to frame pointers; here to frame ids
 //!   ([`extract_image_to_frame_id`]; the ownership divergence in the [`crate::scene`] header).
+//!
+//! Deliberate divergence, malformed model files (the readers of
+//! [`super::reconstruction_io_binary`] and [`super::reconstruction_io_text`], and their helpers
+//! here): COLMAP's model readers use `std::istream`, which parses a value character by
+//! character and does not check every read. The Rust readers
+//! - parse each text value as a whole whitespace-separated token ([`crate::util::line_tokens`]),
+//!   so "12abc" fails where libc++ reads 12 and leaves "abc" for the next value;
+//! - reject a sensor type number in `rigs.bin` / `frames.bin` that names no `SensorType`
+//!   (`sensor_type_from_i32`), and a camera model number that names no model (a Rust enum
+//!   cannot hold an unnamed value);
+//! - reject an image name or text line that is not UTF-8 (a Rust `String` cannot hold it);
+//! - fail when a binary stream ends early (the `util/endian.rs` header), where COLMAP reads
+//!   unspecified values or, for an image name, loops on the last character.
+//!
+//! Valid files, including every file COLMAP writes, read to the same model. Each rejected case
+//! is malformed input where COLMAP's result is unspecified or silently wrong, so an error is the
+//! only safe answer. `rust_only_reconstruction_io_rejects_what_cpp_misreads`
+//! (`tests/scene/rust_only_reconstruction_io.rs`) pins the rejections, and the pycolmap fixtures
+//! in `tests/data/oracle/reconstruction_io` read and re-write byte for byte
+//! (`rust_only_reconstruction_io_rewrites_pycolmap_files_byte_for_byte`). Same as colmap-sharp
+//! entry 25 for the token parsing.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -74,7 +95,7 @@ pub fn extract_image_to_frame_id(
 }
 
 /// `static_cast<SensorType>(value)` of a sensor type read from a binary file; a number that
-/// names no enumerator is an error (entry 241).
+/// names no enumerator is an error (the malformed-file divergence in the file header).
 pub(crate) fn sensor_type_from_i32(value: i32) -> Result<SensorType> {
     match value {
         -1 => Ok(SensorType::Invalid),

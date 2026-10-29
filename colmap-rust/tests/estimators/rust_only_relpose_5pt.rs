@@ -3,7 +3,7 @@
 // colmap_rust::estimators::solvers::poselib::relpose_5pt. Tier B: on random minimal problems
 // every returned E has unit norm and satisfies the five epipolar constraints, and the true E
 // is among the solutions up to sign (the solution set does not depend on the null-space
-// basis, docs/CPP_DIVERGENCES.md entry 250).
+// basis: the divergence in the relpose_5pt.rs header).
 
 use colmap_rust::estimators::solvers::poselib::relpose_5pt::relpose_5pt;
 use colmap_rust::geometry::essential_matrix::essential_matrix_from_pose;

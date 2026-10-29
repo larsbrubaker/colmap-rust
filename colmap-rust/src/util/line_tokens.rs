@@ -11,7 +11,7 @@
 //! (decimal and exponent notation; see `string_to_double`), and a float by `parse_float_token`,
 //! which accepts the same spellings and rounds once to `f32`. A token is taken whole, so
 //! "12abc" fails where libc++ would read 12 into an integer and leave "abc" for the next
-//! extraction (docs/CPP_DIVERGENCES.md entry 241).
+//! extraction (the malformed-file divergence in the `scene/reconstruction_io_utils.rs` header).
 
 use std::io::Read;
 

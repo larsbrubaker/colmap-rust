@@ -8,7 +8,7 @@
 //!   to nearest, ties to even; no transcendental, so no `math::fns` wrapper is needed).
 //! - Pair constraints (and so the jitter draws of the 1-DOF residual) are visited in
 //!   ascending pair id order, frames and cameras in ascending id order
-//!   (docs/CPP_DIVERGENCES.md entry 278).
+//!   (the ascending id divergence in the [`super`] module header).
 
 use std::collections::BTreeMap;
 

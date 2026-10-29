@@ -23,12 +23,47 @@
 //! Translation notes:
 //! - COLMAP's hash containers decide the parameter layout, the row order, the jitter draw
 //!   order, the gauge frame, the spanning tree's numbering and the order quaternion samples
-//!   are averaged in; here every one of them is in ascending id order
-//!   (docs/CPP_DIVERGENCES.md entry 278).
+//!   are averaged in; here every one of them is in ascending id order (the divergence below).
 //! - `THROW_CHECK`s and lookups of missing objects are `Err`; `LOG(ERROR)` paths return
 //!   `Ok(false)` (the core has no logger, so `LOG`/`VLOG` messages are not emitted).
 //! - `FlatHashSet<image_t>` arguments are `HashSet<ImageId>` (only probed, or sorted before
 //!   iterating); `NodeHashMap<image_t, Rigid3d>` is a `BTreeMap`.
+//!
+//! Deliberate divergence, ascending id order (in every submodule). COLMAP's
+//! `RotationAveragingProblem` allocates frame parameters in the iteration order of a
+//! `FlatHashSet<frame_t>`, camera (unknown cam_from_rig) parameters in the order of a
+//! `NodeHashMap<camera_t, int>`, and constraint rows in the order of `PoseGraph::ValidEdges()`
+//! (a `NodeHashMap`); `ComputeResiduals` and the IRLS weights walk the pair constraints in
+//! `NodeHashMap<image_pair_t, ...>` order, which is also the order of the jitter draws near the
+//! +-pi boundary of the 1-DOF residual. The gauge is fixed at the *first* active frame in hash
+//! order (the first gravity-aligned one, if any). This port allocates frames and cameras in
+//! ascending id order, rows in ascending pair id order, visits constraints in that order, and
+//! fixes the gauge at the smallest-id (gravity-aligned, if any) active frame.
+//!
+//! The driver code does the same where COLMAP walks hash containers: the maximum spanning tree
+//! numbers the active images in ascending id order (COLMAP: `FlatHashSet` order, and node 0 is
+//! the tree's root, which is held at the identity rotation), adds edges in ascending pair id
+//! order (which breaks weight ties) and visits each node's children in ascending id order; the
+//! stratified gravity subset copies its edges in ascending pair id order; `EstimateRotations`
+//! registers the frames in ascending image id order (which decides the order of
+//! `reg_frame_ids`); `InitializeRigRotationsFromImages` walks frames in ascending id order,
+//! which fixes the order in which quaternion samples are summed; `CreateExpandedReconstruction`
+//! numbers its singleton rigs in ascending rig id (then sensor) order and its new frames in
+//! ascending frame id (then data id) order.
+//!
+//! COLMAP's `BuildPairConstraints` looks a pair's frame parameter up with `operator[]`, which
+//! silently inserts index 0 for a frame outside the active set (`ComputeResiduals` then throws
+//! from `.at()`). Here [`RotationAveragingProblem::new`] fails for such a pair instead. Callers
+//! invalidate pairs outside the active set first, so this changes no successful run.
+//!
+//! The reason is CLAUDE.md's hash-order rule: the layout changes the floating-point grouping of
+//! the normal equations and the Cholesky ordering, the jitter draw order, and the gauge (the
+//! solution is only defined up to a global rotation, so a different fixed frame gives a
+//! globally rotated result). COLMAP relies on none of these: its tests compare gauge-invariant
+//! relative rotations. `tests/estimators/rotation_averaging.rs` (`rotation_averaging_test.cc`
+//! 1:1, all 15 tests) passes with COLMAP's tolerances, including `DeterministicRandomSeed`
+//! (bit-identical repeat solves) and the 1e-12 degree `RidgeRegularizationDoesNotBiasSolution`.
+//! Same as colmap-sharp entry 44.
 
 mod estimator;
 mod problem;

@@ -24,7 +24,8 @@
 //! [`super::essential::motion_from_essential`].
 //!
 //! The null space comes from an unpivoted Householder QR instead of PoseLib's
-//! `fullPivHouseholderQr` (docs/CPP_DIVERGENCES.md entry 255). The order of the eigenvalues
+//! `fullPivHouseholderQr` (the null-space divergence in the [`super::relpose_6pt_shared_focal`]
+//! header, which covers this solver too). The order of the eigenvalues
 //! (Schur order) sets the order of the returned poses, which may differ from Eigen's; COLMAP
 //! treats the output as a set. Tier B. Tests: `tests/estimators/rust_only_relpose_6pt_focal.rs`.
 

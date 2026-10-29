@@ -3,8 +3,9 @@
 // as a bool or a double) are colmap-sharp's RigConfigTests.CSharpOnly cases, whose expected
 // results were taken from a libc++ harness (Apple clang, istringstream with ptree's extract
 // logic); the rest pin the semantic checks with valid JSON (rig_test.cc's invalid configs
-// also have trailing commas, which fail earlier, at the parse), docs/CPP_DIVERGENCES.md
-// entries 274 and 276, and the sensor poses ApplyRigConfig derives from a reconstruction.
+// also have trailing commas, which fail earlier, at the parse), the divergences in the docs of
+// `read_doubles` (scene/rig.rs) and `update_rigs_and_frames_from_database`
+// (scene/rig_apply.rs), and the sensor poses ApplyRigConfig derives from a reconstruction.
 
 use colmap_rust::math::random::set_prng_seed;
 use colmap_rust::scene::camera::Camera;
@@ -266,7 +267,7 @@ fn rust_only_read_rig_config_semantic_checks() {
 
 #[test]
 fn rust_only_read_rig_config_pose_needs_four_and_three_entries() {
-    // Entry 274: COLMAP writes past (or short of) its fixed-size vectors.
+    // The divergence in `read_doubles`' doc: COLMAP writes past (or short of) its fixed-size vectors.
     let pose = |rotation: &str, translation: &str| {
         format!(
             r#"[{{"cameras": [{{"image_prefix": "a/", "ref_sensor": true}},
@@ -358,7 +359,7 @@ fn rust_only_apply_rig_config_derives_sensor_from_rig_from_reconstruction() {
     assert!((derived.translation - expected.translation).norm() < 1e-9);
 
     // The reconstruction's rig carries the derived pose, and its frames register in
-    // ascending id order (entry 276).
+    // ascending id order (the divergence in `update_rigs_and_frames_from_database`' doc).
     let reconstruction_rig = reconstruction.rig(rigs[0].rig_id()).unwrap();
     assert_eq!(
         reconstruction_rig.sensor_from_rig(sensor2).unwrap(),

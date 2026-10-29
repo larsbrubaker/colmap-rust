@@ -1,7 +1,7 @@
 // Rust-only tests of colmap_rust::util::json, the core's JSON reader (written here in place of
 // boost::property_tree's read_json; COLMAP has no test of its own for it): values, escapes,
 // nesting, the property-tree view (first duplicate wins, children, stored text), malformed
-// input and the nesting limit (docs/CPP_DIVERGENCES.md entry 275).
+// input and the nesting limit (the divergence in the util/json.rs header).
 
 use colmap_rust::util::json::{parse_json, JsonValue, MAX_DEPTH};
 

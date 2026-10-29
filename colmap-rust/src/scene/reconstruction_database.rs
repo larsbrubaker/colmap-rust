@@ -8,7 +8,8 @@
 //! TranscribeImageIdsToDatabase 1:1; COLMAP has no direct `Load` test, the mappers exercise
 //! it, so `rust_only_*` tests pin it).
 //!
-//! Tier A (exact): bookkeeping. The cache is visited in ascending id order (entry 267).
+//! Tier A (exact): bookkeeping. The cache is visited in ascending id order (the iteration-order
+//! divergence in the [`super::database_cache`] header).
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -80,7 +81,19 @@ impl Reconstruction {
     /// for its name, and rewrites the frames' image data ids and the tracks to match. Fails
     /// if an image's name is not in the database or two images map to the same id. The ids
     /// are all looked up before anything changes, so a failure leaves the reconstruction as
-    /// it was (COLMAP has renamed some images by then; docs/CPP_DIVERGENCES.md entry 273).
+    /// it was.
+    ///
+    /// That is a deliberate divergence. COLMAP renames the images one by one while it looks
+    /// their names up in the database, so when a name is missing (`LOG(FATAL_THROW)`) or two
+    /// images map to one id (`THROW_CHECK`), the images before it already carry their new ids
+    /// while the frames and tracks still refer to the old ones: the reconstruction is left
+    /// broken (`IsValid` fails afterwards). This looks every id up, and checks every frame data
+    /// id and track element has a mapping, before it changes anything, so a failure returns
+    /// the error and leaves the reconstruction as it was; checking first costs one extra pass
+    /// and makes the error recoverable. The successful result is the same.
+    /// `rust_only_transcribe_image_ids_to_database_unknown_name_changes_nothing`
+    /// (`tests/scene/reconstruction_database.rs`) pins it, and COLMAP's
+    /// TranscribeImageIdsToDatabase test passes 1:1.
     pub fn transcribe_image_ids_to_database(&mut self, database: &Database) -> Result<()> {
         // Lookups only, never iterated.
         let mut old_to_new_image_ids: HashMap<ImageId, ImageId> =

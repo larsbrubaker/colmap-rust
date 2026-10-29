@@ -10,12 +10,13 @@
 //! Translation notes:
 //! - Active frames and estimated cameras are laid out in ascending id order, pair
 //!   constraints (rows) in ascending pair id order, and the gauge is fixed at the smallest-id
-//!   (gravity-aligned, if any) active frame (docs/CPP_DIVERGENCES.md entry 278).
+//!   (gravity-aligned, if any) active frame (the ascending id divergence in the [`super`]
+//!   module header).
 //! - COLMAP looks up a pair's frame parameter with `operator[]`, which silently inserts
 //!   index 0 for a frame outside the active set (and `ComputeResiduals` later throws from
 //!   `.at()`). Callers invalidate such pairs first
 //!   (`PoseGraph::invalidate_pairs_outside_active_image_ids`); here the constructor fails for
-//!   them instead of corrupting the layout (entry 278).
+//!   them instead of corrupting the layout (the same module header note).
 //! - `std::variant<GravityAligned1DOF, Full3DOF>` is [`RotationConstraint`]; the `-1`
 //!   "known cam_from_rig" parameter index is `None`.
 

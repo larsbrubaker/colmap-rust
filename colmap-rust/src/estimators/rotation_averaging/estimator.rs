@@ -8,7 +8,7 @@
 //! - The spanning tree numbers the active images in ascending id order (COLMAP: `FlatHashSet`
 //!   order, which picks the tree's root, node 0) and adds the valid edges in ascending pair
 //!   id order; the tree is walked with children in ascending id order; frames are registered
-//!   in ascending image id order (docs/CPP_DIVERGENCES.md entry 278).
+//!   in ascending image id order (the ascending id divergence in the [`super`] module header).
 //! - COLMAP's `cams_from_world[parent]` default-constructs the root's entry (identity) the
 //!   first time a child of the root is visited; `entry().or_default()` does the same.
 

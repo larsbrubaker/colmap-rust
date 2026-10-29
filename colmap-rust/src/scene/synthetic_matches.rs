@@ -8,7 +8,8 @@
 //! Tests: `tests/scene/synthetic.rs`.
 //!
 //! Tier A given the PRNG stream; the chained configuration writes its pairs in ascending
-//! pair id order where COLMAP walks a hash map (docs/CPP_DIVERGENCES.md entry 240).
+//! pair id order where COLMAP walks a hash map (the iteration-order divergence in the
+//! [`super::synthetic`] header).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -224,7 +225,7 @@ pub(super) fn synthesize_exhaustive_matches(
 
 /// `SynthesizeChainedMatches`: matches only between images with consecutive ids, from the
 /// 3D points' tracks. The pairs are written in ascending pair id order (COLMAP: hash order of
-/// a `NodeHashMap`; entry 240).
+/// a `NodeHashMap`; the divergence in the [`super::synthetic`] header).
 pub(super) fn synthesize_chained_matches(
     inlier_match_ratio: f64,
     has_relative_pose: bool,

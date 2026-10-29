@@ -4,7 +4,7 @@
 //! Tests: `tests/estimators/alignment.rs` (`MergeReconstructions`,
 //! `MergeReconstructionsInconsistentImageNames`, `AlignReconstructionToOrigRigScales`).
 //!
-//! Deterministic order (docs/CPP_DIVERGENCES.md entry 277): COLMAP copies the missing images in
+//! Deterministic order (the divergence in the [`super`] header): COLMAP copies the missing images in
 //! the iteration order of a `FlatHashSet`, which decides the order their frames are registered in
 //! the target (`RegFrameIds`); the port copies them in the source's `RegImageIds` order. The
 //! source points are merged in `Points3D` order (ascending id, the `scene/reconstruction.rs`
@@ -86,7 +86,8 @@ pub fn merge_reconstructions(
     // distinct physical images end up with colliding ids. Detect the
     // inconsistency via the image name and fail loudly instead.
     let mut common_image_ids = BTreeSet::<ImageId>::new();
-    // In the source's RegImageIds order (entry 277), with a set for the lookups below.
+    // In the source's RegImageIds order (the divergence in the `alignment` module header), with
+    // a set for the lookups below.
     let mut missing_image_ids = Vec::<ImageId>::new();
     let mut missing_image_set = BTreeSet::<ImageId>::new();
     for image_id in src_reconstruction.reg_image_ids()? {

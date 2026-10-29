@@ -462,7 +462,7 @@ fn synthesize_dataset_sparse_matches_partial_sparsity() {
 
 // Rust-only: COLMAP writes pose priors through the `Database*` without checking it, so asking
 // for priors without a database dereferences null; the port fails with an error
-// (docs/CPP_DIVERGENCES.md entry 269).
+// (the divergence in `write_pose_prior`, `scene/synthetic.rs`).
 #[test]
 fn rust_only_synthesize_dataset_pose_priors_need_a_database() {
     set_prng_seed(0);

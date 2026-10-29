@@ -20,7 +20,29 @@
 //!   [`crate::optim::EstimateAsLocal`]. [`FundamentalMatrixSampsonEstimator`] has only
 //!   `Refine` and `Residuals`, so it implements [`crate::optim::LocalEstimator`] alone.
 //! - The 7-point estimator takes its 2D null space from an unpivoted Householder QR where
-//!   COLMAP uses `fullPivHouseholderQr` (docs/CPP_DIVERGENCES.md entry 260).
+//!   COLMAP uses `fullPivHouseholderQr`. That is a deliberate divergence.
+//!   `FundamentalMatrixSevenPointEstimator::Estimate` gets the null space of its 7 x 9
+//!   constraint system from columns 7 and 8 of the full Q of `A.fullPivHouseholderQr()` (A is
+//!   9 x 7); this port takes the same two columns from an unpivoted Householder QR of A
+//!   (`linalg::householder::factor_in_place` / `apply_q`, allocation-free). Both pairs are
+//!   orthonormal bases of the same space: in any factorization A = Q R, the first seven columns
+//!   of Q contain A's column space, so the last two are orthogonal to every constraint,
+//!   whatever the pivoting and whatever A's rank. Only the basis inside that plane differs.
+//!   Eigen (MPL-2.0) is not ported, and full-pivoting Householder QR (which also swaps rows) has
+//!   no published convention precise enough to reproduce Eigen's Q column for column (the five-
+//!   and six-point solvers make the same choice, `poselib::relpose_5pt` and
+//!   `poselib::relpose_6pt_shared_focal`). The basis does not reach the solutions: the solver
+//!   finds the rank-2 members of the pencil {a f1 + b f2}, normalized to unit norm, and that
+//!   set of matrices (up to sign, which the Sampson error and COLMAP's F / F(2, 2) comparisons
+//!   ignore) does not depend on the basis. The one place it shows is the parametrization
+//!   lambda f1 + f2 with f1 = q7 - q8: when |det(f1)| < 1e-16 COLMAP returns no model, and
+//!   which member of the pencil f1 is depends on the basis. For a generic sample that is a
+//!   measure-zero event on either side, so the two can disagree only on a sample that sits on
+//!   that numeric knife edge, and then one of them emits no model for that RANSAC hypothesis.
+//!   `fundamental_seven_point_estimator_reference` (COLMAP's Matlab reference values, 1e-6) and
+//!   `fundamental_seven_point_estimator_nominal` (100 random problems, at least one model equal
+//!   to the true F up to scale) in `tests/estimators/fundamental_matrix.rs` pass 1:1. Same as
+//!   colmap-sharp entry 24.
 //! - Signs of null vectors: every null vector here (7-point QR basis, 8-point QR or SVD
 //!   vector, and the U, V of the rank-2 projection) has an arbitrary sign. The results are F
 //!   up to scale: the 7-point models are normalized to unit norm with a sign that depends on

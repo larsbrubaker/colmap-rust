@@ -8,7 +8,7 @@
 // TangentSampsonErrorCostFunctor (cost_functions::sampson_error) and the one-sided functor's
 // own generic operator(), through solver::AutoDiffCostFunction / TinySolverAutoDiffFunction.
 // TinyFocalSampsonErrorCostFunctor is autodiff-only in C++; its closed-form Jacobian here is
-// pinned against finite differences by a rust_only test (docs/CPP_DIVERGENCES.md, entry 252).
+// pinned against finite differences by a rust_only test (the divergence in its doc).
 
 use crate::expect_near;
 use colmap_rust::estimators::cost_functions::sampson_error::TangentSampsonErrorCostFunctor;

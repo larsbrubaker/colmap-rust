@@ -10,25 +10,39 @@
 //!
 //! Tier A (exact): pure bookkeeping.
 //!
-//! Decisions:
-//! - SQLite database files are out of scope (PORTING_PLAN.md), so [`Database`] is one
-//!   concrete in-memory type, not COLMAP's abstract class with a path-keyed factory
-//!   (`Database::Open` / `Register` are not ported; [`Database::new`] is
-//!   `Open(kInMemorySqliteDatabasePath)`). docs/CPP_DIVERGENCES.md entry 265.
-//! - It reproduces what COLMAP's SQLite schema and statements make observable: the
+//! Deliberate divergence, one in-memory type (these decisions):
+//! - COLMAP's `Database` is an abstract class whose only implementation is `SqliteDatabase`
+//!   (`database_sqlite.cc`), opened through a path-keyed factory registry (`Database::Open`,
+//!   `Database::Register`); `kInMemorySqliteDatabasePath` opens an in-memory SQLite database.
+//!   SQLite database files are out of scope (PORTING_PLAN.md: SQLite is native code), and a
+//!   trait with a single implementation would only add indirection, so [`Database`] is one
+//!   concrete type that keeps its tables in memory: [`Database::new`] stands for
+//!   `Open(kInMemorySqliteDatabasePath)`, and there is no `Open(path)`, no `Register` and no
+//!   file.
+//! - It reproduces everything COLMAP's SQLite schema and statements make observable: the
 //!   AUTOINCREMENT ids of rigs, cameras, frames and images (one more than the largest id the
 //!   table ever held, explicit ids included; clearing does not reset it), the pose priors'
-//!   plain INTEGER PRIMARY KEY (one more than the largest current id), the UNIQUE indices,
-//!   the foreign keys with their cascades, rows read in id order (pairs in pair id order),
-//!   UPDATE of a missing row being a no-op and reads of a missing row returning defaults.
-//!   A write that violates a constraint stores nothing (entry 266).
+//!   plain INTEGER PRIMARY KEY (one more than the largest current id), the UNIQUE indices
+//!   (image names, a sensor in at most one rig as reference and one as non-reference sensor,
+//!   a data id in at most one frame, one pose prior per data id, one keypoints / descriptors /
+//!   matches / two-view geometry row per image or pair), the foreign keys with their cascades
+//!   (clearing rigs drops their frames, clearing images their keypoints and descriptors,
+//!   clearing cameras fails while images exist), rows read in id order (pairs in pair id
+//!   order), UPDATE of a missing row being a no-op, reads of a missing row returning defaults,
+//!   and the two-view geometry columns (`tri_angle` is not stored, so a read returns its
+//!   default). A write that violates a constraint stores nothing (the divergence in the
+//!   [`super::database_write`] header).
 //! - Every method takes `&self`: the tables sit behind a `Mutex`, so a `Database` can be
 //!   shared between threads (`Arc<Database>`) the way COLMAP shares its `shared_ptr`, and
-//!   [`DatabaseTransaction`] can hold the transaction lock while its owner keeps writing.
-//!   Every call is applied at once, so `BeginTransaction` / `EndTransaction` only check that
-//!   the database is open.
+//!   [`DatabaseTransaction`] holds the transaction lock while its owner keeps writing, so only
+//!   one transaction is active at a time. Every call is applied at once, so
+//!   `BeginTransaction` / `EndTransaction` only check that the database is open; COLMAP never
+//!   rolls a transaction back.
 //! - Every method returns `Result`: after [`Database::close`] each call fails, as COLMAP's
 //!   do (`OpenCloseInMemory`).
+//! - `tests/scene/database.rs` (`database_test.cc` 1:1; the three `OpenFile*` cases are
+//!   skipped as file-based) and `tests/scene/rust_only_database.rs` pass. Same as
+//!   colmap-sharp's `InMemoryDatabase` (its `Scene/InMemoryDatabase.cs` header).
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Mutex, MutexGuard};

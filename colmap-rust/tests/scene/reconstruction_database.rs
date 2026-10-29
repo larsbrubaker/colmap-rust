@@ -2,7 +2,7 @@
 // checks): TranscribeImageIdsToDatabase, for colmap_rust::scene::reconstruction_database over
 // the in-memory Database. COLMAP has no direct test of `Reconstruction::Load` (its mappers
 // exercise it), so the `rust_only_*` tests here pin `load` and the failure path of
-// `transcribe_image_ids_to_database` (docs/CPP_DIVERGENCES.md entry 273).
+// `transcribe_image_ids_to_database` (the divergence in its doc).
 
 use colmap_rust::geometry::rigid3::Rigid3d;
 use colmap_rust::linalg::Vector2d;

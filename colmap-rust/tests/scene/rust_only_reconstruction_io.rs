@@ -2,7 +2,8 @@
 // reconstruction_io_text, reconstruction_io_text_write and reconstruction_files), not ports
 // of a *_test.cc: byte-exact agreement with the files pycolmap 4.2.0 wrote
 // (tests/data/oracle/reconstruction_io, oracle/reconstruction_io.py; Tier A), the legacy
-// (pre-rig) models those files double as, and docs/CPP_DIVERGENCES.md entries 241 and 242.
+// (pre-rig) models those files double as, and two divergences: the malformed-file one in the
+// `scene/reconstruction_io_utils.rs` header and the read reset in `scene/reconstruction_files.rs`.
 
 use std::path::{Path, PathBuf};
 
@@ -117,8 +118,9 @@ fn rust_only_reconstruction_io_legacy_model_gets_trivial_rigs_and_frames() {
 
 #[test]
 fn rust_only_reconstruction_io_rejects_what_cpp_misreads() {
-    // Entry 241: a token is parsed whole ("12abc" is no camera id), a sensor type number
-    // that names no enumerator is an error, and a stream that ends early is an error.
+    // The malformed-file divergence: a token is parsed whole ("12abc" is no camera id), a
+    // sensor type number that names no enumerator is an error, and a stream that ends early
+    // is an error.
     let mut reconstruction = Reconstruction::new();
     let text = b"12abc SIMPLE_PINHOLE 10 10 1 5 5\n";
     assert!(read_cameras_text(&mut reconstruction, &mut text.as_slice()).is_err());
@@ -141,8 +143,8 @@ fn rust_only_reconstruction_io_rejects_what_cpp_misreads() {
 
 #[test]
 fn rust_only_reconstruction_read_resets_registration() {
-    // Entry 242: reading into a used reconstruction starts from an empty one; COLMAP keeps
-    // the old registered frames and counts.
+    // The read reset divergence: reading into a used reconstruction starts from an empty
+    // one; COLMAP keeps the old registered frames and counts.
     let mut reconstruction = Reconstruction::new();
     let options = SyntheticDatasetOptions {
         num_rigs: 1,

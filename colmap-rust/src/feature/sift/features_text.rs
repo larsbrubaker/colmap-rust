@@ -20,7 +20,8 @@
 //! Tier A (exact). The stream reads (`std::getline`, `line_stream >> value` in the classic
 //! locale) go through [`crate::util::line_tokens`], so a token parses as libc++ parses it
 //! (`strtof` for floats), except that a token is taken whole and a line that is not UTF-8 is
-//! an error (docs/CPP_DIVERGENCES.md entry 241). The descriptor rows grow as lines are read
+//! an error (as for model files: the malformed-file divergence in the
+//! `scene/reconstruction_io_utils.rs` header). The descriptor rows grow as lines are read
 //! rather than being allocated up front from the header's count, so a corrupt count fails on
 //! the first missing line instead of exhausting memory.
 

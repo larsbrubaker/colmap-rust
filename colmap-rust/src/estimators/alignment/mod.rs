@@ -17,10 +17,38 @@
 //! - `Sim3d* tgt_from_src` becomes `&mut Sim3d`, left unchanged on failure as in C++.
 //!   `AlignReconstructionToLocations` accepts a null pointer in C++; no caller passes one.
 //! - COLMAP's `LOG(WARNING)` / `LOG(INFO)` / `VLOG` lines are not emitted (the core has no
-//!   logger; docs/CPP_DIVERGENCES.md entry 277).
+//!   logger; the divergence below).
 //! - [`align_reconstructions_via_points`] picks, per source point, the target point seen
 //!   most often along its track; `std::max_element` over a hash map breaks ties by hash
-//!   order, the port by first appearance along the track (entry 277).
+//!   order, the port by first appearance along the track (the divergence below).
+//!
+//! Deliberate divergence, deterministic orders and no log lines (here and in [`merge`]).
+//! Three choices in `estimators/alignment.cc` depend on hash-map iteration order in COLMAP:
+//! - `AlignReconstructionsViaPoints` counts, per source 3D point, how often each target 3D
+//!   point is seen along its track in a `FlatHashMap` and takes `std::max_element` over it, so
+//!   among target points with the same count the hash order picks one.
+//!   [`align_reconstructions_via_points`] keeps the counts in first-seen order along the track
+//!   and takes the first maximum.
+//! - `MergeReconstructions` copies the missing source images in the iteration order of a
+//!   `FlatHashSet`, which decides the order their frames are registered in the target
+//!   (`RegFrameIds()`). [`merge::merge_reconstructions`] copies them in the source's
+//!   `RegImageIds()` order. It merges the source points in ascending id order (the
+//!   `scene/reconstruction.rs` header), which decides the ids the new target points get.
+//! - `AlignReconstructionToOrigRigScales` sums the per-rig scales over a `NodeHashMap` of
+//!   rigs; [`merge::align_reconstruction_to_orig_rig_scales`] takes a `BTreeMap` and sums in
+//!   ascending rig id order, so the floating-point sum is the same on every run.
+//!
+//! COLMAP's `LOG(WARNING)` (too few pose priors, no prior covariance), `LOG(ERROR)`
+//! (inconsistent image id and name in a merge), `LOG(INFO)` and `VLOG` lines are not emitted
+//! (the core has no logger); the return values are COLMAP's. The hash orders are
+//! implementation-defined (they depend on the build's hash-map backend and its history), so
+//! there is no single COLMAP order to match, and CLAUDE.md requires a deterministic order. The
+//! selected point, the set of merged images and points and the scale mean do not depend on the
+//! order beyond ties and summation rounding. `tests/estimators/alignment.rs`
+//! (`alignment_test.cc` 1:1) passes with COLMAP's values and tolerances, including
+//! `MergeReconstructions`' counts of rigs, cameras, frames, images, points and observations and
+//! `AlignReconstructionToOrigRigScales`' recovered rig extrinsics. Same as colmap-sharp entry
+//! 49.
 
 pub mod merge;
 pub mod reprojection_estimator;
@@ -286,7 +314,8 @@ pub fn align_reconstructions_via_points(
 
     let mut src_xyz = Vec::new();
     let mut tgt_xyz = Vec::new();
-    // The counts in first-seen order (the tie-break of max_element below, entry 277).
+    // The counts in first-seen order (the tie-break of max_element below; the divergence in
+    // the file header).
     let mut counts: Vec<(Point3DId, usize)> = Vec::new();
     // Associate 3D points using point2D_idx
     for src_point3d in src_reconstruction.points3d().values() {

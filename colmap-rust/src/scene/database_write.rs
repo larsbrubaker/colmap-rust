@@ -2,8 +2,34 @@
 //! behavior of `database_sqlite.cc`'s INSERT / UPDATE / DELETE statements): `Write*`,
 //! `Update*`, `Delete*` and `Clear*`, and the checks that stand in for the SQLite schema's
 //! UNIQUE indices, primary keys, foreign keys and the image id CHECK. Every write validates
-//! completely before it stores anything (docs/CPP_DIVERGENCES.md entry 266). Port of
-//! colmap-sharp's `Scene/InMemoryDatabase.cs` / `.Pairs.cs`. Tests: `tests/scene/database.rs`.
+//! completely before it stores anything (the divergence below). Port of colmap-sharp's
+//! `Scene/InMemoryDatabase.cs` / `.Pairs.cs`. Tests: `tests/scene/database.rs`.
+//!
+//! Deliberate divergence, a write that violates a constraint stores nothing: COLMAP's
+//! `WriteRig` / `UpdateRig` and `WriteFrame` / `UpdateFrame` issue one INSERT for the rig or
+//! frame row and then one per sensor or data id, each in SQLite's autocommit mode; when a later
+//! INSERT violates a constraint (say, a sensor already in another rig), COLMAP throws after the
+//! earlier rows were committed, leaving a rig or frame with part of its sensors or data. Here
+//! every write checks all constraints first, so a failing call leaves the database unchanged.
+//! Consequences:
+//! - On successful writes the assigned ids, what is stored and every read are the same.
+//! - After such a partially failed write COLMAP has consumed the new id (the row exists), so
+//!   its next automatic id is one higher; here the id was never used and the next write gets it.
+//! - The same calls fail, but the messages differ: COLMAP's `std::runtime_error` reads "SQLite
+//!   error: constraint failed" (`sqlite3_errstr`); here it is `ErrorKind::RuntimeError` worded
+//!   like SQLite's extended messages ("SQLite error: UNIQUE constraint failed: images.name",
+//!   "SQLite error: FOREIGN KEY constraint failed"). `THROW_CHECK` sites keep COLMAP's check
+//!   messages.
+//! - An automatic id past `u32::MAX` fails ("the next id does not fit a 32-bit id") where
+//!   COLMAP truncates SQLite's 64-bit rowid to the 32-bit id.
+//!
+//! The partially written state is an accident of statement-at-a-time execution, not behavior
+//! any COLMAP caller relies on (all of them treat the exception as fatal), and reproducing it
+//! would mean emulating SQLite's statement boundaries; a truncated id would silently alias an
+//! existing row. `rust_only_failed_rig_write_stores_nothing` and
+//! `rust_only_image_names_are_unique_and_need_a_camera` (`tests/scene/rust_only_database.rs`)
+//! pin it, and `database_test.cc`'s cases that expect a constraint violation to fail
+//! (`PosePrior`, `TwoViewGeometry`) pass. Same as colmap-sharp entry 23.
 
 use std::collections::HashSet;
 
@@ -54,7 +80,7 @@ fn check_unique(condition: bool, columns: &str) -> Result<()> {
 
 /// The next id of an AUTOINCREMENT table: one more than the largest id it ever held. COLMAP
 /// truncates SQLite's 64-bit rowid to the 32-bit id; past `u32::MAX` this fails instead
-/// (entry 266).
+/// (the divergence in the file header).
 fn next_auto_increment_id(sequence: u64) -> Result<u32> {
     u32::try_from(sequence + 1).map_err(|_| {
         ColmapError::new(

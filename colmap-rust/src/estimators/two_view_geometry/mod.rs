@@ -25,8 +25,20 @@
 //! - `static_cast<size_t>(options.min_num_inliers)` keeps C++'s conversion (a negative value
 //!   wraps to a huge count), see `min_num_inliers`.
 //! - COLMAP's `LOG(WARNING)` / `LOG(INFO)` lines are not emitted (the core has no logger), and
-//!   the `Timer` of `MaybeDecomposeRelativePoses`, which only fed the log, is dropped
-//!   (docs/CPP_DIVERGENCES.md entry 264).
+//!   the `Timer` of `MaybeDecomposeRelativePoses`, which only fed the log, is dropped. That is
+//!   a deliberate divergence: `EstimateTwoViewGeometry` emits a one-time
+//!   `LOG_FIRST_N(WARNING)` when it marks a pair degenerate because `force_H_use` was asked of
+//!   a non-pinhole camera, and another when it marks an uncalibrated fisheye pair degenerate
+//!   (asking for a focal length prior); `MaybeDecomposeRelativePoses` logs `LOG(INFO)` lines
+//!   with its decomposed and failed counts and its run time. COLMAP's glog is not ported; the
+//!   lines are diagnostic only, and every returned geometry, configuration and stored pose is
+//!   unchanged. When a logger lands, this note goes away (as the same notes on
+//!   `scene::correspondence_graph::CorrespondenceGraph::add_two_view_geometry` and
+//!   `geometry::pose_prior::gravity_from_exif_orientation` do).
+//!   `estimate_two_view_geometry_uncalibrated_fisheye_is_degenerate` and
+//!   `estimate_two_view_geometry_force_h_use_with_fisheye_is_degenerate`
+//!   (`tests/estimators/two_view_geometry.rs`), and `maybe_decompose_relative_poses_*`
+//!   (`tests/estimators/two_view_geometry_misc.rs`; `two_view_geometry_test.cc` 1:1) pass.
 //! - Inlier masks are `Vec<bool>` (COLMAP's `std::vector<char>`).
 
 mod calibrated;

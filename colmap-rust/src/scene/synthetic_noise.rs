@@ -6,11 +6,11 @@
 //! `tests/scene/synthetic.rs`.
 //!
 //! Tier A given the PRNG stream; images and 3D points are visited in ascending id order where
-//! COLMAP walks hash maps (docs/CPP_DIVERGENCES.md entry 240), so the same draws land on
-//! different points.
+//! COLMAP walks hash maps (the iteration-order divergence in the [`super::synthetic`] header),
+//! so the same draws land on different points.
 //!
 //! [`synthesize_images`] hands each rendered bitmap to a sink instead of writing
-//! `image_path / image.Name()`: the core has no image file I/O (entry 268).
+//! `image_path / image.Name()`: the core has no image file I/O (the divergence in its doc).
 
 use crate::linalg::{AngleAxisd, Matrix3d, Quaterniond, Vector2d, Vector3d};
 use crate::math::fns;
@@ -221,7 +221,17 @@ impl Default for SyntheticImageOptions {
 /// feature detections and matches due to overlapping patches, etc.
 ///
 /// Each image's RGB bitmap goes to `write_image(image_name, bitmap)`, in ascending image id
-/// order, where COLMAP writes it to `image_path / image.Name()` (entry 268).
+/// order, where COLMAP writes it to `image_path / image.Name()`.
+///
+/// That is a deliberate divergence. COLMAP's `SynthesizeImages(options, reconstruction,
+/// image_path)` writes each image with `Bitmap::Write` (OpenImageIO) and logs a failed write;
+/// here `write_image(image.name(), bitmap)` receives each rendered RGB bitmap, with the same
+/// pixels. Image file encoding is not ported: the host owns image I/O (PORTING_PLAN.md, the
+/// skipped `bitmap_test.cc` file cases). A sink lets a caller encode files with its own encoder
+/// or keep the bitmaps in memory, natively and in the browser. `synthesize_images_nominal`
+/// (`tests/scene/synthetic_noise.rs`) checks every image reaches the sink with its camera's
+/// width and height (COLMAP's test reads each PNG back and checks the same). Same as
+/// colmap-sharp entry 32.
 pub fn synthesize_images(
     options: &SyntheticImageOptions,
     reconstruction: &Reconstruction,

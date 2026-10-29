@@ -21,9 +21,23 @@
 //! Only eigenvalues of the action matrix are used, never its eigenvectors, so the
 //! eigenvector-phase freedom of [`crate::linalg::EigenSolver`] cannot reach the result. The
 //! order of the real eigenvalues (Schur order) sets the order of the returned poses, which
-//! may differ from Eigen's (docs/CPP_DIVERGENCES.md entry 256); RANSAC treats the output as a
-//! set. Tier B. Tests:
+//! may differ from Eigen's; RANSAC treats the output as a set. Tier B. Tests:
 //! `tests/estimators/rust_only_gen_relpose_6pt.rs`.
+//!
+//! That is a deliberate divergence. PoseLib's `gen_relpose_6pt` (the minimal solver of COLMAP's
+//! `GR6PEstimator`) takes the real eigenvalues of its 64 x 64 action matrix from
+//! `Eigen::EigenSolver` and returns one pose per eigenvalue that passes cheirality, in Eigen's
+//! eigenvalue order. This port takes them from `linalg::EigenSolver` (colmap-sharp's
+//! Hessenberg and Francis QR port), whose eigenvalue order (Schur order) and last-bit rounding
+//! may differ from Eigen's. It also computes `C0^-1 C1` column by column through `linalg::PartialPivLu`
+//! rather than colmap-sharp's fused augmented elimination, which colmap-sharp documents as
+//! bit-identical. Eigen (MPL-2.0) is not ported. Only eigenvalues are used, so the solution set
+//! is the same up to rounding, and the order is not part of the contract. What can differ is an
+//! eigenvalue whose imaginary part sits at the 1e-6 threshold, kept on one side and dropped on
+//! the other. `rust_only_gen_relpose_6pt_recovers_true_pose` finds the true metric pose among
+//! the solutions to 1e-6 on 50 random minimal problems between two generalized cameras. Not
+//! compared against C++ PoseLib. Same choice as colmap-sharp's `GenRelpose6pt.cs` (which
+//! records it in its file header, not as a numbered entry).
 
 use super::camera_pose::{quat_step_pre, quat_to_rotmat, CameraPose};
 use super::essential::{check_cheirality_generalized, quat_rotate};

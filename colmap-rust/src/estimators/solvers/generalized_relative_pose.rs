@@ -10,8 +10,9 @@
 //! `Estimators/Solvers/GeneralizedRelativePose.cs`. Tests:
 //! `tests/estimators/generalized_relative_pose.rs` (generalized_relative_pose_test.cc).
 //!
-//! Tier B for the solvers (eigenvalue problems, docs/CPP_DIVERGENCES.md entries 256 and
-//! 261); the RANSAC runs of the tests are Tier C.
+//! Tier B for the solvers (eigenvalue problems whose output order can differ from Eigen's: the
+//! divergences in the `poselib/gen_relpose_6pt.rs` and `generalized_relative_pose_gr8p.rs`
+//! headers); the RANSAC runs of the tests are Tier C.
 
 #[path = "generalized_relative_pose_gr8p.rs"]
 mod gr8p;
