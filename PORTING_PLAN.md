@@ -142,7 +142,7 @@ Ceres tests not yet ported can be checked there. Slices left, in dependency orde
    `RefineEssentialMatrix` (pose_test.cc's six refinement cases) and
    `RefineGeneralizedAbsolutePose` (generalized_pose_test.cc's three), GradientChecker; and the
    shared-focal refiner back on `TinySolverAutoDiffFunction` as COLMAP has it, retiring
-   divergence 252.
+   the closed-form Jacobian on `TinyFocalSampsonErrorCostFunctor`.
 
 And the Ceres estimators of Phase 6 (each also takes `PoseGraph`):
 - `global_positioning`: `GlobalPositioner` (Solve, SetupProblem, InitializeRandomPositions,
@@ -219,8 +219,8 @@ reasons to Rust. Every skipped COLMAP test is listed here by name when its file 
 
 ### scene/
 - `database_test.cc` ParameterizedDatabaseTests.{OpenFile,OpenCloseFile,OpenFileWithNonASCIIPath}:
-  they need SQLite database files, which are out of scope (the database is in memory, divergence
-  265).
+  they need SQLite database files, which are out of scope (the database is in memory: the
+  `scene/database.rs` header).
 
 ### sensor/
 - `bitmap_test.cc` ReadWriteAsRGB, ReadWriteUnicodePath, ReadWriteAsGrey,
@@ -319,7 +319,7 @@ Fix each one in agg-gui, then remove its workaround here:
   pose estimators, `estimators/solvers/absolute_pose.rs`).
 - **`fast_expn` is a constant table** of correctly rounded `exp` values (`EXPN_TAB` in `feature/vlfeat/mathop.rs`), an
   exception to the `math::fns` rule.
-- **The database is one in-memory type** (`scene::database::Database`, divergence 265): no
+- **The database is one in-memory type** (`scene::database::Database`, see its header): no
   path-keyed factory; `Database::new()` stands for COLMAP's in-memory path. Methods take `&self`
   with the tables behind a `Mutex`, so it is shared as `Arc<Database>`; every method returns
   `Result` and fails after `close()`. SQLite's ids (AUTOINCREMENT), UNIQUE indices, foreign keys
@@ -327,7 +327,7 @@ Fix each one in agg-gui, then remove its workaround here:
   `DatabaseCache` keeps its objects in id order (267) and is returned by value.
 - **Optional `Database*` arguments become two functions** (`synthesize_dataset` and
   `synthesize_dataset_with_database`; the same for `synthesize_noise`). `synthesize_images` hands
-  each bitmap to a sink (divergence 268): the core has no image encoder.
+  each bitmap to a sink (see its doc): the core has no image encoder.
 - **JSON in the core is a small reader written here** (`util/json.rs`; ptree's text-to-value rules
   in `util/ptree_translate.rs`), not serde_json: the core stays
   std-only (plus `libm`), and COLMAP's Boost property_tree is replaced by Rust written here.
